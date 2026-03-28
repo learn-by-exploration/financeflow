@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PersonalFi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <h1 class="logo">💰 PersonalFi</h1>
+      </div>
+      <ul class="nav-list">
+        <li class="nav-item active" data-view="dashboard">
+          <span class="material-icons-round">dashboard</span>
+          <span class="nav-label">Dashboard</span>
+        </li>
+        <li class="nav-item" data-view="transactions">
+          <span class="material-icons-round">receipt_long</span>
+          <span class="nav-label">Transactions</span>
+        </li>
+        <li class="nav-item" data-view="accounts">
+          <span class="material-icons-round">account_balance</span>
+          <span class="nav-label">Accounts</span>
+        </li>
+        <li class="nav-item" data-view="budgets">
+          <span class="material-icons-round">pie_chart</span>
+          <span class="nav-label">Budgets</span>
+        </li>
+        <li class="nav-item" data-view="subscriptions">
+          <span class="material-icons-round">autorenew</span>
+          <span class="nav-label">Subscriptions</span>
+        </li>
+        <li class="nav-item" data-view="goals">
+          <span class="material-icons-round">flag</span>
+          <span class="nav-label">Goals</span>
+        </li>
+        <li class="nav-divider"></li>
+        <li class="nav-item" data-view="groups">
+          <span class="material-icons-round">group</span>
+          <span class="nav-label">Groups</span>
+        </li>
+        <li class="nav-item" data-view="splits">
+          <span class="material-icons-round">call_split</span>
+          <span class="nav-label">Split Expenses</span>
+        </li>
+        <li class="nav-divider"></li>
+        <li class="nav-item" data-view="health">
+          <span class="material-icons-round">favorite</span>
+          <span class="nav-label">Financial Health</span>
+        </li>
+        <li class="nav-item" data-view="reports">
+          <span class="material-icons-round">analytics</span>
+          <span class="nav-label">Reports</span>
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <button id="btn-settings" class="nav-item" data-view="settings">
+          <span class="material-icons-round">settings</span>
+          <span class="nav-label">Settings</span>
+        </button>
+        <button id="btn-logout" class="nav-item">
+          <span class="material-icons-round">logout</span>
+          <span class="nav-label">Logout</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main id="main-content" class="main-content">
+      <div id="view-container"></div>
+    </main>
+  </div>
+
+  <!-- Quick add FAB -->
+  <button id="fab-add" class="fab" title="Quick add (N)">
+    <span class="material-icons-round">add</span>
+  </button>
+
+  <!-- Modal overlay -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-content" class="modal-content"></div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/api.js" type="module"></script>
+  <script src="app.js"></script>
+</body>
+</html>

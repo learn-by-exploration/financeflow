@@ -1,0 +1,10 @@
+{
+  "name": "PersonalFi",
+  "short_name": "PersonalFi",
+  "description": "Personal finance manager with collaborative budgeting",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#6366f1",
+  "icons": []
+}

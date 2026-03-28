@@ -1,0 +1,14 @@
+services:
+  personalfi:
+    build: .
+    ports:
+      - "3457:3457"
+    volumes:
+      - personalfi-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - DB_DIR=/app/data
+    restart: unless-stopped
+
+volumes:
+  personalfi-data:

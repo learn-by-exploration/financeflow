@@ -1,0 +1,40 @@
+{
+  "name": "personalfi",
+  "version": "0.1.0",
+  "description": "Self-hosted personal finance manager with collaborative budgeting, expense splitting, and financial health tracking",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "backup": "bash scripts/backup.sh",
+    "pretest": "bash scripts/backup.sh",
+    "test": "node --test --test-force-exit tests/*.test.js"
+  },
+  "keywords": [
+    "personal-finance",
+    "budgeting",
+    "expense-tracker",
+    "expense-splitting",
+    "self-hosted",
+    "sqlite",
+    "express"
+  ],
+  "author": "Learn by Exploration",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^12.8.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
+    "helmet": "^8.1.0",
+    "pino": "^10.3.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.1.3",
+    "supertest": "^7.2.2"
+  }
+}
