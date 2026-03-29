@@ -17,7 +17,7 @@ const config = Object.freeze({
   version,
   defaultCurrency: process.env.DEFAULT_CURRENCY || 'INR',
   session: {
-    maxAgeDays: parseInt(process.env.SESSION_MAX_AGE_DAYS, 10) || 7,
+    maxAgeDays: parseInt(process.env.SESSION_MAX_AGE_DAYS, 10) || 30,
     rememberMeDays: parseInt(process.env.SESSION_REMEMBER_DAYS, 10) || 30,
   },
   rateLimit: {

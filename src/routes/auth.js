@@ -13,24 +13,36 @@ module.exports = function createAuthRoutes({ db, audit }) {
       if (!username || !password) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Username and password required' } });
       }
+      if (password.length < 8) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password must be at least 8 characters' } });
+      }
       const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
       if (existing) {
         return res.status(409).json({ error: { code: 'CONFLICT', message: 'Username already taken' } });
       }
       const hash = bcrypt.hashSync(password, config.auth.saltRounds);
-      const result = db.prepare(
-        'INSERT INTO users (username, password_hash, email, display_name, default_currency) VALUES (?, ?, ?, ?, ?)'
-      ).run(username, hash, email || null, display_name || username, config.defaultCurrency);
 
-      // Seed default categories for new user
-      seedDefaultCategories(db, result.lastInsertRowid);
+      // Atomic registration: user + categories + rules + session
+      const registerTx = db.transaction(() => {
+        const result = db.prepare(
+          'INSERT INTO users (username, password_hash, email, display_name, default_currency) VALUES (?, ?, ?, ?, ?)'
+        ).run(username, hash, email || null, display_name || username, config.defaultCurrency);
+        const userId = result.lastInsertRowid;
 
-      const token = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
-      db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(result.lastInsertRowid, token, expiresAt);
+        seedDefaultCategories(db, userId);
+        seedSystemRules(db, userId);
 
-      audit.log(result.lastInsertRowid, 'user.register', 'user', result.lastInsertRowid);
-      res.status(201).json({ token, user: { id: result.lastInsertRowid, username, display_name: display_name || username } });
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
+        db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(userId, token, expiresAt);
+
+        return { userId, token };
+      });
+
+      const { userId, token } = registerTx();
+
+      audit.log(userId, 'user.register', 'user', userId);
+      res.status(201).json({ token, user: { id: userId, username, display_name: display_name || username } });
     } catch (err) { next(err); }
   });
 
@@ -102,8 +114,24 @@ function seedDefaultCategories(db, userId) {
     { name: 'Transfer', icon: '🔄', type: 'transfer' },
   ];
   const insert = db.prepare('INSERT INTO categories (user_id, name, icon, type, is_system, position) VALUES (?, ?, ?, ?, 1, ?)');
-  const tx = db.transaction(() => {
-    categories.forEach((c, i) => insert.run(userId, c.name, c.icon, c.type, i));
+  categories.forEach((c, i) => insert.run(userId, c.name, c.icon, c.type, i));
+}
+
+function seedSystemRules(db, userId) {
+  const rules = [
+    { pattern: 'swiggy|zomato|uber eats', categoryName: 'Food & Dining' },
+    { pattern: 'uber|ola|rapido', categoryName: 'Transport' },
+    { pattern: 'amazon|flipkart|myntra', categoryName: 'Shopping' },
+    { pattern: 'netflix|spotify|hotstar|prime', categoryName: 'Subscriptions' },
+    { pattern: 'electricity|water|gas|broadband', categoryName: 'Utilities' },
+  ];
+  const catLookup = db.prepare('SELECT id, name FROM categories WHERE user_id = ?').all(userId);
+  const catMap = {};
+  for (const c of catLookup) catMap[c.name] = c.id;
+
+  const insert = db.prepare('INSERT INTO category_rules (user_id, pattern, category_id, is_system, position) VALUES (?, ?, ?, 1, ?)');
+  rules.forEach((r, i) => {
+    const catId = catMap[r.categoryName];
+    if (catId) insert.run(userId, r.pattern, catId, i);
   });
-  tx();
 }

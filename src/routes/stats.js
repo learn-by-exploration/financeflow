@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const createHealthService = require('../services/health.service');
 
 module.exports = function createStatsRoutes({ db }) {
+
+  const healthService = createHealthService();
 
   // GET /api/stats/overview — dashboard summary
   router.get('/overview', (req, res, next) => {
@@ -81,6 +84,17 @@ module.exports = function createStatsRoutes({ db }) {
   router.get('/financial-health', (req, res, next) => {
     try {
       const userId = req.user.id;
+
+      // Gating: check if user has >= 30 days of data
+      const earliest = db.prepare('SELECT MIN(date) as earliest FROM transactions WHERE user_id = ?').get(userId);
+      if (!earliest.earliest) {
+        return res.json({ gated: true, message: 'Need at least 30 days of transaction data for health analysis' });
+      }
+      const daysSinceFirst = Math.floor((Date.now() - new Date(earliest.earliest).getTime()) / 86400000);
+      if (daysSinceFirst < 30) {
+        return res.json({ gated: true, message: `Need at least 30 days of data. You have ${daysSinceFirst} days so far.` });
+      }
+
       const accounts = db.prepare('SELECT SUM(CASE WHEN type NOT IN (\'credit_card\', \'loan\') THEN balance ELSE 0 END) as assets, SUM(CASE WHEN type IN (\'credit_card\', \'loan\') THEN ABS(balance) ELSE 0 END) as liabilities FROM accounts WHERE user_id = ? AND is_active = 1').get(userId);
 
       const now = new Date();
@@ -90,25 +104,25 @@ module.exports = function createStatsRoutes({ db }) {
 
       const savingsAccounts = db.prepare('SELECT COALESCE(SUM(balance), 0) as total FROM accounts WHERE user_id = ? AND type IN (\'savings\', \'cash\') AND is_active = 1').get(userId);
 
-      const emergencyFundMonths = avgMonthlyExpense.avg > 0 ? savingsAccounts.total / avgMonthlyExpense.avg : 0;
-      const savingsRate = avgMonthlyIncome.avg > 0 ? ((avgMonthlyIncome.avg - avgMonthlyExpense.avg) / avgMonthlyIncome.avg) * 100 : 0;
-      const debtToIncome = avgMonthlyIncome.avg > 0 ? ((accounts.liabilities || 0) / (avgMonthlyIncome.avg * 12)) * 100 : 0;
-
-      // Simple 0-100 score
-      let score = 50;
-      if (emergencyFundMonths >= 6) score += 20; else if (emergencyFundMonths >= 3) score += 10;
-      if (savingsRate >= 20) score += 15; else if (savingsRate >= 10) score += 8;
-      if (debtToIncome < 36) score += 15; else if (debtToIncome < 50) score += 5;
-      score = Math.min(100, Math.max(0, Math.round(score)));
+      const ratios = healthService.calculateRatios({
+        savingsBalance: savingsAccounts.total,
+        avgMonthlyExpense: avgMonthlyExpense.avg,
+        avgMonthlyIncome: avgMonthlyIncome.avg,
+        liabilities: accounts.liabilities || 0,
+      });
+      const score = healthService.calculateScore(ratios);
+      const efRounded = Math.round(ratios.emergencyFundMonths * 10) / 10;
+      const interpretation = healthService.generateInterpretation(ratios);
 
       res.json({
         score,
         net_worth: (accounts.assets || 0) - (accounts.liabilities || 0),
-        emergency_fund_months: Math.round(emergencyFundMonths * 10) / 10,
-        savings_rate: Math.round(savingsRate * 10) / 10,
-        debt_to_income: Math.round(debtToIncome * 10) / 10,
+        emergency_fund_months: efRounded,
+        savings_rate: Math.round(ratios.savingsRate * 10) / 10,
+        debt_to_income: Math.round(ratios.debtToIncome * 10) / 10,
         avg_monthly_income: Math.round(avgMonthlyIncome.avg),
         avg_monthly_expense: Math.round(avgMonthlyExpense.avg),
+        interpretation,
       });
     } catch (err) { next(err); }
   });

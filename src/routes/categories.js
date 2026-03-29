@@ -3,6 +3,8 @@ const router = express.Router();
 
 module.exports = function createCategoryRoutes({ db }) {
 
+  const VALID_TYPES = ['income', 'expense', 'transfer'];
+
   // GET /api/categories
   router.get('/', (req, res, next) => {
     try {
@@ -15,6 +17,12 @@ module.exports = function createCategoryRoutes({ db }) {
   router.post('/', (req, res, next) => {
     try {
       const { name, icon, color, type, parent_id } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Category name is required' } });
+      }
+      if (!type || !VALID_TYPES.includes(type)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Category type must be one of: income, expense, transfer' } });
+      }
       const result = db.prepare(`
         INSERT INTO categories (user_id, name, icon, color, type, parent_id, position)
         VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM categories WHERE user_id = ? AND type = ?))
@@ -28,6 +36,13 @@ module.exports = function createCategoryRoutes({ db }) {
   router.put('/:id', (req, res, next) => {
     try {
       const { name, icon, color } = req.body;
+      const existing = db.prepare('SELECT * FROM categories WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      if (!existing) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Category not found' } });
+      }
+      if (existing.is_system) {
+        return res.json({ category: existing });
+      }
       db.prepare('UPDATE categories SET name = COALESCE(?, name), icon = COALESCE(?, icon), color = COALESCE(?, color) WHERE id = ? AND user_id = ? AND is_system = 0')
         .run(name, icon, color, req.params.id, req.user.id);
       const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(req.params.id);
@@ -38,6 +53,10 @@ module.exports = function createCategoryRoutes({ db }) {
   // DELETE /api/categories/:id
   router.delete('/:id', (req, res, next) => {
     try {
+      const existing = db.prepare('SELECT * FROM categories WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      if (!existing) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Category not found' } });
+      }
       db.prepare('DELETE FROM categories WHERE id = ? AND user_id = ? AND is_system = 0').run(req.params.id, req.user.id);
       res.json({ ok: true });
     } catch (err) { next(err); }

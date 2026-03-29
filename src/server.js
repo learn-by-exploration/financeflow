@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errors');
 const createCsrfMiddleware = require('./middleware/csrf');
 const createAuditLogger = require('./services/audit');
 const createRequestLogger = require('./middleware/request-logger');
+const createScheduler = require('./scheduler');
 const logger = require('./logger');
 
 const app = express();
@@ -23,9 +24,6 @@ if (config.trustProxy) {
 const { db } = initDatabase(config.dbDir);
 const audit = createAuditLogger(db);
 const deps = { db, audit };
-
-// Purge old audit records daily
-setInterval(() => audit.purge(), 24 * 60 * 60 * 1000);
 
 const { requireAuth, optionalAuth } = createAuthMiddleware(db);
 
@@ -50,8 +48,13 @@ app.use(helmet({
 // ─── Middleware ───
 app.use(express.json({ limit: '1mb' }));
 app.use(cors());
-app.use(rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.max }));
+if (!config.isTest) {
+  app.use(rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.max }));
+}
 app.use(createRequestLogger());
+if (!config.isTest) {
+  app.use(createCsrfMiddleware());
+}
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ─── Routes ───
@@ -65,6 +68,9 @@ const createSplitRoutes = require('./routes/splits');
 const createStatsRoutes = require('./routes/stats');
 const createSubscriptionRoutes = require('./routes/subscriptions');
 const createGoalRoutes = require('./routes/goals');
+const createSettingsRoutes = require('./routes/settings');
+const createRulesRoutes = require('./routes/rules');
+const createDataRoutes = require('./routes/data');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -79,6 +85,9 @@ app.use('/api/splits', requireAuth, createSplitRoutes(deps));
 app.use('/api/stats', requireAuth, createStatsRoutes(deps));
 app.use('/api/subscriptions', requireAuth, createSubscriptionRoutes(deps));
 app.use('/api/goals', requireAuth, createGoalRoutes(deps));
+app.use('/api/settings', requireAuth, createSettingsRoutes(deps));
+app.use('/api/rules', requireAuth, createRulesRoutes(deps));
+app.use('/api/data', requireAuth, createDataRoutes(deps));
 
 // SPA fallback (Express 5 wildcard syntax)
 app.get('/{*splat}', (_req, res) => {
@@ -89,25 +98,32 @@ app.get('/{*splat}', (_req, res) => {
 app.use(errorHandler);
 
 // ─── Start ───
-const server = app.listen(PORT, () => {
-  logger.info(`PersonalFi v${config.version} running on http://localhost:${PORT}`);
-});
+if (!config.isTest) {
+  const scheduler = createScheduler(db, logger);
+  scheduler.registerBuiltinJobs();
+  scheduler.start();
 
-// ─── Graceful shutdown ───
-function shutdown(signal) {
-  logger.info(`${signal} received, shutting down...`);
-  server.close(() => {
-    db.close();
-    logger.info('Server closed');
-    process.exit(0);
+  const server = app.listen(PORT, () => {
+    logger.info(`PersonalFi v${config.version} running on http://localhost:${PORT}`);
   });
-  setTimeout(() => {
-    logger.error('Forced shutdown');
-    process.exit(1);
-  }, config.shutdownTimeoutMs);
+
+  // ─── Graceful shutdown ───
+  function shutdown(signal) {
+    logger.info(`${signal} received, shutting down...`);
+    scheduler.stop();
+    server.close(() => {
+      db.close();
+      logger.info('Server closed');
+      process.exit(0);
+    });
+    setTimeout(() => {
+      logger.error('Forced shutdown');
+      process.exit(1);
+    }, config.shutdownTimeoutMs);
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
-
-module.exports = app;
+module.exports = { app, db };

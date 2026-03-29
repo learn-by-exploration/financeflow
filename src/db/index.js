@@ -338,6 +338,11 @@ function initDatabase(dbDir) {
   `);
 
   logger.info(`Database initialized at ${dbPath}`);
+
+  // Run migrations
+  const runMigrations = require('./migrate');
+  runMigrations(db, logger);
+
   return { db };
 }
 

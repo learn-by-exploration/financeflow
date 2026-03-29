@@ -15,6 +15,9 @@ module.exports = function createAccountRoutes({ db, audit }) {
   router.post('/', (req, res, next) => {
     try {
       const { name, type, currency, balance, icon, color, institution, account_number_last4 } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Account name is required' } });
+      }
       const result = db.prepare(`
         INSERT INTO accounts (user_id, name, type, currency, balance, icon, color, institution, account_number_last4, position)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM accounts WHERE user_id = ?))
@@ -38,6 +41,9 @@ module.exports = function createAccountRoutes({ db, audit }) {
         WHERE id = ? AND user_id = ?
       `).run(name, type, currency, balance, icon, color, institution, account_number_last4, is_active, include_in_net_worth, req.params.id, req.user.id);
       const account = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      if (!account) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Account not found' } });
+      }
       res.json({ account });
     } catch (err) { next(err); }
   });

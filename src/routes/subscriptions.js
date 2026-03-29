@@ -3,6 +3,8 @@ const router = express.Router();
 
 module.exports = function createSubscriptionRoutes({ db, audit }) {
 
+  const VALID_FREQUENCIES = ['weekly', 'monthly', 'quarterly', 'yearly'];
+
   // GET /api/subscriptions
   router.get('/', (req, res, next) => {
     try {
@@ -19,6 +21,15 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
   router.post('/', (req, res, next) => {
     try {
       const { name, amount, currency, frequency, category_id, next_billing_date, provider, notes } = req.body;
+      if (!name) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name is required' } });
+      }
+      if (!amount) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Amount is required' } });
+      }
+      if (!frequency || !VALID_FREQUENCIES.includes(frequency)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Frequency must be one of: weekly, monthly, quarterly, yearly' } });
+      }
       const result = db.prepare(`
         INSERT INTO subscriptions (user_id, name, amount, currency, frequency, category_id, next_billing_date, provider, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -32,6 +43,8 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
   // PUT /api/subscriptions/:id
   router.put('/:id', (req, res, next) => {
     try {
+      const existing = db.prepare('SELECT * FROM subscriptions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Subscription not found' } });
       const { name, amount, frequency, is_active, next_billing_date, provider, notes } = req.body;
       db.prepare(`
         UPDATE subscriptions SET name = COALESCE(?, name), amount = COALESCE(?, amount),
@@ -48,6 +61,8 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
   // DELETE /api/subscriptions/:id
   router.delete('/:id', (req, res, next) => {
     try {
+      const existing = db.prepare('SELECT * FROM subscriptions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Subscription not found' } });
       db.prepare('DELETE FROM subscriptions WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
       audit.log(req.user.id, 'subscription.delete', 'subscription', req.params.id);
       res.json({ ok: true });

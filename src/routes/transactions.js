@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const createTransactionService = require('../services/transaction.service');
+const { safePatternTest } = require('../utils/safe-regex');
 
 module.exports = function createTransactionRoutes({ db, audit }) {
+
+  const VALID_TYPES = ['income', 'expense', 'transfer'];
+  const txService = createTransactionService({ db });
 
   // GET /api/transactions
   router.get('/', (req, res, next) => {
@@ -26,11 +31,57 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   // POST /api/transactions
   router.post('/', (req, res, next) => {
     try {
-      const { account_id, category_id, type, amount, currency, description, note, date, payee, tags } = req.body;
+      const { account_id, category_id, type, amount, currency, description, note, date, payee, tags, transfer_to_account_id } = req.body;
+
+      // Validation
+      if (!description) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Description is required' } });
+      }
+      if (!type || !VALID_TYPES.includes(type)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Type must be one of: income, expense, transfer' } });
+      }
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Amount must be a positive number' } });
+      }
+      if (!date) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Date is required' } });
+      }
+
+      // Transfer handling
+      if (type === 'transfer') {
+        if (!transfer_to_account_id) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'transfer_to_account_id is required for transfers' } });
+        }
+        if (transfer_to_account_id === account_id) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Cannot transfer to the same account' } });
+        }
+
+        const transaction = txService.createTransfer({
+          userId: req.user.id, accountId: account_id, transferToAccountId: transfer_to_account_id,
+          categoryId: category_id, amount, currency: currency || req.user.defaultCurrency,
+          description, note, date, payee, tags
+        });
+        audit.log(req.user.id, 'transaction.create', 'transaction', transaction.id);
+        return res.status(201).json({ transaction });
+      }
+
+      // Auto-categorize if no category_id provided
+      let resolvedCategoryId = category_id || null;
+      if (!resolvedCategoryId && description) {
+        const rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ? ORDER BY position ASC, id ASC').all(req.user.id);
+        for (const rule of rules) {
+          if (safePatternTest(rule.pattern, description)) {
+            resolvedCategoryId = rule.category_id;
+            break;
+          }
+        }
+      }
+
+      // Regular income/expense
       const result = db.prepare(`
         INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, note, date, payee, tags)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(req.user.id, account_id, category_id || null, type, amount, currency || req.user.defaultCurrency, description, note || null, date, payee || null, JSON.stringify(tags || []));
+      `).run(req.user.id, account_id, resolvedCategoryId, type, amount, currency || req.user.defaultCurrency, description, note || null, date, payee || null, JSON.stringify(tags || []));
 
       // Update account balance
       const balanceChange = type === 'income' ? amount : -amount;
@@ -49,13 +100,17 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       const old = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
       if (!old) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Transaction not found' } });
 
-      const { category_id, description, note, date, payee, tags } = req.body;
+      const { category_id, description, note, date, payee, tags, amount } = req.body;
+
+      // Handle amount update with delta-based balance recalculation
+      txService.applyAmountDelta(old, amount);
+
       db.prepare(`
         UPDATE transactions SET category_id = COALESCE(?, category_id), description = COALESCE(?, description),
         note = COALESCE(?, note), date = COALESCE(?, date), payee = COALESCE(?, payee),
-        tags = COALESCE(?, tags), updated_at = datetime('now')
+        tags = COALESCE(?, tags), amount = COALESCE(?, amount), updated_at = datetime('now')
         WHERE id = ? AND user_id = ?
-      `).run(category_id, description, note, date, payee, tags ? JSON.stringify(tags) : null, req.params.id, req.user.id);
+      `).run(category_id, description, note, date, payee, tags ? JSON.stringify(tags) : null, amount, req.params.id, req.user.id);
 
       const transaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id);
       res.json({ transaction });
@@ -68,11 +123,15 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
       if (!tx) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Transaction not found' } });
 
-      // Reverse balance change
-      const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
-      db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ?').run(balanceChange, tx.account_id);
+      if (tx.transfer_transaction_id) {
+        txService.deleteTransfer(tx);
+      } else {
+        // Regular: reverse balance change
+        const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
+        db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ?').run(balanceChange, tx.account_id);
+        db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+      }
 
-      db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
       audit.log(req.user.id, 'transaction.delete', 'transaction', req.params.id);
       res.json({ ok: true });
     } catch (err) { next(err); }
