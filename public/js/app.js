@@ -10,7 +10,8 @@ let currentView = 'dashboard';
 const views = {
   dashboard:     () => import('./views/dashboard.js').then(m => m.renderDashboard),
   accounts:      () => import('./views/accounts.js').then(m => m.renderAccounts),
-  transactions:  () => placeholder('Transactions', 'Transaction management — coming soon'),
+  transactions:  () => import('./views/transactions.js').then(m => m.renderTransactions),
+  categories:    () => import('./views/categories.js').then(m => m.renderCategories),
   budgets:       () => placeholder('Budgets', 'Budget management — coming soon'),
   subscriptions: () => placeholder('Subscriptions', 'Subscription tracking — coming soon'),
   goals:         () => placeholder('Savings Goals', 'Savings goals — coming soon'),
