@@ -496,6 +496,48 @@ body {
 .category-item-name { font-size: 0.875rem; font-weight: 500; }
 .category-item-actions { display: flex; gap: 0.25rem; }
 
+/* ─── Budgets ─── */
+.budgets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1rem;
+}
+.budget-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.budget-card-name { font-weight: 600; font-size: 0.9375rem; }
+.budget-card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
+.budget-progress { margin-top: 0.5rem; }
+.budget-progress-info { display: flex; justify-content: space-between; font-size: 0.8125rem; margin-bottom: 0.375rem; }
+.budget-pct { font-weight: 600; }
+.budget-pct.over { color: var(--red); }
+.progress-bar { height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+.budget-detail-rows { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; }
+.budget-detail-row { display: flex; flex-direction: column; gap: 0.25rem; }
+.budget-detail-cat { display: flex; justify-content: space-between; font-size: 0.8125rem; }
+.budget-detail-amounts { color: var(--text-secondary); }
+.budget-detail-summary { display: flex; justify-content: space-between; margin: 1rem 0; font-size: 0.875rem; padding: 0.75rem; background: var(--bg-tertiary); border-radius: var(--radius-sm); }
+.budget-item-row { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; align-items: center; }
+.budget-item-cat { flex: 1; }
+.budget-item-amt { width: 120px; }
+
+/* ─── Goals ─── */
+.goals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.goal-card.completed { opacity: 0.7; }
+.goal-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.goal-icon { font-size: 1.75rem; }
+.goal-info { flex: 1; min-width: 0; }
+.goal-name { font-weight: 600; font-size: 0.9375rem; }
+.goal-deadline { font-size: 0.75rem; color: var(--text-muted); }
+.goal-progress { margin-top: 0.25rem; }
+.goal-remaining { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem; }
+.section-title { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; }
+.btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
+
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
   .sidebar { width: 60px; }
