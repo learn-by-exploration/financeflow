@@ -13,13 +13,13 @@ const views = {
   transactions:  () => import('./views/transactions.js').then(m => m.renderTransactions),
   categories:    () => import('./views/categories.js').then(m => m.renderCategories),
   budgets:       () => import('./views/budgets.js').then(m => m.renderBudgets),
-  subscriptions: () => placeholder('Subscriptions', 'Subscription tracking — coming soon'),
+  subscriptions: () => import('./views/subscriptions.js').then(m => m.renderSubscriptions),
   goals:         () => import('./views/goals.js').then(m => m.renderGoals),
   groups:        () => placeholder('Groups', 'Collaborative groups — coming soon'),
   splits:        () => placeholder('Split Expenses', 'Expense splitting — coming soon'),
   health:        () => placeholder('Financial Health', 'Financial health score — coming soon'),
   reports:       () => placeholder('Reports', 'Reports & analytics — coming soon'),
-  settings:      () => placeholder('Settings', 'Settings — coming soon'),
+  settings:      () => import('./views/settings.js').then(m => m.renderSettings),
 };
 
 function placeholder(title, desc) {
