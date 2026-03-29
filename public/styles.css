@@ -622,6 +622,40 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
 }
 .debt-row:last-child { border-bottom: none; }
 
+/* ─── Financial Health ─── */
+.health-score-card { display: flex; align-items: center; gap: 2rem; padding: 2rem; }
+.health-score-ring { text-align: center; min-width: 100px; }
+.health-score-value { font-size: 3rem; font-weight: 700; }
+.health-score-value.green { color: var(--green); }
+.health-score-value.yellow { color: var(--yellow); }
+.health-score-value.red { color: var(--red); }
+.health-score-label { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem; }
+.health-score-details { flex: 1; }
+.health-score-details p { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.5; }
+.rec-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem 0; font-size: 0.875rem; }
+.rec-item .material-icons-round { color: var(--yellow); font-size: 1.125rem; flex-shrink: 0; }
+
+/* ─── Trend bars ─── */
+.trend-bars { display: flex; align-items: flex-end; gap: 0.5rem; height: 160px; padding: 1rem 0; }
+.trend-bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; }
+.trend-bar-pair { display: flex; gap: 2px; align-items: flex-end; flex: 1; width: 100%; }
+.trend-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 2px; transition: height 0.3s; }
+.income-bar { background: var(--green); }
+.expense-bar { background: var(--red); }
+.trend-bar-label { font-size: 0.625rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+/* ─── Category breakdown ─── */
+.cat-breakdown-row { margin-bottom: 0.75rem; }
+.cat-breakdown-info { display: flex; justify-content: space-between; font-size: 0.8125rem; margin-bottom: 0.25rem; }
+.cat-breakdown-pct { color: var(--text-muted); }
+.cat-breakdown-amt { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+/* ─── Rules ─── */
+.rules-info { color: var(--text-secondary); font-size: 0.8125rem; line-height: 1.5; }
+.rule-pattern { background: var(--bg-tertiary); padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.8125rem; font-family: monospace; }
+.system-row { opacity: 0.6; }
+.form-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: -0.5rem; }
+
 /* ─── Responsive ─── */
 @media (max-width: 768px) {
   .sidebar { width: 60px; }

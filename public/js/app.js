@@ -17,8 +17,9 @@ const views = {
   goals:         () => import('./views/goals.js').then(m => m.renderGoals),
   groups:        () => import('./views/groups.js').then(m => m.renderGroups),
   splits:        () => import('./views/splits.js').then(m => m.renderSplits),
-  health:        () => placeholder('Financial Health', 'Financial health score — coming soon'),
-  reports:       () => placeholder('Reports', 'Reports & analytics — coming soon'),
+  health:        () => import('./views/reports.js').then(m => m.renderHealth),
+  reports:       () => import('./views/reports.js').then(m => m.renderReports),
+  rules:         () => import('./views/rules.js').then(m => m.renderRules),
   settings:      () => import('./views/settings.js').then(m => m.renderSettings),
 };
 
