@@ -41,12 +41,12 @@ export async function renderRules(container) {
   rulesData.rules.forEach((r, i) => {
     const isSystem = r.is_system === 1;
     tbody.appendChild(el('tr', { className: isSystem ? 'system-row' : '' }, [
-      el('td', { textContent: String(i + 1) }),
-      el('td', {}, [
+      el('td', { textContent: String(i + 1), 'data-label': '#' }),
+      el('td', { 'data-label': 'Pattern' }, [
         el('code', { className: 'rule-pattern', textContent: r.pattern }),
       ]),
-      el('td', { textContent: `${r.category_icon || '📁'} ${r.category_name || '—'}` }),
-      el('td', {}, [
+      el('td', { textContent: `${r.category_icon || '📁'} ${r.category_name || '—'}`, 'data-label': 'Category' }),
+      el('td', { 'data-label': 'Type' }, [
         el('span', { className: `badge ${isSystem ? 'badge-muted' : 'badge-accent'}`, textContent: isSystem ? 'system' : 'custom' }),
       ]),
       el('td', { className: 'row-actions' }, [

@@ -133,15 +133,15 @@ function renderTable() {
     const prefix = t.type === 'income' ? '+' : t.type === 'transfer' ? '' : '-';
 
     const row = el('tr', {}, [
-      el('td', { textContent: t.date }),
-      el('td', { className: 'txn-desc-cell' }, [
+      el('td', { textContent: t.date, 'data-label': 'Date' }),
+      el('td', { className: 'txn-desc-cell', 'data-label': 'Description' }, [
         el('span', { textContent: t.description }),
         t.payee ? el('span', { className: 'txn-payee', textContent: t.payee }) : null,
       ].filter(Boolean)),
-      el('td', { textContent: t.category_icon ? `${t.category_icon} ${t.category_name || ''}` : (t.category_name || '—') }),
-      el('td', { textContent: t.account_name || '—' }),
-      el('td', {}, [el('span', { className: `badge ${typeClass}`, textContent: t.type })]),
-      el('td', { className: `text-right txn-amount ${amtClass}`, textContent: `${prefix}${fmt(t.amount)}` }),
+      el('td', { textContent: t.category_icon ? `${t.category_icon} ${t.category_name || ''}` : (t.category_name || '—'), 'data-label': 'Category' }),
+      el('td', { textContent: t.account_name || '—', 'data-label': 'Account' }),
+      el('td', { 'data-label': 'Type' }, [el('span', { className: `badge ${typeClass}`, textContent: t.type })]),
+      el('td', { className: `text-right txn-amount ${amtClass}`, textContent: `${prefix}${fmt(t.amount)}`, 'data-label': 'Amount' }),
       el('td', { className: 'row-actions' }, [
         el('button', { className: 'btn-icon', title: 'Edit', onClick: () => showTxnForm(t) }, [
           el('span', { className: 'material-icons-round', textContent: 'edit' }),

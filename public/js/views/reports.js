@@ -93,10 +93,10 @@ export async function renderReports(container) {
       trends.forEach(t => {
         const net = t.income - t.expense;
         tbody.appendChild(el('tr', {}, [
-          el('td', { textContent: t.month }),
-          el('td', { className: 'text-right income', textContent: fmt(t.income) }),
-          el('td', { className: 'text-right expense', textContent: fmt(t.expense) }),
-          el('td', { className: `text-right ${net >= 0 ? 'income' : 'expense'}`, textContent: fmt(net) }),
+          el('td', { textContent: t.month, 'data-label': 'Month' }),
+          el('td', { className: 'text-right income', textContent: fmt(t.income), 'data-label': 'Income' }),
+          el('td', { className: 'text-right expense', textContent: fmt(t.expense), 'data-label': 'Expenses' }),
+          el('td', { className: `text-right ${net >= 0 ? 'income' : 'expense'}`, textContent: fmt(net), 'data-label': 'Net' }),
         ]));
       });
       table.appendChild(tbody);

@@ -111,11 +111,11 @@ async function loadGroupExpenses(container) {
   const tbody = el('tbody');
   for (const exp of expenseData.expenses) {
     tbody.appendChild(el('tr', {}, [
-      el('td', { textContent: exp.date }),
-      el('td', { textContent: exp.description }),
-      el('td', { textContent: exp.paid_by_name || '—' }),
-      el('td', {}, [el('span', { className: 'badge badge-accent', textContent: exp.split_method || 'equal' })]),
-      el('td', { className: 'text-right txn-amount expense', textContent: fmt(exp.amount) }),
+      el('td', { textContent: exp.date, 'data-label': 'Date' }),
+      el('td', { textContent: exp.description, 'data-label': 'Description' }),
+      el('td', { textContent: exp.paid_by_name || '—', 'data-label': 'Paid By' }),
+      el('td', { 'data-label': 'Split' }, [el('span', { className: 'badge badge-accent', textContent: exp.split_method || 'equal' })]),
+      el('td', { className: 'text-right txn-amount expense', textContent: fmt(exp.amount), 'data-label': 'Amount' }),
       el('td', { className: 'row-actions' }, [
         el('button', { className: 'btn-icon danger', title: 'Delete', onClick: () => deleteExpense(exp) }, [
           el('span', { className: 'material-icons-round', textContent: 'delete' }),
