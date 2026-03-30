@@ -190,6 +190,13 @@ body {
   margin: 0.5rem 0.75rem;
 }
 
+.nav-group-header { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 1rem; color: var(--text-muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; cursor: pointer; }
+.nav-group-header:hover { color: var(--text-secondary); }
+.nav-group-chevron { font-size: 18px; transition: transform 0.2s; }
+.nav-group.collapsed .nav-group-items { display: none; }
+.nav-group.collapsed .nav-group-chevron { transform: rotate(-90deg); }
+.nav-group-items { list-style: none; padding: 0; margin: 0; }
+
 .sidebar-footer {
   padding: 0.5rem;
   border-top: 1px solid var(--border);

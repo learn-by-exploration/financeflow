@@ -165,6 +165,57 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         } catch (_) { /* spending limit check failure should not break transaction */ }
       }
 
+      // Budget threshold notifications
+      if (type === 'expense' && resolvedCategoryId) {
+        try {
+          const now = new Date();
+          const budgets = db.prepare(`
+            SELECT b.id, b.name, b.start_date, b.end_date, bi.amount as allocated, bi.category_id
+            FROM budgets b
+            JOIN budget_items bi ON bi.budget_id = b.id
+            WHERE b.user_id = ? AND bi.category_id = ? AND b.is_active = 1
+            AND b.start_date <= ? AND b.end_date >= ?
+          `).all(req.user.id, resolvedCategoryId, parsed.data.date || now.toISOString().slice(0, 10), parsed.data.date || now.toISOString().slice(0, 10));
+
+          for (const budget of budgets) {
+            const spent = db.prepare(`
+              SELECT COALESCE(SUM(amount), 0) as total FROM transactions
+              WHERE user_id = ? AND type = 'expense' AND category_id = ?
+              AND date >= ? AND date <= ?
+            `).get(req.user.id, budget.category_id, budget.start_date, budget.end_date).total;
+
+            const pct = budget.allocated > 0 ? spent / budget.allocated : 0;
+
+            if (pct >= 1) {
+              // Check for duplicate notification
+              const existing = db.prepare(
+                "SELECT id FROM notifications WHERE user_id = ? AND type = 'budget_exceeded' AND message LIKE ? AND created_at >= ?"
+              ).get(req.user.id, `%budget "${budget.name}"%category%${budget.category_id}%`, budget.start_date);
+              if (!existing) {
+                notifRepo.create(req.user.id, {
+                  type: 'budget_exceeded',
+                  title: 'Budget Exceeded',
+                  message: `You have reached 100% of your budget "${budget.name}" for category ${budget.category_id}. Spent ₹${Math.round(spent * 100) / 100} of ₹${budget.allocated}.`,
+                  link: `/budgets/${budget.id}`,
+                });
+              }
+            } else if (pct >= 0.8) {
+              const existing = db.prepare(
+                "SELECT id FROM notifications WHERE user_id = ? AND type = 'budget_warning' AND message LIKE ? AND created_at >= ?"
+              ).get(req.user.id, `%budget "${budget.name}"%category%${budget.category_id}%`, budget.start_date);
+              if (!existing) {
+                notifRepo.create(req.user.id, {
+                  type: 'budget_warning',
+                  title: 'Budget Warning',
+                  message: `You have reached 80% of your budget "${budget.name}" for category ${budget.category_id}. Spent ₹${Math.round(spent * 100) / 100} of ₹${budget.allocated}.`,
+                  link: `/budgets/${budget.id}`,
+                });
+              }
+            }
+          }
+        } catch (_) { /* budget threshold check failure should not break transaction */ }
+      }
+
       // Duplicate detection
       let potential_duplicate = false;
       let similar_transaction_id = null;

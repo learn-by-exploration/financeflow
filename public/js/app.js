@@ -100,6 +100,18 @@ backdrop.addEventListener('click', () => {
   backdrop.classList.remove('active');
 });
 
+// ─── Nav group collapse/expand ───
+document.querySelectorAll('.nav-group-header').forEach(header => {
+  header.addEventListener('click', () => {
+    header.parentElement.classList.toggle('collapsed');
+    const expanded = !header.parentElement.classList.contains('collapsed');
+    header.setAttribute('aria-expanded', String(expanded));
+  });
+  header.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); header.click(); }
+  });
+});
+
 // ─── Navigation ───
 document.querySelectorAll('.nav-item[data-view]').forEach(el => {
   el.addEventListener('click', () => {
@@ -240,10 +252,43 @@ document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   if (e.key === 'Escape') closeModal();
   if (e.key === 'n' || e.key === 'N') showQuickAdd();
+  if (e.key === '?') showShortcutsHelp();
+  if (e.key === 'd') navigateTo('dashboard');
+  if (e.key === 't') navigateTo('transactions');
+  if (e.key === 'b') navigateTo('budgets');
+  if (e.key === 'g') navigateTo('groups');
   // Number keys for navigation
   const navMap = { '1': 'dashboard', '2': 'transactions', '3': 'accounts', '4': 'budgets', '5': 'goals' };
   if (navMap[e.key]) { navigateTo(navMap[e.key]); }
 });
+
+// ─── Shortcuts help modal ───
+function showShortcutsHelp() {
+  const shortcuts = [
+    { key: '?', desc: 'Show this help' },
+    { key: 'N', desc: 'Quick add transaction' },
+    { key: 'D', desc: 'Dashboard' },
+    { key: 'T', desc: 'Transactions' },
+    { key: 'B', desc: 'Budgets' },
+    { key: 'G', desc: 'Groups' },
+    { key: '1-5', desc: 'Navigate (Dashboard, Transactions, Accounts, Budgets, Goals)' },
+    { key: 'Esc', desc: 'Close modal' },
+  ];
+  const list = el('div', { className: 'shortcuts-list' },
+    shortcuts.map(s => el('div', { className: 'shortcut-row', style: 'display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border)' }, [
+      el('kbd', { textContent: s.key, style: 'background:var(--bg-tertiary);padding:0.2rem 0.5rem;border-radius:4px;font-family:monospace;font-size:0.875rem' }),
+      el('span', { textContent: s.desc, style: 'color:var(--text-secondary)' }),
+    ]))
+  );
+  const content = el('div', { className: 'modal-form' }, [
+    el('h3', { className: 'modal-title', textContent: 'Keyboard Shortcuts' }),
+    list,
+    el('div', { className: 'form-actions', style: 'margin-top:1rem' }, [
+      el('button', { type: 'button', className: 'btn btn-secondary', textContent: 'Close', onClick: closeModal }),
+    ]),
+  ]);
+  openModal(content);
+}
 
 // ─── FAB: Quick-add transaction ───
 document.getElementById('fab-add').addEventListener('click', showQuickAdd);

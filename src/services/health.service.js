@@ -18,6 +18,52 @@ module.exports = function createHealthService() {
     return Math.min(100, Math.max(0, Math.round(score)));
   }
 
+  function calculateScoreBreakdown({ emergencyFundMonths, savingsRate, debtToIncome }) {
+    const ratios = [];
+
+    // Emergency Fund
+    let efScore = 0;
+    const efMax = 20;
+    if (emergencyFundMonths >= 6) efScore = 20;
+    else if (emergencyFundMonths >= 3) efScore = 10;
+    const efRounded = Math.round(emergencyFundMonths * 10) / 10;
+    let efRec = `Your emergency fund covers ${efRounded} months. `;
+    if (efRounded < 3) efRec += 'Target is 3-6 months of expenses.';
+    else if (efRounded >= 6) efRec += 'Great — you exceed the 3-6 month target.';
+    else efRec += 'Good progress toward the 3-6 month target.';
+    ratios.push({ name: 'Emergency Fund', value: efRounded, score: efScore, max: efMax, recommendation: efRec });
+
+    // Savings Rate
+    let srScore = 0;
+    const srMax = 15;
+    if (savingsRate >= 20) srScore = 15;
+    else if (savingsRate >= 10) srScore = 8;
+    const srRounded = Math.round(savingsRate * 10) / 10;
+    let srRec = `Savings rate: ${srRounded}%. `;
+    if (savingsRate < 10) srRec += 'Try to save at least 10-20% of income.';
+    else if (savingsRate >= 20) srRec += 'Excellent savings discipline.';
+    else srRec += 'On track — aim for 20%+.';
+    ratios.push({ name: 'Savings Rate', value: srRounded, score: srScore, max: srMax, recommendation: srRec });
+
+    // Debt-to-Income
+    let dtiScore = 0;
+    const dtiMax = 15;
+    if (debtToIncome < 36) dtiScore = 15;
+    else if (debtToIncome < 50) dtiScore = 5;
+    const dtiRounded = Math.round(debtToIncome * 10) / 10;
+    let dtiRec = `Debt-to-income ratio: ${dtiRounded}%. `;
+    if (debtToIncome < 36) dtiRec += 'Well within healthy limits.';
+    else if (debtToIncome < 50) dtiRec += 'Consider reducing debt below 36%.';
+    else dtiRec += 'High debt — prioritize debt repayment.';
+    ratios.push({ name: 'Debt-to-Income', value: dtiRounded, score: dtiScore, max: dtiMax, recommendation: dtiRec });
+
+    const totalScore = 50 + ratios.reduce((sum, r) => sum + r.score, 0);
+    // Add base score as a ratio entry
+    ratios.unshift({ name: 'Base Score', value: 50, score: 50, max: 50, recommendation: 'Base score awarded for having financial data.' });
+
+    return { score: Math.min(100, Math.max(0, totalScore)), ratios };
+  }
+
   function generateInterpretation({ emergencyFundMonths, savingsRate }) {
     const efRounded = Math.round(emergencyFundMonths * 10) / 10;
     let interpretation = `Your emergency fund covers ${efRounded} months of expenses. `;
@@ -31,5 +77,5 @@ module.exports = function createHealthService() {
     return interpretation;
   }
 
-  return { calculateRatios, calculateScore, generateInterpretation };
+  return { calculateRatios, calculateScore, calculateScoreBreakdown, generateInterpretation };
 };

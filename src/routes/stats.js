@@ -140,6 +140,7 @@ module.exports = function createStatsRoutes({ db }) {
         liabilities: accounts.liabilities || 0,
       });
       const score = healthService.calculateScore(ratios);
+      const breakdown = healthService.calculateScoreBreakdown(ratios);
       const efRounded = Math.round(ratios.emergencyFundMonths * 10) / 10;
       const interpretation = healthService.generateInterpretation(ratios);
 
@@ -152,6 +153,7 @@ module.exports = function createStatsRoutes({ db }) {
         avg_monthly_income: Math.round(avgMonthlyIncome.avg),
         avg_monthly_expense: Math.round(avgMonthlyExpense.avg),
         interpretation,
+        ratios: breakdown.ratios,
       });
     } catch (err) { next(err); }
   });
