@@ -25,4 +25,28 @@ const updateTransactionSchema = z.object({
   payee: z.string().max(200).optional().nullable(),
 });
 
-module.exports = { createTransactionSchema, updateTransactionSchema, VALID_TYPES };
+const bulkIdsArray = z.array(z.number().int().positive()).min(1).max(100);
+
+const bulkDeleteSchema = z.object({
+  ids: bulkIdsArray,
+});
+
+const bulkCategorizeSchema = z.object({
+  ids: bulkIdsArray,
+  category_id: z.number().int().positive(),
+});
+
+const bulkTagSchema = z.object({
+  ids: bulkIdsArray,
+  tag_ids: z.array(z.number().int().positive()).min(1),
+});
+
+const bulkUntagSchema = z.object({
+  ids: bulkIdsArray,
+  tag_ids: z.array(z.number().int().positive()).min(1),
+});
+
+module.exports = {
+  createTransactionSchema, updateTransactionSchema, VALID_TYPES,
+  bulkDeleteSchema, bulkCategorizeSchema, bulkTagSchema, bulkUntagSchema,
+};

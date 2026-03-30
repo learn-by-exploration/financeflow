@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const createTransactionService = require('../services/transaction.service');
 const { safePatternTest } = require('../utils/safe-regex');
-const { createTransactionSchema } = require('../schemas/transaction.schema');
+const { createTransactionSchema, bulkDeleteSchema, bulkCategorizeSchema, bulkTagSchema, bulkUntagSchema } = require('../schemas/transaction.schema');
 const createTransactionRepository = require('../repositories/transaction.repository');
 const createAccountRepository = require('../repositories/account.repository');
 const { ValidationError, NotFoundError } = require('../errors');
@@ -87,6 +87,63 @@ module.exports = function createTransactionRoutes({ db, audit }) {
 
       audit.log(req.user.id, 'transaction.create', 'transaction', transaction.id);
       res.status(201).json({ transaction });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/transactions/bulk-delete
+  router.post('/bulk-delete', (req, res, next) => {
+    try {
+      const parsed = bulkDeleteSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
+      }
+      const deleted = txRepo.bulkDelete(req.user.id, parsed.data.ids);
+      audit.log(req.user.id, 'transaction.bulk-delete', 'transaction', null);
+      res.json({ deleted });
+    } catch (err) {
+      if (err.message && (err.message.includes('not found') || err.message.includes('transfer'))) {
+        return res.status(400).json({ error: err.message });
+      }
+      next(err);
+    }
+  });
+
+  // POST /api/transactions/bulk-categorize
+  router.post('/bulk-categorize', (req, res, next) => {
+    try {
+      const parsed = bulkCategorizeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
+      }
+      const updated = txRepo.bulkCategorize(req.user.id, parsed.data.ids, parsed.data.category_id);
+      audit.log(req.user.id, 'transaction.bulk-categorize', 'transaction', null);
+      res.json({ updated });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/transactions/bulk-tag
+  router.post('/bulk-tag', (req, res, next) => {
+    try {
+      const parsed = bulkTagSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
+      }
+      const tagged = txRepo.bulkTag(req.user.id, parsed.data.ids, parsed.data.tag_ids);
+      audit.log(req.user.id, 'transaction.bulk-tag', 'transaction', null);
+      res.json({ tagged });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/transactions/bulk-untag
+  router.post('/bulk-untag', (req, res, next) => {
+    try {
+      const parsed = bulkUntagSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
+      }
+      const untagged = txRepo.bulkUntag(req.user.id, parsed.data.ids, parsed.data.tag_ids);
+      audit.log(req.user.id, 'transaction.bulk-untag', 'transaction', null);
+      res.json({ untagged });
     } catch (err) { next(err); }
   });
 

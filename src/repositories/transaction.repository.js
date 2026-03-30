@@ -69,5 +69,78 @@ module.exports = function createTransactionRepository({ db }) {
     }
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById, countByUser, getTagsForTransaction, linkTags };
+  function bulkDelete(userId, ids) {
+    const placeholders = ids.map(() => '?').join(',');
+    const txns = db.prepare(`SELECT * FROM transactions WHERE id IN (${placeholders}) AND user_id = ?`).all(...ids, userId);
+
+    if (txns.length !== ids.length) {
+      throw new Error('Some transaction IDs were not found or do not belong to this user');
+    }
+
+    // Check for transfers
+    for (const tx of txns) {
+      if (tx.type === 'transfer' || tx.transfer_transaction_id) {
+        throw new Error('Cannot bulk delete transfer transactions. Delete transfers individually.');
+      }
+    }
+
+    const doDelete = db.transaction(() => {
+      for (const tx of txns) {
+        const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
+        db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ?').run(balanceChange, tx.account_id);
+        db.prepare('DELETE FROM transaction_tags WHERE transaction_id = ?').run(tx.id);
+        db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
+      }
+      return txns.length;
+    });
+
+    return doDelete();
+  }
+
+  function bulkCategorize(userId, ids, categoryId) {
+    const placeholders = ids.map(() => '?').join(',');
+    const doBulk = db.transaction(() => {
+      const result = db.prepare(
+        `UPDATE transactions SET category_id = ?, updated_at = datetime('now') WHERE id IN (${placeholders}) AND user_id = ?`
+      ).run(categoryId, ...ids, userId);
+      return result.changes;
+    });
+    return doBulk();
+  }
+
+  function bulkTag(userId, ids, tagIds) {
+    const placeholders = ids.map(() => '?').join(',');
+    const txns = db.prepare(`SELECT id FROM transactions WHERE id IN (${placeholders}) AND user_id = ?`).all(...ids, userId);
+    const insertTag = db.prepare('INSERT OR IGNORE INTO transaction_tags (transaction_id, tag_id) VALUES (?, ?)');
+
+    const doBulk = db.transaction(() => {
+      for (const tx of txns) {
+        for (const tagId of tagIds) {
+          insertTag.run(tx.id, tagId);
+        }
+      }
+      return txns.length;
+    });
+    return doBulk();
+  }
+
+  function bulkUntag(userId, ids, tagIds) {
+    const placeholders = ids.map(() => '?').join(',');
+    const txns = db.prepare(`SELECT id FROM transactions WHERE id IN (${placeholders}) AND user_id = ?`).all(...ids, userId);
+    const tagPlaceholders = tagIds.map(() => '?').join(',');
+
+    const doBulk = db.transaction(() => {
+      for (const tx of txns) {
+        db.prepare(`DELETE FROM transaction_tags WHERE transaction_id = ? AND tag_id IN (${tagPlaceholders})`).run(tx.id, ...tagIds);
+      }
+      return txns.length;
+    });
+    return doBulk();
+  }
+
+  return {
+    findAllByUser, findById, create, update, delete: deleteById,
+    countByUser, getTagsForTransaction, linkTags,
+    bulkDelete, bulkCategorize, bulkTag, bulkUntag,
+  };
 };
