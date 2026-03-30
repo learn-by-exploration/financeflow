@@ -37,6 +37,8 @@ const config = Object.freeze({
   backup: {
     retainCount: parseInt(process.env.BACKUP_RETAIN_COUNT, 10) || 7,
     intervalHours: parseInt(process.env.BACKUP_INTERVAL_HOURS, 10) || 24,
+    maxBackups: parseInt(process.env.BACKUP_MAX_BACKUPS, 10) || 5,
+    autoBackupOnStart: process.env.BACKUP_AUTO_ON_START === 'true' || process.env.BACKUP_AUTO_ON_START === '1',
   },
   corsOrigin: process.env.CORS_ORIGIN || '',
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS, 10) || 10000,

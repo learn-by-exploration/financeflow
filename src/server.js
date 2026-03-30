@@ -99,6 +99,7 @@ const createNotificationRoutes = require('./routes/notifications');
 const createExportRoutes = require('./routes/export');
 const createDuplicateRoutes = require('./routes/duplicates');
 const createPreferencesRoutes = require('./routes/preferences');
+const createAdminRoutes = require('./routes/admin');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -134,6 +135,7 @@ app.use('/api', requireAuth, createAttachmentRoutes(deps));
 app.use('/api/notifications', requireAuth, createNotificationRoutes(deps));
 app.use('/api/export', requireAuth, createExportRoutes(deps));
 app.use('/api/preferences', requireAuth, createPreferencesRoutes(deps));
+app.use('/api/admin', requireAuth, createAdminRoutes(deps));
 
 // GET /api/upcoming — shortcut for upcoming bills
 app.get('/api/upcoming', requireAuth, (req, res, next) => {
@@ -159,6 +161,15 @@ if (!config.isTest) {
   const scheduler = createScheduler(db, logger);
   scheduler.registerBuiltinJobs();
   scheduler.start();
+
+  // Auto-backup on start
+  if (config.backup.autoBackupOnStart) {
+    const backupPath = path.join(config.dbDir, 'backups');
+    const { createBackup, rotateBackups } = require('./services/backup');
+    createBackup(db, backupPath)
+      .then(() => { rotateBackups(backupPath, config.backup.maxBackups); logger.info('Auto-backup completed'); })
+      .catch(err => logger.error('Auto-backup failed:', err.message));
+  }
 
   const server = app.listen(PORT, () => {
     logger.info(`PersonalFi v${config.version} running on http://localhost:${PORT}`);
