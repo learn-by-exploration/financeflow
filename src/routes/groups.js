@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createGroupSchema, addMemberSchema, updateGroupSchema } = require('../schemas/group.schema');
 
 module.exports = function createGroupRoutes({ db, audit }) {
 
@@ -24,10 +25,11 @@ module.exports = function createGroupRoutes({ db, audit }) {
   // POST /api/groups — create a group
   router.post('/', (req, res, next) => {
     try {
-      const { name, icon, color } = req.body;
-      if (!name) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Group name is required' } });
+      const parsed = createGroupSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
+      const { name, icon, color } = parsed.data;
       const result = db.prepare('INSERT INTO groups (name, icon, color, created_by) VALUES (?, ?, ?, ?)')
         .run(name, icon || '👥', color || '#f59e0b', req.user.id);
       // Add creator as owner
@@ -66,9 +68,35 @@ module.exports = function createGroupRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // PUT /api/groups/:id — update group (owner only)
+  router.put('/:id', (req, res, next) => {
+    try {
+      const parsed = updateGroupSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      }
+      const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(req.params.id);
+      if (!group) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Group not found' } });
+      const membership = getMembership(group.id, req.user.id);
+      if (!membership || membership.role !== 'owner') {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Only owners can update groups' } });
+      }
+      const { name, icon, color } = parsed.data;
+      db.prepare('UPDATE groups SET name = ?, icon = ?, color = ? WHERE id = ?')
+        .run(name || group.name, icon || group.icon, color || group.color, group.id);
+      audit.log(req.user.id, 'group.update', 'group', group.id);
+      const updated = db.prepare('SELECT * FROM groups WHERE id = ?').get(group.id);
+      res.json({ group: updated });
+    } catch (err) { next(err); }
+  });
+
   // POST /api/groups/:id/members — add member
   router.post('/:id/members', (req, res, next) => {
     try {
+      const parsed = addMemberSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      }
       const { username, display_name } = req.body;
       const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(req.params.id);
       if (!group) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Group not found' } });

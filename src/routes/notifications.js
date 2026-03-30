@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const createNotificationRepository = require('../repositories/notification.repository');
+const { notificationQuerySchema } = require('../schemas/notification.schema');
 
 module.exports = function createNotificationRoutes({ db }) {
   const notifRepo = createNotificationRepository({ db });
@@ -8,7 +9,11 @@ module.exports = function createNotificationRoutes({ db }) {
   // GET /api/notifications
   router.get('/', (req, res, next) => {
     try {
-      const { limit = 20, offset = 0, unread_only } = req.query;
+      const parsed = notificationQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      }
+      const { limit, offset, unread_only } = parsed.data;
       const result = notifRepo.findAllByUser(req.user.id, { limit, offset, unread_only });
       res.json({
         notifications: result.notifications,

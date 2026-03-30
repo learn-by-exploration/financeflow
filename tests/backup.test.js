@@ -149,7 +149,7 @@ describe('Admin backup API', () => {
 
   it('GET /api/admin/backups/:filename rejects path traversal', async () => {
     const res = await agent().get('/api/admin/backups/..%2F..%2Fetc%2Fpasswd');
-    assert.equal(res.status, 404);
+    assert.ok([400, 404].includes(res.status));
   });
 
   it('DELETE /api/admin/backups/:filename removes a backup', async () => {

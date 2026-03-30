@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const createSplitService = require('../services/split.service');
+const { createExpenseSchema, createSettlementSchema } = require('../schemas/split.schema');
 
 module.exports = function createSplitRoutes({ db, audit }) {
 
@@ -24,7 +25,11 @@ module.exports = function createSplitRoutes({ db, audit }) {
   // POST /api/groups/:groupId/expenses — add shared expense
   router.post('/:groupId/expenses', (req, res, next) => {
     try {
-      const { paid_by, amount, currency, description, category_id, date, note, split_method, splits } = req.body;
+      const parsed = createExpenseSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      }
+      const { paid_by, amount, currency, description, category_id, date, note, split_method, splits } = parsed.data;
 
       // Validate exact splits sum
       if (split_method === 'exact' && splits && splits.length) {
@@ -133,7 +138,11 @@ module.exports = function createSplitRoutes({ db, audit }) {
   // POST /api/groups/:groupId/settle — record a settlement
   router.post('/:groupId/settle', (req, res, next) => {
     try {
-      const { from_member, to_member, amount, note } = req.body;
+      const parsed = createSettlementSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      }
+      const { from_member, to_member, amount, note } = parsed.data;
       const result = db.prepare('INSERT INTO settlements (group_id, from_member, to_member, amount, currency, note) VALUES (?, ?, ?, ?, ?, ?)')
         .run(req.params.groupId, from_member, to_member, amount, req.user.defaultCurrency, note || null);
       audit.log(req.user.id, 'settlement.create', 'settlement', result.lastInsertRowid);

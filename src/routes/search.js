@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { searchQuerySchema } = require('../schemas/search.schema');
 
 module.exports = function createSearchRoutes({ db }) {
   const MAX_RESULTS = 10;
@@ -7,7 +8,11 @@ module.exports = function createSearchRoutes({ db }) {
   // GET /api/search?q=...
   router.get('/', (req, res, next) => {
     try {
-      const q = (req.query.q || '').trim();
+      const parsed = searchQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      }
+      const q = parsed.data.q.trim();
       if (!q) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Search query is required' } });
       }
