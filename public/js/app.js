@@ -5,6 +5,33 @@ import { startPolling } from './notifications.js';
 // ─── Auth guard ───
 if (!getToken()) { window.location.href = '/login.html'; }
 
+// ─── Demo mode detection ───
+(async function detectDemoMode() {
+  try {
+    const res = await fetch('/api/demo/status');
+    const data = await res.json();
+    if (data.demoMode) {
+      const banner = document.getElementById('demo-banner');
+      if (banner) {
+        banner.style.display = 'flex';
+        const resetLink = document.getElementById('demo-reset-link');
+        if (resetLink) {
+          resetLink.addEventListener('click', async (e) => {
+            e.preventDefault();
+            try {
+              await Api.post('/demo/reset');
+              toast('Demo data reset!', 'success');
+              location.reload();
+            } catch (err) {
+              toast('Reset failed: ' + err.message, 'error');
+            }
+          });
+        }
+      }
+    }
+  } catch (_) { /* not in demo mode */ }
+})();
+
 // ─── Start notification polling ───
 startPolling();
 

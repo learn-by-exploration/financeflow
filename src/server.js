@@ -106,10 +106,12 @@ const createDuplicateRoutes = require('./routes/duplicates');
 const createPreferencesRoutes = require('./routes/preferences');
 const createAdminRoutes = require('./routes/admin');
 const createCalendarRoutes = require('./routes/calendar');
+const createDemoRoutes = require('./routes/demo');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
 app.use('/api/health', createHealthRoutes(deps));
+app.use('/api/demo', createDemoRoutes(deps));
 
 // Per-user rate limiting (optionalAuth populates req.user if authenticated)
 app.use('/api', optionalAuth, createPerUserRateLimit());

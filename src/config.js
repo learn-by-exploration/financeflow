@@ -43,6 +43,7 @@ const config = Object.freeze({
   corsOrigin: process.env.CORS_ORIGIN || '',
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS, 10) || 10000,
   trustProxy: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
+  demoMode: process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1',
 });
 
 module.exports = config;

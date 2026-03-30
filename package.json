@@ -1,6 +1,6 @@
 {
   "name": "personalfi",
-  "version": "0.3.37",
+  "version": "0.3.38",
   "description": "Self-hosted personal finance manager with collaborative budgeting, expense splitting, and financial health tracking",
   "main": "src/server.js",
   "scripts": {
@@ -8,7 +8,8 @@
     "dev": "node --watch src/server.js",
     "backup": "bash scripts/backup.sh",
     "pretest": "bash scripts/backup.sh",
-    "test": "node --test --test-force-exit tests/*.test.js"
+    "test": "node --test --test-force-exit tests/*.test.js",
+    "seed": "node src/db/seed.js"
   },
   "keywords": [
     "personal-finance",
