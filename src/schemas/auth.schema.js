@@ -11,7 +11,7 @@ const passwordSchema = z.string()
 const registerSchema = z.object({
   username: z.string().min(1, 'Username is required').max(50),
   password: passwordSchema,
-  email: z.string().email().optional().or(z.literal('')).nullable(),
+  email: z.string().email().max(254).optional().or(z.literal('')).nullable(),
   display_name: z.string().max(100).optional().nullable(),
 });
 
