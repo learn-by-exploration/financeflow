@@ -121,5 +121,100 @@ module.exports = function createGroupRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // ═══════════════════════════════════════════
+  // SHARED BUDGETS
+  // ═══════════════════════════════════════════
+
+  // GET /api/groups/:id/budgets — list shared budgets
+  router.get('/:id/budgets', (req, res, next) => {
+    try {
+      const membership = getMembership(req.params.id, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+      const budgets = db.prepare('SELECT * FROM shared_budgets WHERE group_id = ? ORDER BY created_at DESC').all(req.params.id);
+      res.json({ budgets });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/groups/:id/budgets — create shared budget
+  router.post('/:id/budgets', (req, res, next) => {
+    try {
+      const membership = getMembership(req.params.id, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+      const { name, period, items } = req.body;
+      if (!name || !period) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name and period are required' } });
+      }
+
+      const result = db.prepare('INSERT INTO shared_budgets (group_id, name, period) VALUES (?, ?, ?)').run(req.params.id, name, period);
+      const budgetId = result.lastInsertRowid;
+
+      const insertedItems = [];
+      if (items && items.length) {
+        const insert = db.prepare('INSERT INTO shared_budget_items (shared_budget_id, category_id, amount) VALUES (?, ?, ?)');
+        const tx = db.transaction(() => {
+          for (const item of items) {
+            const r = insert.run(budgetId, item.category_id || null, item.amount);
+            insertedItems.push({ id: r.lastInsertRowid, category_id: item.category_id || null, amount: item.amount });
+          }
+        });
+        tx();
+      }
+
+      audit.log(req.user.id, 'shared_budget.create', 'shared_budget', budgetId);
+      const budget = db.prepare('SELECT * FROM shared_budgets WHERE id = ?').get(budgetId);
+      res.status(201).json({ budget, items: insertedItems });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/groups/:id/budgets/:budgetId — get single shared budget with items
+  router.get('/:id/budgets/:budgetId', (req, res, next) => {
+    try {
+      const membership = getMembership(req.params.id, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+      const budget = db.prepare('SELECT * FROM shared_budgets WHERE id = ? AND group_id = ?').get(req.params.budgetId, req.params.id);
+      if (!budget) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Shared budget not found' } });
+
+      const items = db.prepare('SELECT * FROM shared_budget_items WHERE shared_budget_id = ?').all(budget.id);
+      res.json({ budget, items });
+    } catch (err) { next(err); }
+  });
+
+  // PUT /api/groups/:id/budgets/:budgetId — update shared budget
+  router.put('/:id/budgets/:budgetId', (req, res, next) => {
+    try {
+      const membership = getMembership(req.params.id, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+      const existing = db.prepare('SELECT * FROM shared_budgets WHERE id = ? AND group_id = ?').get(req.params.budgetId, req.params.id);
+      if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Shared budget not found' } });
+
+      const { name, period, is_active } = req.body;
+      db.prepare(`UPDATE shared_budgets SET name = ?, period = ?, is_active = ?, updated_at = datetime('now') WHERE id = ?`)
+        .run(name || existing.name, period || existing.period, is_active !== undefined ? is_active : existing.is_active, existing.id);
+
+      audit.log(req.user.id, 'shared_budget.update', 'shared_budget', existing.id);
+      const budget = db.prepare('SELECT * FROM shared_budgets WHERE id = ?').get(existing.id);
+      res.json({ budget });
+    } catch (err) { next(err); }
+  });
+
+  // DELETE /api/groups/:id/budgets/:budgetId — delete shared budget
+  router.delete('/:id/budgets/:budgetId', (req, res, next) => {
+    try {
+      const membership = getMembership(req.params.id, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+      const existing = db.prepare('SELECT * FROM shared_budgets WHERE id = ? AND group_id = ?').get(req.params.budgetId, req.params.id);
+      if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Shared budget not found' } });
+
+      db.prepare('DELETE FROM shared_budgets WHERE id = ?').run(existing.id);
+      audit.log(req.user.id, 'shared_budget.delete', 'shared_budget', existing.id);
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };

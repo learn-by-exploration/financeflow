@@ -75,6 +75,7 @@ const createRecurringRoutes = require('./routes/recurring');
 const createTagRoutes = require('./routes/tags');
 const createSearchRoutes = require('./routes/search');
 const createNetWorthRoutes = require('./routes/net-worth');
+const createAuditRoutes = require('./routes/audit');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -96,6 +97,7 @@ app.use('/api/recurring', requireAuth, createRecurringRoutes(deps));
 app.use('/api/tags', requireAuth, createTagRoutes(deps));
 app.use('/api/search', requireAuth, createSearchRoutes(deps));
 app.use('/api/net-worth', requireAuth, createNetWorthRoutes(deps));
+app.use('/api/audit', requireAuth, createAuditRoutes(deps));
 
 // SPA fallback (Express 5 wildcard syntax)
 app.get('/{*splat}', (_req, res) => {
