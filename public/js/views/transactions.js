@@ -1,6 +1,8 @@
 // PersonalFi — Transactions View
 import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
 import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
+import { rules, attachValidation } from '../form-validator.js';
+import { renderPagination as renderPaginationComponent } from '../pagination.js';
 
 const PAGE_SIZE = 20;
 let state = { transactions: [], total: 0, page: 0, filters: {} };
@@ -178,17 +180,12 @@ function renderTable() {
 
 function renderPagination() {
   const wrap = document.getElementById('txn-pagination');
-  wrap.innerHTML = '';
   const totalPages = Math.ceil(state.total / PAGE_SIZE);
-  if (totalPages <= 1) return;
-
-  const info = el('span', { className: 'page-info', textContent: `Page ${state.page + 1} of ${totalPages} (${state.total} total)` });
-  const prev = el('button', { className: 'btn btn-secondary', textContent: '← Prev', disabled: state.page === 0 ? 'true' : undefined, onClick: () => loadPage(state.page - 1) });
-  const next = el('button', { className: 'btn btn-secondary', textContent: 'Next →', disabled: state.page >= totalPages - 1 ? 'true' : undefined, onClick: () => loadPage(state.page + 1) });
-
-  wrap.appendChild(prev);
-  wrap.appendChild(info);
-  wrap.appendChild(next);
+  renderPaginationComponent(wrap, {
+    currentPage: state.page + 1,
+    totalPages,
+    onPageChange: (page) => loadPage(page - 1),
+  });
 }
 
 function showTxnForm(txn) {
@@ -261,6 +258,14 @@ function showTxnForm(txn) {
 
   openModal(form);
   updateFormVisibility(form);
+
+  // Attach client-side validation
+  attachValidation(form, {
+    description: [rules.required('Description is required'), rules.minLength(2, 'At least 2 characters')],
+    amount: [rules.required('Amount is required'), rules.min(0.01, 'Amount must be greater than 0')],
+    date: [rules.required('Date is required')],
+    account_id: [rules.required('Account is required')],
+  });
 }
 
 function updateFormVisibility(form) {

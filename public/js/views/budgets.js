@@ -1,6 +1,7 @@
 // PersonalFi — Budgets View
 import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
 import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
+import { rules, attachValidation } from '../form-validator.js';
 
 let categories = [];
 let onRefresh = null;
@@ -162,6 +163,13 @@ function showBudgetForm() {
   ]);
 
   openModal(form);
+
+  // Attach client-side validation
+  attachValidation(form, {
+    name: [rules.required('Budget name is required'), rules.minLength(2, 'At least 2 characters')],
+    start_date: [rules.required('Start date is required')],
+    end_date: [rules.required('End date is required')],
+  });
 }
 
 function addBudgetItem(container) {

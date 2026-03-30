@@ -1,6 +1,7 @@
 // PersonalFi — Accounts View (Full CRUD)
 import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
 import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
+import { rules, attachValidation } from '../form-validator.js';
 
 const ACCOUNT_TYPES = [
   { value: 'checking', label: 'Checking' },
@@ -174,6 +175,12 @@ function showAccountForm(account) {
   ]);
 
   openModal(form);
+
+  // Attach client-side validation
+  attachValidation(form, {
+    name: [rules.required('Account name is required'), rules.minLength(2, 'At least 2 characters')],
+    currency: [rules.required('Currency is required'), rules.maxLength(5, 'Currency code too long')],
+  });
 }
 
 function formGroup(label, input) {
