@@ -9,8 +9,11 @@ module.exports = function createBudgetRoutes({ db, audit }) {
   // GET /api/budgets
   router.get('/', (req, res, next) => {
     try {
-      const budgets = budgetRepo.findAllByUser(req.user.id);
-      res.json({ budgets });
+      const { limit = 50, offset = 0, period, is_active } = req.query;
+      const filters = { limit, offset, period, is_active };
+      const budgets = budgetRepo.findAllByUser(req.user.id, filters);
+      const total = budgetRepo.countByUser(req.user.id, filters);
+      res.json({ budgets, total, limit: Number(limit), offset: Number(offset) });
     } catch (err) { next(err); }
   });
 

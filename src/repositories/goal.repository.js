@@ -1,7 +1,23 @@
 module.exports = function createGoalRepository({ db }) {
 
-  function findAllByUser(userId) {
-    return db.prepare('SELECT * FROM savings_goals WHERE user_id = ? ORDER BY position').all(userId);
+  function findAllByUser(userId, options = {}) {
+    const { limit = 50, offset = 0, status } = options;
+    let sql = 'SELECT * FROM savings_goals WHERE user_id = ?';
+    const params = [userId];
+    if (status === 'active') { sql += ' AND is_completed = 0'; }
+    else if (status === 'completed') { sql += ' AND is_completed = 1'; }
+    sql += ' ORDER BY position LIMIT ? OFFSET ?';
+    params.push(Number(limit), Number(offset));
+    return db.prepare(sql).all(...params);
+  }
+
+  function countByUser(userId, options = {}) {
+    const { status } = options;
+    let sql = 'SELECT COUNT(*) as count FROM savings_goals WHERE user_id = ?';
+    const params = [userId];
+    if (status === 'active') { sql += ' AND is_completed = 0'; }
+    else if (status === 'completed') { sql += ' AND is_completed = 1'; }
+    return db.prepare(sql).get(...params).count;
   }
 
   function findById(id, userId) {
@@ -53,5 +69,5 @@ module.exports = function createGoalRepository({ db }) {
     return db.prepare('SELECT * FROM savings_goals WHERE id = ?').get(id);
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById, contribute };
+  return { findAllByUser, findById, create, update, delete: deleteById, contribute, countByUser };
 };

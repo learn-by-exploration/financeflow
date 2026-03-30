@@ -44,8 +44,18 @@ module.exports = function createTransactionRepository({ db }) {
     return db.prepare('DELETE FROM transactions WHERE id = ?').run(id);
   }
 
-  function countByUser(userId) {
-    return db.prepare('SELECT COUNT(*) as count FROM transactions WHERE user_id = ?').get(userId).count;
+  function countByUser(userId, filters = {}) {
+    const { account_id, category_id, type, from, to, search, tag_id } = filters;
+    let sql = 'SELECT COUNT(*) as count FROM transactions t WHERE t.user_id = ?';
+    const params = [userId];
+    if (account_id) { sql += ' AND t.account_id = ?'; params.push(account_id); }
+    if (category_id) { sql += ' AND t.category_id = ?'; params.push(category_id); }
+    if (type) { sql += ' AND t.type = ?'; params.push(type); }
+    if (from) { sql += ' AND t.date >= ?'; params.push(from); }
+    if (to) { sql += ' AND t.date <= ?'; params.push(to); }
+    if (search) { sql += ' AND (t.description LIKE ? OR t.payee LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
+    if (tag_id) { sql += ' AND t.id IN (SELECT transaction_id FROM transaction_tags WHERE tag_id = ?)'; params.push(tag_id); }
+    return db.prepare(sql).get(...params).count;
   }
 
   function getTagsForTransaction(transactionId) {

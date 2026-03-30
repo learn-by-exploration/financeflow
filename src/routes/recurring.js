@@ -9,8 +9,11 @@ module.exports = function createRecurringRoutes({ db, audit }) {
   // GET /api/recurring — list user's recurring rules
   router.get('/', (req, res, next) => {
     try {
-      const rules = recurringRepo.findAllByUser(req.user.id);
-      res.json({ rules });
+      const { limit = 50, offset = 0, frequency, is_active, type } = req.query;
+      const filters = { limit, offset, frequency, is_active, type };
+      const rules = recurringRepo.findAllByUser(req.user.id, filters);
+      const total = recurringRepo.countByUser(req.user.id, filters);
+      res.json({ rules, total, limit: Number(limit), offset: Number(offset) });
     } catch (err) { next(err); }
   });
 

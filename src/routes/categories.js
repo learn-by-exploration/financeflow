@@ -11,8 +11,11 @@ module.exports = function createCategoryRoutes({ db }) {
   // GET /api/categories
   router.get('/', (req, res, next) => {
     try {
-      const categories = categoryRepo.findAllByUser(req.user.id);
-      res.json({ categories });
+      const { limit = 50, offset = 0, type } = req.query;
+      const filters = { limit, offset, type };
+      const categories = categoryRepo.findAllByUser(req.user.id, filters);
+      const total = categoryRepo.countByUser(req.user.id, filters);
+      res.json({ categories, total, limit: Number(limit), offset: Number(offset) });
     } catch (err) { next(err); }
   });
 

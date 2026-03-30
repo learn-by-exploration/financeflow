@@ -11,8 +11,11 @@ module.exports = function createAccountRoutes({ db, audit }) {
   // GET /api/accounts
   router.get('/', (req, res, next) => {
     try {
-      const accounts = accountRepo.findAllByUser(req.user.id);
-      res.json({ accounts });
+      const { limit = 50, offset = 0, type, is_active } = req.query;
+      const filters = { limit, offset, type, is_active };
+      const accounts = accountRepo.findAllByUser(req.user.id, filters);
+      const total = accountRepo.countByUser(req.user.id, filters);
+      res.json({ accounts, total, limit: Number(limit), offset: Number(offset) });
     } catch (err) { next(err); }
   });
 

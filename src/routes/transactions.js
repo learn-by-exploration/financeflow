@@ -23,8 +23,9 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         txn.tags = txRepo.getTagsForTransaction(txn.id);
       }
 
-      const total = txRepo.countByUser(req.user.id);
-      res.json({ transactions, total });
+      const { limit = 50, offset = 0 } = req.query;
+      const total = txRepo.countByUser(req.user.id, req.query);
+      res.json({ transactions, total, limit: Number(limit), offset: Number(offset) });
     } catch (err) { next(err); }
   });
 

@@ -1,7 +1,21 @@
 module.exports = function createCategoryRepository({ db }) {
 
-  function findAllByUser(userId) {
-    return db.prepare('SELECT * FROM categories WHERE user_id = ? ORDER BY type, position').all(userId);
+  function findAllByUser(userId, options = {}) {
+    const { limit = 50, offset = 0, type } = options;
+    let sql = 'SELECT * FROM categories WHERE user_id = ?';
+    const params = [userId];
+    if (type !== undefined) { sql += ' AND type = ?'; params.push(type); }
+    sql += ' ORDER BY type, position LIMIT ? OFFSET ?';
+    params.push(Number(limit), Number(offset));
+    return db.prepare(sql).all(...params);
+  }
+
+  function countByUser(userId, options = {}) {
+    const { type } = options;
+    let sql = 'SELECT COUNT(*) as count FROM categories WHERE user_id = ?';
+    const params = [userId];
+    if (type !== undefined) { sql += ' AND type = ?'; params.push(type); }
+    return db.prepare(sql).get(...params).count;
   }
 
   function findById(id, userId) {
@@ -28,5 +42,5 @@ module.exports = function createCategoryRepository({ db }) {
     return db.prepare('DELETE FROM categories WHERE id = ? AND user_id = ? AND is_system = 0').run(id, userId);
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById };
+  return { findAllByUser, findById, create, update, delete: deleteById, countByUser };
 };

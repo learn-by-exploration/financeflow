@@ -9,8 +9,11 @@ module.exports = function createGoalRoutes({ db, audit }) {
   // GET /api/goals
   router.get('/', (req, res, next) => {
     try {
-      const goals = goalRepo.findAllByUser(req.user.id);
-      res.json({ goals });
+      const { limit = 50, offset = 0, status } = req.query;
+      const filters = { limit, offset, status };
+      const goals = goalRepo.findAllByUser(req.user.id, filters);
+      const total = goalRepo.countByUser(req.user.id, filters);
+      res.json({ goals, total, limit: Number(limit), offset: Number(offset) });
     } catch (err) { next(err); }
   });
 

@@ -1,7 +1,23 @@
 module.exports = function createSubscriptionRepository({ db }) {
 
-  function findAllByUser(userId) {
-    return db.prepare('SELECT s.*, c.name as category_name FROM subscriptions s LEFT JOIN categories c ON s.category_id = c.id WHERE s.user_id = ? ORDER BY s.is_active DESC, s.next_billing_date').all(userId);
+  function findAllByUser(userId, options = {}) {
+    const { limit = 50, offset = 0, frequency, is_active } = options;
+    let sql = 'SELECT s.*, c.name as category_name FROM subscriptions s LEFT JOIN categories c ON s.category_id = c.id WHERE s.user_id = ?';
+    const params = [userId];
+    if (frequency !== undefined) { sql += ' AND s.frequency = ?'; params.push(frequency); }
+    if (is_active !== undefined) { sql += ' AND s.is_active = ?'; params.push(Number(is_active)); }
+    sql += ' ORDER BY s.is_active DESC, s.next_billing_date LIMIT ? OFFSET ?';
+    params.push(Number(limit), Number(offset));
+    return db.prepare(sql).all(...params);
+  }
+
+  function countByUser(userId, options = {}) {
+    const { frequency, is_active } = options;
+    let sql = 'SELECT COUNT(*) as count FROM subscriptions WHERE user_id = ?';
+    const params = [userId];
+    if (frequency !== undefined) { sql += ' AND frequency = ?'; params.push(frequency); }
+    if (is_active !== undefined) { sql += ' AND is_active = ?'; params.push(Number(is_active)); }
+    return db.prepare(sql).get(...params).count;
   }
 
   function findById(id, userId) {
@@ -33,5 +49,5 @@ module.exports = function createSubscriptionRepository({ db }) {
     return db.prepare('DELETE FROM subscriptions WHERE id = ? AND user_id = ?').run(id, userId);
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById };
+  return { findAllByUser, findById, create, update, delete: deleteById, countByUser };
 };

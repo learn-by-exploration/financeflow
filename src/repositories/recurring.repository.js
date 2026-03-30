@@ -1,15 +1,30 @@
 module.exports = function createRecurringRepository({ db }) {
 
-  function findAllByUser(userId) {
-    return db.prepare(`
-      SELECT r.*, a.name as account_name, a.icon as account_icon,
+  function findAllByUser(userId, options = {}) {
+    const { limit = 50, offset = 0, frequency, is_active, type } = options;
+    let sql = `SELECT r.*, a.name as account_name, a.icon as account_icon,
              c.name as category_name, c.icon as category_icon
       FROM recurring_rules r
       LEFT JOIN accounts a ON r.account_id = a.id
       LEFT JOIN categories c ON r.category_id = c.id
-      WHERE r.user_id = ?
-      ORDER BY r.next_date ASC
-    `).all(userId);
+      WHERE r.user_id = ?`;
+    const params = [userId];
+    if (frequency !== undefined) { sql += ' AND r.frequency = ?'; params.push(frequency); }
+    if (is_active !== undefined) { sql += ' AND r.is_active = ?'; params.push(Number(is_active)); }
+    if (type !== undefined) { sql += ' AND r.type = ?'; params.push(type); }
+    sql += ' ORDER BY r.next_date ASC LIMIT ? OFFSET ?';
+    params.push(Number(limit), Number(offset));
+    return db.prepare(sql).all(...params);
+  }
+
+  function countByUser(userId, options = {}) {
+    const { frequency, is_active, type } = options;
+    let sql = 'SELECT COUNT(*) as count FROM recurring_rules WHERE user_id = ?';
+    const params = [userId];
+    if (frequency !== undefined) { sql += ' AND frequency = ?'; params.push(frequency); }
+    if (is_active !== undefined) { sql += ' AND is_active = ?'; params.push(Number(is_active)); }
+    if (type !== undefined) { sql += ' AND type = ?'; params.push(type); }
+    return db.prepare(sql).get(...params).count;
   }
 
   function findById(id, userId) {
@@ -54,7 +69,7 @@ module.exports = function createRecurringRepository({ db }) {
     return db.prepare('SELECT * FROM recurring_rules WHERE id = ?').get(id);
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById, advanceNextDate };
+  return { findAllByUser, findById, create, update, delete: deleteById, advanceNextDate, countByUser };
 };
 
 function advanceDate(dateStr, frequency) {

@@ -9,12 +9,15 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
   // GET /api/subscriptions
   router.get('/', (req, res, next) => {
     try {
-      const subs = subRepo.findAllByUser(req.user.id);
+      const { limit = 50, offset = 0, frequency, is_active } = req.query;
+      const filters = { limit, offset, frequency, is_active };
+      const subs = subRepo.findAllByUser(req.user.id, filters);
+      const total = subRepo.countByUser(req.user.id, filters);
       const totalMonthly = subs.filter(s => s.is_active).reduce((sum, s) => {
         const multiplier = { weekly: 4.33, monthly: 1, quarterly: 1 / 3, yearly: 1 / 12 };
         return sum + s.amount * (multiplier[s.frequency] || 1);
       }, 0);
-      res.json({ subscriptions: subs, total_monthly: Math.round(totalMonthly * 100) / 100 });
+      res.json({ subscriptions: subs, total, limit: Number(limit), offset: Number(offset), total_monthly: Math.round(totalMonthly * 100) / 100 });
     } catch (err) { next(err); }
   });
 

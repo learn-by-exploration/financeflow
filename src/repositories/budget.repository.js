@@ -1,7 +1,23 @@
 module.exports = function createBudgetRepository({ db }) {
 
-  function findAllByUser(userId) {
-    return db.prepare('SELECT * FROM budgets WHERE user_id = ? ORDER BY created_at DESC, id DESC').all(userId);
+  function findAllByUser(userId, options = {}) {
+    const { limit = 50, offset = 0, period, is_active } = options;
+    let sql = 'SELECT * FROM budgets WHERE user_id = ?';
+    const params = [userId];
+    if (period !== undefined) { sql += ' AND period = ?'; params.push(period); }
+    if (is_active !== undefined) { sql += ' AND is_active = ?'; params.push(Number(is_active)); }
+    sql += ' ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?';
+    params.push(Number(limit), Number(offset));
+    return db.prepare(sql).all(...params);
+  }
+
+  function countByUser(userId, options = {}) {
+    const { period, is_active } = options;
+    let sql = 'SELECT COUNT(*) as count FROM budgets WHERE user_id = ?';
+    const params = [userId];
+    if (period !== undefined) { sql += ' AND period = ?'; params.push(period); }
+    if (is_active !== undefined) { sql += ' AND is_active = ?'; params.push(Number(is_active)); }
+    return db.prepare(sql).get(...params).count;
   }
 
   function findById(id, userId) {
@@ -62,5 +78,5 @@ module.exports = function createBudgetRepository({ db }) {
     return db.prepare('SELECT * FROM budget_items WHERE id = ? AND budget_id = ?').get(itemId, budgetId);
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById, getItems, updateItem, findItemById };
+  return { findAllByUser, findById, create, update, delete: deleteById, getItems, updateItem, findItemById, countByUser };
 };

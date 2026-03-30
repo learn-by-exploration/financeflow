@@ -1,7 +1,12 @@
 module.exports = function createTagRepository({ db }) {
 
-  function findAllByUser(userId) {
-    return db.prepare('SELECT * FROM tags WHERE user_id = ? ORDER BY name').all(userId);
+  function findAllByUser(userId, options = {}) {
+    const { limit = 50, offset = 0 } = options;
+    return db.prepare('SELECT * FROM tags WHERE user_id = ? ORDER BY name LIMIT ? OFFSET ?').all(userId, Number(limit), Number(offset));
+  }
+
+  function countByUser(userId) {
+    return db.prepare('SELECT COUNT(*) as count FROM tags WHERE user_id = ?').get(userId).count;
   }
 
   function findById(id, userId) {
@@ -45,5 +50,5 @@ module.exports = function createTagRepository({ db }) {
     }
   }
 
-  return { findAllByUser, findById, findByName, create, update, delete: deleteById, getTransactionTags, linkTransactionTags };
+  return { findAllByUser, findById, findByName, create, update, delete: deleteById, getTransactionTags, linkTransactionTags, countByUser };
 };

@@ -1,7 +1,23 @@
 module.exports = function createAccountRepository({ db }) {
 
-  function findAllByUser(userId) {
-    return db.prepare('SELECT * FROM accounts WHERE user_id = ? ORDER BY position').all(userId);
+  function findAllByUser(userId, options = {}) {
+    const { limit = 50, offset = 0, type, is_active } = options;
+    let sql = 'SELECT * FROM accounts WHERE user_id = ?';
+    const params = [userId];
+    if (type !== undefined) { sql += ' AND type = ?'; params.push(type); }
+    if (is_active !== undefined) { sql += ' AND is_active = ?'; params.push(Number(is_active)); }
+    sql += ' ORDER BY position LIMIT ? OFFSET ?';
+    params.push(Number(limit), Number(offset));
+    return db.prepare(sql).all(...params);
+  }
+
+  function countByUser(userId, options = {}) {
+    const { type, is_active } = options;
+    let sql = 'SELECT COUNT(*) as count FROM accounts WHERE user_id = ?';
+    const params = [userId];
+    if (type !== undefined) { sql += ' AND type = ?'; params.push(type); }
+    if (is_active !== undefined) { sql += ' AND is_active = ?'; params.push(Number(is_active)); }
+    return db.prepare(sql).get(...params).count;
   }
 
   function findById(id, userId) {
@@ -39,5 +55,5 @@ module.exports = function createAccountRepository({ db }) {
       .run(delta, id, userId);
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById, updateBalance };
+  return { findAllByUser, findById, create, update, delete: deleteById, updateBalance, countByUser };
 };

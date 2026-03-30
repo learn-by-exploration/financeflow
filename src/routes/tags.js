@@ -9,8 +9,10 @@ module.exports = function createTagRoutes({ db, audit }) {
   // GET /api/tags
   router.get('/', (req, res, next) => {
     try {
-      const tags = tagRepo.findAllByUser(req.user.id);
-      res.json({ tags });
+      const { limit = 50, offset = 0 } = req.query;
+      const tags = tagRepo.findAllByUser(req.user.id, { limit, offset });
+      const total = tagRepo.countByUser(req.user.id);
+      res.json({ tags, total, limit: Number(limit), offset: Number(offset) });
     } catch (err) { next(err); }
   });
 
