@@ -56,6 +56,10 @@ describe('Security', () => {
       ['PUT', '/api/recurring/1'],
       ['DELETE', '/api/recurring/1'],
       ['POST', '/api/recurring/1/skip'],
+      ['GET', '/api/tags'],
+      ['POST', '/api/tags'],
+      ['PUT', '/api/tags/1'],
+      ['DELETE', '/api/tags/1'],
     ];
 
     for (const [method, path] of protectedRoutes) {
