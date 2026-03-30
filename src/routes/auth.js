@@ -33,7 +33,9 @@ module.exports = function createAuthRoutes({ db, audit }) {
 
         const token = crypto.randomBytes(32).toString('hex');
         const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
-        db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(userId, token, expiresAt);
+        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+        const userAgent = req.headers['user-agent'] || null;
+        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(userId, token, expiresAt, ip, userAgent);
 
         return { userId, token };
       });
@@ -84,7 +86,7 @@ module.exports = function createAuthRoutes({ db, audit }) {
 
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
-      db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(user.id, token, expiresAt);
+      db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(user.id, token, expiresAt, ip, userAgent);
 
       audit.log(user.id, 'user.login', 'user', user.id, null, { ip, userAgent });
       res.json({ token, user: { id: user.id, username: user.username, display_name: user.display_name } });
@@ -149,7 +151,9 @@ module.exports = function createAuthRoutes({ db, audit }) {
         db.prepare('DELETE FROM sessions WHERE user_id = ?').run(session.user_id);
         const token = crypto.randomBytes(32).toString('hex');
         const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
-        db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(session.user_id, token, expiresAt);
+        const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+        const userAgent = req.headers['user-agent'] || null;
+        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(session.user_id, token, expiresAt, ip, userAgent);
         return token;
       });
 
@@ -193,6 +197,76 @@ module.exports = function createAuthRoutes({ db, audit }) {
 
       deleteTx();
       res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  // ─── Session Management ───
+
+  // GET /api/auth/sessions — list all active sessions for current user
+  router.get('/sessions', (req, res, next) => {
+    try {
+      const token = req.headers['x-session-token'];
+      if (!token) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+
+      const currentSession = db.prepare(
+        `SELECT s.user_id, s.id as session_id FROM sessions s WHERE s.token = ? AND s.expires_at > datetime('now')`
+      ).get(token);
+      if (!currentSession) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
+
+      const sessions = db.prepare(`
+        SELECT id, ip_address, user_agent, device_name, created_at, last_used_at, expires_at
+        FROM sessions
+        WHERE user_id = ? AND expires_at > datetime('now')
+        ORDER BY last_used_at DESC
+      `).all(currentSession.user_id);
+
+      const result = sessions.map(s => ({
+        ...s,
+        is_current: s.id === currentSession.session_id,
+      }));
+
+      res.json({ sessions: result });
+    } catch (err) { next(err); }
+  });
+
+  // DELETE /api/auth/sessions/:id — revoke a specific session
+  router.delete('/sessions/:id', (req, res, next) => {
+    try {
+      const token = req.headers['x-session-token'];
+      if (!token) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+
+      const currentSession = db.prepare(
+        `SELECT s.user_id, s.id as session_id FROM sessions s WHERE s.token = ? AND s.expires_at > datetime('now')`
+      ).get(token);
+      if (!currentSession) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
+
+      const targetId = parseInt(req.params.id, 10);
+      if (isNaN(targetId)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid session ID' } });
+
+      // Check the target session exists and belongs to current user
+      const target = db.prepare('SELECT id, user_id FROM sessions WHERE id = ?').get(targetId);
+      if (!target || target.user_id !== currentSession.user_id) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Session not found' } });
+      }
+
+      db.prepare('DELETE FROM sessions WHERE id = ?').run(targetId);
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/auth/sessions/revoke-others — revoke all sessions except current
+  router.post('/sessions/revoke-others', (req, res, next) => {
+    try {
+      const token = req.headers['x-session-token'];
+      if (!token) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+
+      const currentSession = db.prepare(
+        `SELECT s.user_id, s.id as session_id FROM sessions s WHERE s.token = ? AND s.expires_at > datetime('now')`
+      ).get(token);
+      if (!currentSession) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
+
+      const result = db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(currentSession.user_id, currentSession.session_id);
+      res.json({ ok: true, revoked: result.changes });
     } catch (err) { next(err); }
   });
 

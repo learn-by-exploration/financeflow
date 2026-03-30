@@ -9,6 +9,10 @@ function createAuthMiddleware(db) {
     WHERE s.token = ? AND s.expires_at > datetime('now')
   `);
 
+  const updateLastUsed = db.prepare(
+    `UPDATE sessions SET last_used_at = datetime('now') WHERE id = ?`
+  );
+
   const tokenRepo = createApiTokenRepository({ db });
 
   const WRITE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
@@ -27,12 +31,14 @@ function createAuthMiddleware(db) {
     if (sessionToken) {
       const session = getSession.get(sessionToken);
       if (session) {
+        updateLastUsed.run(session.id);
         req.user = {
           id: session.uid,
           username: session.username,
           displayName: session.display_name,
           defaultCurrency: session.default_currency,
         };
+        req.sessionId = session.id;
         return next();
       }
     }
