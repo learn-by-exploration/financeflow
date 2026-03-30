@@ -124,7 +124,8 @@ describe('Auth', () => {
 
       // Manually expire the session
       const { db } = setup();
-      db.prepare("UPDATE sessions SET expires_at = datetime('now', '-1 day') WHERE token = ?").run(reg.body.token);
+      const tokenHash = require('crypto').createHash('sha256').update(reg.body.token).digest('hex');
+      db.prepare("UPDATE sessions SET expires_at = datetime('now', '-1 day') WHERE token = ?").run(tokenHash);
 
       await rawAgent().get('/api/auth/me')
         .set('X-Session-Token', reg.body.token)

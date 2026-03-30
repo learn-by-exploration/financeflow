@@ -32,10 +32,11 @@ module.exports = function createAuthRoutes({ db, audit }) {
         seedSystemRules(db, userId);
 
         const token = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
         const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
         const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
         const userAgent = req.headers['user-agent'] || null;
-        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(userId, token, expiresAt, ip, userAgent);
+        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(userId, tokenHash, expiresAt, ip, userAgent);
 
         return { userId, token };
       });
@@ -85,8 +86,9 @@ module.exports = function createAuthRoutes({ db, audit }) {
       db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(user.id);
 
       const token = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
-      db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(user.id, token, expiresAt, ip, userAgent);
+      db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(user.id, tokenHash, expiresAt, ip, userAgent);
 
       audit.log(user.id, 'user.login', 'user', user.id, null, { ip, userAgent });
       res.json({ token, user: { id: user.id, username: user.username, display_name: user.display_name } });
@@ -96,7 +98,10 @@ module.exports = function createAuthRoutes({ db, audit }) {
   // POST /api/auth/logout
   router.post('/logout', (req, res) => {
     const token = req.headers['x-session-token'];
-    if (token) db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+    if (token) {
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      db.prepare('DELETE FROM sessions WHERE token = ?').run(tokenHash);
+    }
     res.json({ ok: true });
   });
 
@@ -104,11 +109,12 @@ module.exports = function createAuthRoutes({ db, audit }) {
   router.get('/me', (req, res) => {
     const token = req.headers['x-session-token'];
     if (!token) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const session = db.prepare(`
       SELECT u.id, u.username, u.display_name, u.email, u.default_currency
       FROM sessions s JOIN users u ON s.user_id = u.id
       WHERE s.token = ? AND s.expires_at > datetime('now')
-    `).get(token);
+    `).get(tokenHash);
     if (!session) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
     res.json({ user: session });
   });
@@ -117,11 +123,12 @@ module.exports = function createAuthRoutes({ db, audit }) {
   function getUserFromToken(req) {
     const token = req.headers['x-session-token'];
     if (!token) return null;
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const session = db.prepare(`
       SELECT s.user_id, u.password_hash
       FROM sessions s JOIN users u ON s.user_id = u.id
       WHERE s.token = ? AND s.expires_at > datetime('now')
-    `).get(token);
+    `).get(tokenHash);
     return session || null;
   }
 
@@ -150,10 +157,11 @@ module.exports = function createAuthRoutes({ db, audit }) {
         db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, session.user_id);
         db.prepare('DELETE FROM sessions WHERE user_id = ?').run(session.user_id);
         const token = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
         const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
         const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
         const userAgent = req.headers['user-agent'] || null;
-        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(session.user_id, token, expiresAt, ip, userAgent);
+        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(session.user_id, tokenHash, expiresAt, ip, userAgent);
         return token;
       });
 
@@ -208,9 +216,10 @@ module.exports = function createAuthRoutes({ db, audit }) {
       const token = req.headers['x-session-token'];
       if (!token) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
 
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const currentSession = db.prepare(
         `SELECT s.user_id, s.id as session_id FROM sessions s WHERE s.token = ? AND s.expires_at > datetime('now')`
-      ).get(token);
+      ).get(tokenHash);
       if (!currentSession) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
 
       const sessions = db.prepare(`
@@ -235,9 +244,10 @@ module.exports = function createAuthRoutes({ db, audit }) {
       const token = req.headers['x-session-token'];
       if (!token) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
 
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const currentSession = db.prepare(
         `SELECT s.user_id, s.id as session_id FROM sessions s WHERE s.token = ? AND s.expires_at > datetime('now')`
-      ).get(token);
+      ).get(tokenHash);
       if (!currentSession) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
 
       const targetId = parseInt(req.params.id, 10);
@@ -260,9 +270,10 @@ module.exports = function createAuthRoutes({ db, audit }) {
       const token = req.headers['x-session-token'];
       if (!token) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
 
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const currentSession = db.prepare(
         `SELECT s.user_id, s.id as session_id FROM sessions s WHERE s.token = ? AND s.expires_at > datetime('now')`
-      ).get(token);
+      ).get(tokenHash);
       if (!currentSession) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
 
       const result = db.prepare('DELETE FROM sessions WHERE user_id = ? AND id != ?').run(currentSession.user_id, currentSession.session_id);

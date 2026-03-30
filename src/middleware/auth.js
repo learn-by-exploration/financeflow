@@ -29,7 +29,8 @@ function createAuthMiddleware(db) {
   function requireAuth(req, res, next) {
     const sessionToken = req.headers['x-session-token'] || req.cookies?.session;
     if (sessionToken) {
-      const session = getSession.get(sessionToken);
+      const sessionHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
+      const session = getSession.get(sessionHash);
       if (session) {
         updateLastUsed.run(session.id);
         req.user = {
@@ -70,7 +71,8 @@ function createAuthMiddleware(db) {
   function optionalAuth(req, _res, next) {
     const sessionToken = req.headers['x-session-token'] || req.cookies?.session;
     if (sessionToken) {
-      const session = getSession.get(sessionToken);
+      const sessionHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
+      const session = getSession.get(sessionHash);
       if (session) {
         req.user = {
           id: session.uid,

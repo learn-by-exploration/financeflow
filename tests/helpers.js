@@ -33,10 +33,11 @@ function _ensureTestAuth() {
     _db.prepare('UPDATE users SET password_hash = ? WHERE id = 1').run(hash);
   }
   _testSessionToken = 'test-session-' + crypto.randomUUID();
+  const tokenHash = crypto.createHash('sha256').update(_testSessionToken).digest('hex');
   const expiresAt = new Date(Date.now() + 86400000).toISOString();
   _db.prepare(
     'INSERT OR REPLACE INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)'
-  ).run(_testUserId, _testSessionToken, expiresAt);
+  ).run(_testUserId, tokenHash, expiresAt);
 }
 
 function cleanDb() {
@@ -216,8 +217,9 @@ function makeSecondUser(overrides = {}) {
     userId = r.lastInsertRowid;
   }
   const token = 'test-session-user2-' + crypto.randomUUID();
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const expiresAt = new Date(Date.now() + 86400000).toISOString();
-  db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(userId, token, expiresAt);
+  db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(userId, tokenHash, expiresAt);
 
   const { app } = setup();
   const base = request(app);
