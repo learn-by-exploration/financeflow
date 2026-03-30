@@ -16,6 +16,7 @@ const createScheduler = require('./scheduler');
 const logger = require('./logger');
 const { cacheMiddleware, invalidateCache, clearAllCache } = require('./middleware/cache');
 const { etagMiddleware } = require('./middleware/etag');
+const { metricsMiddleware } = require('./middleware/metrics');
 
 const app = express();
 const PORT = config.port;
@@ -50,6 +51,7 @@ app.use(helmet({
 }));
 
 // ─── Middleware ───
+app.use(metricsMiddleware);
 app.use(express.json({ limit: '1mb' }));
 const corsOrigins = config.corsOrigin
   ? config.corsOrigin.split(',').map(s => s.trim())
