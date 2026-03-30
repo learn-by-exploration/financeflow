@@ -3,35 +3,26 @@ const router = express.Router();
 const createTransactionService = require('../services/transaction.service');
 const { safePatternTest } = require('../utils/safe-regex');
 const { createTransactionSchema } = require('../schemas/transaction.schema');
+const createTransactionRepository = require('../repositories/transaction.repository');
+const createAccountRepository = require('../repositories/account.repository');
 
 module.exports = function createTransactionRoutes({ db, audit }) {
 
   const txService = createTransactionService({ db });
+  const txRepo = createTransactionRepository({ db });
+  const accountRepo = createAccountRepository({ db });
 
   // GET /api/transactions
   router.get('/', (req, res, next) => {
     try {
-      const { account_id, category_id, type, from, to, limit = 50, offset = 0, search, tag_id } = req.query;
-      let sql = 'SELECT t.*, c.name as category_name, c.icon as category_icon, a.name as account_name FROM transactions t LEFT JOIN categories c ON t.category_id = c.id LEFT JOIN accounts a ON t.account_id = a.id WHERE t.user_id = ?';
-      const params = [req.user.id];
-      if (account_id) { sql += ' AND t.account_id = ?'; params.push(account_id); }
-      if (category_id) { sql += ' AND t.category_id = ?'; params.push(category_id); }
-      if (type) { sql += ' AND t.type = ?'; params.push(type); }
-      if (from) { sql += ' AND t.date >= ?'; params.push(from); }
-      if (to) { sql += ' AND t.date <= ?'; params.push(to); }
-      if (search) { sql += ' AND (t.description LIKE ? OR t.payee LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
-      if (tag_id) { sql += ' AND t.id IN (SELECT transaction_id FROM transaction_tags WHERE tag_id = ?)'; params.push(tag_id); }
-      sql += ' ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?';
-      params.push(parseInt(limit, 10), parseInt(offset, 10));
-      const transactions = db.prepare(sql).all(...params);
+      const transactions = txRepo.findAllByUser(req.user.id, req.query);
 
       // Attach tags to each transaction
-      const getTags = db.prepare('SELECT tg.id, tg.name, tg.color FROM transaction_tags tt JOIN tags tg ON tt.tag_id = tg.id WHERE tt.transaction_id = ?');
       for (const txn of transactions) {
-        txn.tags = getTags.all(txn.id);
+        txn.tags = txRepo.getTagsForTransaction(txn.id);
       }
 
-      const total = db.prepare('SELECT COUNT(*) as count FROM transactions WHERE user_id = ?').get(req.user.id).count;
+      const total = txRepo.countByUser(req.user.id);
       res.json({ transactions, total });
     } catch (err) { next(err); }
   });
@@ -76,25 +67,21 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       }
 
       // Regular income/expense
-      const result = db.prepare(`
-        INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, note, date, payee, tags)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(req.user.id, account_id, resolvedCategoryId, type, amount, currency || req.user.defaultCurrency, description, note || null, date, payee || null, JSON.stringify(tag_ids || []));
+      const transaction = txRepo.create(req.user.id, {
+        account_id, category_id: resolvedCategoryId, type, amount,
+        currency: currency || req.user.defaultCurrency, description, note, date, payee, tag_ids
+      });
 
       // Update account balance
       const balanceChange = type === 'income' ? amount : -amount;
-      db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
-        .run(balanceChange, account_id, req.user.id);
-
-      const transaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(result.lastInsertRowid);
+      accountRepo.updateBalance(account_id, req.user.id, balanceChange);
 
       // Link tags if provided
       if (Array.isArray(tag_ids) && tag_ids.length > 0) {
-        const insertTag = db.prepare('INSERT OR IGNORE INTO transaction_tags (transaction_id, tag_id) VALUES (?, ?)');
-        for (const tid of tag_ids) insertTag.run(transaction.id, tid);
+        txRepo.linkTags(transaction.id, tag_ids);
       }
       // Attach tags to response
-      transaction.tags = db.prepare('SELECT tg.id, tg.name, tg.color FROM transaction_tags tt JOIN tags tg ON tt.tag_id = tg.id WHERE tt.transaction_id = ?').all(transaction.id);
+      transaction.tags = txRepo.getTagsForTransaction(transaction.id);
 
       audit.log(req.user.id, 'transaction.create', 'transaction', transaction.id);
       res.status(201).json({ transaction });
@@ -104,22 +91,13 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   // PUT /api/transactions/:id
   router.put('/:id', (req, res, next) => {
     try {
-      const old = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      const old = txRepo.findById(req.params.id, req.user.id);
       if (!old) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Transaction not found' } });
 
-      const { category_id, description, note, date, payee, tags, amount } = req.body;
-
       // Handle amount update with delta-based balance recalculation
-      txService.applyAmountDelta(old, amount);
+      txService.applyAmountDelta(old, req.body.amount);
 
-      db.prepare(`
-        UPDATE transactions SET category_id = COALESCE(?, category_id), description = COALESCE(?, description),
-        note = COALESCE(?, note), date = COALESCE(?, date), payee = COALESCE(?, payee),
-        tags = COALESCE(?, tags), amount = COALESCE(?, amount), updated_at = datetime('now')
-        WHERE id = ? AND user_id = ?
-      `).run(category_id, description, note, date, payee, tags ? JSON.stringify(tags) : null, amount, req.params.id, req.user.id);
-
-      const transaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(req.params.id);
+      const transaction = txRepo.update(req.params.id, req.user.id, req.body);
       res.json({ transaction });
     } catch (err) { next(err); }
   });
@@ -127,7 +105,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   // DELETE /api/transactions/:id
   router.delete('/:id', (req, res, next) => {
     try {
-      const tx = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      const tx = txRepo.findById(req.params.id, req.user.id);
       if (!tx) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Transaction not found' } });
 
       if (tx.transfer_transaction_id) {
@@ -136,7 +114,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         // Regular: reverse balance change
         const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
         db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ?').run(balanceChange, tx.account_id);
-        db.prepare('DELETE FROM transactions WHERE id = ?').run(req.params.id);
+        txRepo.delete(tx.id, req.user.id);
       }
 
       audit.log(req.user.id, 'transaction.delete', 'transaction', req.params.id);
