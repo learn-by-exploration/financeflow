@@ -11,6 +11,7 @@ const createGoalRepository = require('../repositories/goal.repository');
 const { convert, buildRateMap } = require('../utils/currency-converter');
 const { ValidationError, NotFoundError } = require('../errors');
 const createNotificationService = require('../services/notification.service');
+const createSpendingLimitRepository = require('../repositories/spending-limit.repository');
 const { invalidateCache } = require('../middleware/cache');
 
 const CACHE_PATTERNS = ['/api/reports', '/api/charts', '/api/insights', '/api/stats', '/api/net-worth'];
@@ -24,6 +25,8 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   const notifService = createNotificationService({ db });
   const dupRepo = createDuplicateRepository({ db });
   const goalRepo = createGoalRepository({ db });
+  const spendingLimitRepo = createSpendingLimitRepository({ db });
+  const notifRepo = require('../repositories/notification.repository')({ db });
 
   // GET /api/transactions
   router.get('/', (req, res, next) => {
@@ -121,6 +124,46 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         const threshold = setting ? Number(setting.value) : 10000;
         notifService.checkLargeTransaction(req.user.id, transaction.id, amount, threshold);
       } catch (_) { /* notification failure should not break transaction */ }
+
+      // Spending limit alerts
+      if (type === 'expense') {
+        try {
+          const limits = spendingLimitRepo.getLimitsForCheck(req.user.id, resolvedCategoryId);
+          for (const limit of limits) {
+            const spent = spendingLimitRepo.getCurrentSpending(req.user.id, limit.category_id, limit.period);
+            const pct = limit.amount > 0 ? spent / limit.amount : 0;
+            const catLabel = limit.category_id ? `category` : 'overall';
+            if (pct >= 1) {
+              notifRepo.create(req.user.id, {
+                type: 'spending_exceeded',
+                title: 'Spending Limit Exceeded',
+                message: `You have exceeded your ${limit.period} ${catLabel} spending limit of ₹${limit.amount}. Current: ₹${Math.round(spent * 100) / 100}.`,
+                link: '/spending-limits',
+              });
+            } else if (pct >= 0.8) {
+              notifRepo.create(req.user.id, {
+                type: 'spending_warning',
+                title: 'Approaching Spending Limit',
+                message: `You have reached ${Math.round(pct * 100)}% of your ${limit.period} ${catLabel} spending limit of ₹${limit.amount}.`,
+                link: '/spending-limits',
+              });
+            }
+          }
+
+          // Unusual spending detection
+          if (resolvedCategoryId) {
+            const { avg, count } = spendingLimitRepo.getAverageSpending(req.user.id, resolvedCategoryId);
+            if (count >= 3 && amount > avg * 3) {
+              notifRepo.create(req.user.id, {
+                type: 'unusual_spending',
+                title: 'Unusual Spending Detected',
+                message: `Transaction of ₹${amount} is significantly higher than your average of ₹${Math.round(avg * 100) / 100} for this category.`,
+                link: `/transactions/${transaction.id}`,
+              });
+            }
+          }
+        } catch (_) { /* spending limit check failure should not break transaction */ }
+      }
 
       // Duplicate detection
       let potential_duplicate = false;

@@ -77,6 +77,7 @@ function cleanDb() {
   try { db.exec('DELETE FROM notifications'); } catch {}
   try { db.exec('DELETE FROM duplicate_dismissals'); } catch {}
   try { db.exec('DELETE FROM recurring_suggestion_dismissals'); } catch {}
+  try { db.exec('DELETE FROM spending_limits'); } catch {}
 }
 
 function teardown() {
