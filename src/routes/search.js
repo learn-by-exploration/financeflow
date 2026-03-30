@@ -35,7 +35,11 @@ module.exports = function createSearchRoutes({ db }) {
         'SELECT * FROM subscriptions WHERE user_id = ? AND (name LIKE ? OR provider LIKE ?) LIMIT ?'
       ).all(userId, like, like, MAX_RESULTS);
 
-      res.json({ transactions, accounts, categories, subscriptions });
+      const tags = db.prepare(
+        'SELECT * FROM tags WHERE user_id = ? AND name LIKE ? LIMIT ?'
+      ).all(userId, like, MAX_RESULTS);
+
+      res.json({ transactions, accounts, categories, subscriptions, tags });
     } catch (err) { next(err); }
   });
 

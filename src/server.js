@@ -98,6 +98,7 @@ const createAttachmentRoutes = require('./routes/attachments');
 const createNotificationRoutes = require('./routes/notifications');
 const createExportRoutes = require('./routes/export');
 const createDuplicateRoutes = require('./routes/duplicates');
+const createPreferencesRoutes = require('./routes/preferences');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -132,6 +133,7 @@ app.use('/api/charts', requireAuth, cacheMiddleware(60), createChartRoutes(deps)
 app.use('/api', requireAuth, createAttachmentRoutes(deps));
 app.use('/api/notifications', requireAuth, createNotificationRoutes(deps));
 app.use('/api/export', requireAuth, createExportRoutes(deps));
+app.use('/api/preferences', requireAuth, createPreferencesRoutes(deps));
 
 // GET /api/upcoming — shortcut for upcoming bills
 app.get('/api/upcoming', requireAuth, (req, res, next) => {
