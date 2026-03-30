@@ -5,6 +5,11 @@ const { setup, cleanDb, teardown, today } = require('./helpers');
 const createAccountRepository = require('../src/repositories/account.repository');
 const createTransactionRepository = require('../src/repositories/transaction.repository');
 const createCategoryRepository = require('../src/repositories/category.repository');
+const createBudgetRepository = require('../src/repositories/budget.repository');
+const createGoalRepository = require('../src/repositories/goal.repository');
+const createSubscriptionRepository = require('../src/repositories/subscription.repository');
+const createRecurringRepository = require('../src/repositories/recurring.repository');
+const createTagRepository = require('../src/repositories/tag.repository');
 
 let db, userId;
 
@@ -316,5 +321,446 @@ describe('TransactionRepository', () => {
     const filtered = txRepo.findAllByUser(userId, { tag_id: tag.lastInsertRowid });
     assert.equal(filtered.length, 1);
     assert.equal(filtered[0].description, 'HasTag');
+  });
+});
+
+// ─── BudgetRepository ───
+
+describe('BudgetRepository', () => {
+  let budgetRepo, categoryRepo;
+
+  before(() => {
+    budgetRepo = createBudgetRepository({ db });
+    categoryRepo = createCategoryRepository({ db });
+  });
+
+  it('create() inserts a budget and returns it', () => {
+    const budget = budgetRepo.create(userId, { name: 'Monthly', period: 'monthly', start_date: today(), end_date: '2026-12-31' });
+    assert.ok(budget.id);
+    assert.equal(budget.name, 'Monthly');
+    assert.equal(budget.period, 'monthly');
+    assert.equal(budget.user_id, userId);
+  });
+
+  it('create() inserts budget with items', () => {
+    const cat = categoryRepo.create(userId, { name: 'Food', type: 'expense' });
+    const budget = budgetRepo.create(userId, {
+      name: 'With Items', period: 'monthly', start_date: today(), end_date: '2026-12-31',
+      items: [{ category_id: cat.id, amount: 5000, rollover: true }]
+    });
+    assert.ok(budget.id);
+    const items = budgetRepo.getItems(budget.id);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].amount, 5000);
+    assert.equal(items[0].rollover, 1);
+    assert.equal(items[0].category_name, 'Food');
+  });
+
+  it('findById() returns the budget for the user', () => {
+    const created = budgetRepo.create(userId, { name: 'Find Me', period: 'monthly' });
+    const found = budgetRepo.findById(created.id, userId);
+    assert.equal(found.id, created.id);
+    assert.equal(found.name, 'Find Me');
+  });
+
+  it('findById() returns undefined for wrong user', () => {
+    const created = budgetRepo.create(userId, { name: 'Private', period: 'monthly' });
+    const found = budgetRepo.findById(created.id, 9999);
+    assert.equal(found, undefined);
+  });
+
+  it('findAllByUser() returns budgets ordered by created_at DESC', () => {
+    budgetRepo.create(userId, { name: 'Budget A', period: 'monthly' });
+    budgetRepo.create(userId, { name: 'Budget B', period: 'weekly' });
+    const all = budgetRepo.findAllByUser(userId);
+    assert.ok(all.length >= 2);
+  });
+
+  it('update() modifies budget fields', () => {
+    const created = budgetRepo.create(userId, { name: 'Old Budget', period: 'monthly' });
+    const updated = budgetRepo.update(created.id, userId, { name: 'New Budget' });
+    assert.equal(updated.name, 'New Budget');
+    assert.equal(updated.period, 'monthly');
+  });
+
+  it('delete() removes the budget and cascades items', () => {
+    const cat = categoryRepo.create(userId, { name: 'Rent', type: 'expense' });
+    const budget = budgetRepo.create(userId, {
+      name: 'Delete Me', period: 'monthly',
+      items: [{ category_id: cat.id, amount: 1000 }]
+    });
+    budgetRepo.delete(budget.id, userId);
+    assert.equal(budgetRepo.findById(budget.id, userId), undefined);
+    assert.equal(budgetRepo.getItems(budget.id).length, 0);
+  });
+
+  it('getItems() returns items with category joins', () => {
+    const cat = categoryRepo.create(userId, { name: 'Transport', type: 'expense' });
+    const budget = budgetRepo.create(userId, {
+      name: 'Items Test', period: 'monthly',
+      items: [{ category_id: cat.id, amount: 3000 }]
+    });
+    const items = budgetRepo.getItems(budget.id);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].category_name, 'Transport');
+    assert.ok(items[0].category_icon);
+  });
+
+  it('updateItem() modifies item amount and rollover', () => {
+    const cat = categoryRepo.create(userId, { name: 'Groceries', type: 'expense' });
+    const budget = budgetRepo.create(userId, {
+      name: 'Item Update', period: 'monthly',
+      items: [{ category_id: cat.id, amount: 2000, rollover: false }]
+    });
+    const items = budgetRepo.getItems(budget.id);
+    const updated = budgetRepo.updateItem(items[0].id, budget.id, { amount: 3000, rollover: 1 });
+    assert.equal(updated.amount, 3000);
+    assert.equal(updated.rollover, 1);
+  });
+
+  it('findItemById() returns item for correct budget', () => {
+    const cat = categoryRepo.create(userId, { name: 'Utils', type: 'expense' });
+    const budget = budgetRepo.create(userId, {
+      name: 'Item Find', period: 'monthly',
+      items: [{ category_id: cat.id, amount: 1000 }]
+    });
+    const items = budgetRepo.getItems(budget.id);
+    const found = budgetRepo.findItemById(items[0].id, budget.id);
+    assert.ok(found);
+    assert.equal(found.amount, 1000);
+  });
+
+  it('findItemById() returns undefined for wrong budget', () => {
+    const cat = categoryRepo.create(userId, { name: 'Misc', type: 'expense' });
+    const budget = budgetRepo.create(userId, {
+      name: 'Wrong Budget', period: 'monthly',
+      items: [{ category_id: cat.id, amount: 500 }]
+    });
+    const items = budgetRepo.getItems(budget.id);
+    const found = budgetRepo.findItemById(items[0].id, 99999);
+    assert.equal(found, undefined);
+  });
+});
+
+// ─── GoalRepository ───
+
+describe('GoalRepository', () => {
+  let goalRepo;
+
+  before(() => {
+    goalRepo = createGoalRepository({ db });
+  });
+
+  it('create() inserts a goal and returns it', () => {
+    const goal = goalRepo.create(userId, { name: 'Emergency Fund', target_amount: 100000 });
+    assert.ok(goal.id);
+    assert.equal(goal.name, 'Emergency Fund');
+    assert.equal(goal.target_amount, 100000);
+    assert.equal(goal.current_amount, 0);
+    assert.equal(goal.user_id, userId);
+  });
+
+  it('findById() returns the goal', () => {
+    const created = goalRepo.create(userId, { name: 'Vacation', target_amount: 50000 });
+    const found = goalRepo.findById(created.id, userId);
+    assert.equal(found.id, created.id);
+    assert.equal(found.name, 'Vacation');
+  });
+
+  it('findById() returns undefined for wrong user', () => {
+    const created = goalRepo.create(userId, { name: 'Private Goal', target_amount: 10000 });
+    assert.equal(goalRepo.findById(created.id, 9999), undefined);
+  });
+
+  it('findAllByUser() returns goals ordered by position', () => {
+    goalRepo.create(userId, { name: 'Goal A', target_amount: 1000 });
+    goalRepo.create(userId, { name: 'Goal B', target_amount: 2000 });
+    const all = goalRepo.findAllByUser(userId);
+    assert.ok(all.length >= 2);
+  });
+
+  it('update() modifies goal fields', () => {
+    const created = goalRepo.create(userId, { name: 'Old Goal', target_amount: 5000 });
+    const updated = goalRepo.update(created.id, userId, { name: 'New Goal' });
+    assert.equal(updated.name, 'New Goal');
+    assert.equal(updated.target_amount, 5000);
+  });
+
+  it('update() auto-marks completed when current_amount >= target_amount', () => {
+    const created = goalRepo.create(userId, { name: 'Complete Me', target_amount: 1000 });
+    const updated = goalRepo.update(created.id, userId, { current_amount: 1000 });
+    assert.equal(updated.is_completed, 1);
+  });
+
+  it('delete() removes the goal', () => {
+    const created = goalRepo.create(userId, { name: 'Delete Me', target_amount: 500 });
+    goalRepo.delete(created.id, userId);
+    assert.equal(goalRepo.findById(created.id, userId), undefined);
+  });
+
+  it('contribute() increments current_amount', () => {
+    const created = goalRepo.create(userId, { name: 'Save Up', target_amount: 10000, current_amount: 2000 });
+    const updated = goalRepo.contribute(created.id, userId, 3000);
+    assert.equal(updated.current_amount, 5000);
+    assert.equal(updated.is_completed, 0);
+  });
+
+  it('contribute() auto-marks completed on reaching target', () => {
+    const created = goalRepo.create(userId, { name: 'Almost There', target_amount: 5000, current_amount: 4000 });
+    const updated = goalRepo.contribute(created.id, userId, 1000);
+    assert.equal(updated.current_amount, 5000);
+    assert.equal(updated.is_completed, 1);
+  });
+
+  it('contribute() returns undefined for wrong user', () => {
+    const created = goalRepo.create(userId, { name: 'Not Yours', target_amount: 1000 });
+    assert.equal(goalRepo.contribute(created.id, 9999, 100), undefined);
+  });
+});
+
+// ─── SubscriptionRepository ───
+
+describe('SubscriptionRepository', () => {
+  let subRepo;
+
+  before(() => {
+    subRepo = createSubscriptionRepository({ db });
+  });
+
+  it('create() inserts a subscription and returns it', () => {
+    const sub = subRepo.create(userId, { name: 'Netflix', amount: 199, frequency: 'monthly' });
+    assert.ok(sub.id);
+    assert.equal(sub.name, 'Netflix');
+    assert.equal(sub.amount, 199);
+    assert.equal(sub.frequency, 'monthly');
+    assert.equal(sub.user_id, userId);
+  });
+
+  it('findById() returns the subscription', () => {
+    const created = subRepo.create(userId, { name: 'Spotify', amount: 119, frequency: 'monthly' });
+    const found = subRepo.findById(created.id, userId);
+    assert.equal(found.id, created.id);
+    assert.equal(found.name, 'Spotify');
+  });
+
+  it('findById() returns undefined for wrong user', () => {
+    const created = subRepo.create(userId, { name: 'Private Sub', amount: 99, frequency: 'monthly' });
+    assert.equal(subRepo.findById(created.id, 9999), undefined);
+  });
+
+  it('findAllByUser() returns subscriptions with category join', () => {
+    subRepo.create(userId, { name: 'YouTube', amount: 129, frequency: 'monthly' });
+    const all = subRepo.findAllByUser(userId);
+    assert.ok(all.length >= 1);
+  });
+
+  it('update() modifies subscription fields', () => {
+    const created = subRepo.create(userId, { name: 'Old Sub', amount: 100, frequency: 'monthly' });
+    const updated = subRepo.update(created.id, userId, { name: 'New Sub', amount: 150 });
+    assert.equal(updated.name, 'New Sub');
+    assert.equal(updated.amount, 150);
+  });
+
+  it('delete() removes the subscription', () => {
+    const created = subRepo.create(userId, { name: 'Delete Me', amount: 50, frequency: 'monthly' });
+    subRepo.delete(created.id, userId);
+    assert.equal(subRepo.findById(created.id, userId), undefined);
+  });
+});
+
+// ─── RecurringRepository ───
+
+describe('RecurringRepository', () => {
+  let recurringRepo, accountRepo;
+
+  before(() => {
+    recurringRepo = createRecurringRepository({ db });
+    accountRepo = createAccountRepository({ db });
+  });
+
+  function createTestAccount() {
+    return accountRepo.create(userId, { name: 'Test Checking', type: 'checking', currency: 'INR', balance: 50000 });
+  }
+
+  it('create() inserts a recurring rule and returns it', () => {
+    const acct = createTestAccount();
+    const rule = recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 5000, description: 'Rent', frequency: 'monthly', next_date: today()
+    });
+    assert.ok(rule.id);
+    assert.equal(rule.description, 'Rent');
+    assert.equal(rule.amount, 5000);
+    assert.equal(rule.frequency, 'monthly');
+    assert.equal(rule.is_active, 1);
+  });
+
+  it('findById() returns the rule', () => {
+    const acct = createTestAccount();
+    const created = recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 1000, description: 'Internet', frequency: 'monthly', next_date: today()
+    });
+    const found = recurringRepo.findById(created.id, userId);
+    assert.equal(found.id, created.id);
+    assert.equal(found.description, 'Internet');
+  });
+
+  it('findById() returns undefined for wrong user', () => {
+    const acct = createTestAccount();
+    const created = recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 500, description: 'Private', frequency: 'weekly', next_date: today()
+    });
+    assert.equal(recurringRepo.findById(created.id, 9999), undefined);
+  });
+
+  it('findAllByUser() returns rules with account/category joins', () => {
+    const acct = createTestAccount();
+    recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 2000, description: 'Electric', frequency: 'monthly', next_date: today()
+    });
+    const all = recurringRepo.findAllByUser(userId);
+    assert.ok(all.length >= 1);
+    assert.ok(all[0].account_name);
+  });
+
+  it('update() modifies rule fields', () => {
+    const acct = createTestAccount();
+    const created = recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 1500, description: 'Old Rule', frequency: 'monthly', next_date: today()
+    });
+    const updated = recurringRepo.update(created.id, userId, { description: 'New Rule', amount: 2000 });
+    assert.equal(updated.description, 'New Rule');
+    assert.equal(updated.amount, 2000);
+  });
+
+  it('update() with no fields returns existing rule', () => {
+    const acct = createTestAccount();
+    const created = recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 300, description: 'No Change', frequency: 'weekly', next_date: today()
+    });
+    const same = recurringRepo.update(created.id, userId, {});
+    assert.equal(same.id, created.id);
+    assert.equal(same.description, 'No Change');
+  });
+
+  it('delete() removes the rule', () => {
+    const acct = createTestAccount();
+    const created = recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 500, description: 'Gone', frequency: 'daily', next_date: today()
+    });
+    recurringRepo.delete(created.id, userId);
+    assert.equal(recurringRepo.findById(created.id, userId), undefined);
+  });
+
+  it('advanceNextDate() moves next_date by frequency', () => {
+    const acct = createTestAccount();
+    const created = recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 1000, description: 'Advance Test', frequency: 'monthly', next_date: '2026-03-15'
+    });
+    const advanced = recurringRepo.advanceNextDate(created.id, userId);
+    assert.equal(advanced.next_date, '2026-04-15');
+  });
+
+  it('advanceNextDate() returns undefined for wrong user', () => {
+    const acct = createTestAccount();
+    const created = recurringRepo.create(userId, {
+      account_id: acct.id, type: 'expense', amount: 500, description: 'Not Yours', frequency: 'weekly', next_date: today()
+    });
+    assert.equal(recurringRepo.advanceNextDate(created.id, 9999), undefined);
+  });
+});
+
+// ─── TagRepository ───
+
+describe('TagRepository', () => {
+  let tagRepo, txRepo, accountRepo;
+
+  before(() => {
+    tagRepo = createTagRepository({ db });
+    txRepo = createTransactionRepository({ db });
+    accountRepo = createAccountRepository({ db });
+  });
+
+  it('create() inserts a tag and returns it', () => {
+    const tag = tagRepo.create(userId, { name: 'groceries', color: '#ff0000' });
+    assert.ok(tag.id);
+    assert.equal(tag.name, 'groceries');
+    assert.equal(tag.color, '#ff0000');
+    assert.equal(tag.user_id, userId);
+  });
+
+  it('findById() returns the tag', () => {
+    const created = tagRepo.create(userId, { name: 'travel' });
+    const found = tagRepo.findById(created.id, userId);
+    assert.equal(found.id, created.id);
+    assert.equal(found.name, 'travel');
+  });
+
+  it('findById() returns undefined for wrong user', () => {
+    const created = tagRepo.create(userId, { name: 'private-tag' });
+    assert.equal(tagRepo.findById(created.id, 9999), undefined);
+  });
+
+  it('findByName() returns tag by name', () => {
+    tagRepo.create(userId, { name: 'unique-name' });
+    const found = tagRepo.findByName(userId, 'unique-name');
+    assert.ok(found);
+    assert.equal(found.name, 'unique-name');
+  });
+
+  it('findByName() returns undefined for non-existent name', () => {
+    assert.equal(tagRepo.findByName(userId, 'no-such-tag'), undefined);
+  });
+
+  it('findAllByUser() returns tags ordered by name', () => {
+    tagRepo.create(userId, { name: 'zzz-tag' });
+    tagRepo.create(userId, { name: 'aaa-tag' });
+    const all = tagRepo.findAllByUser(userId);
+    assert.ok(all.length >= 2);
+    // Should be alphabetical
+    const names = all.map(t => t.name);
+    const sorted = [...names].sort();
+    assert.deepEqual(names, sorted);
+  });
+
+  it('update() modifies tag fields', () => {
+    const created = tagRepo.create(userId, { name: 'old-tag', color: '#000000' });
+    const updated = tagRepo.update(created.id, userId, { name: 'new-tag', color: '#ffffff' });
+    assert.equal(updated.name, 'new-tag');
+    assert.equal(updated.color, '#ffffff');
+  });
+
+  it('delete() removes the tag', () => {
+    const created = tagRepo.create(userId, { name: 'delete-me' });
+    tagRepo.delete(created.id, userId);
+    assert.equal(tagRepo.findById(created.id, userId), undefined);
+  });
+
+  it('linkTransactionTags() and getTransactionTags() manage tags', () => {
+    const acct = accountRepo.create(userId, { name: 'Tag Acct', type: 'checking', currency: 'INR', balance: 10000 });
+    const tx = txRepo.create(userId, { account_id: acct.id, type: 'expense', amount: 100, currency: 'INR', description: 'Tagged Tx', date: today() });
+    const t1 = tagRepo.create(userId, { name: 'link-tag1', color: '#ff0000' });
+    const t2 = tagRepo.create(userId, { name: 'link-tag2', color: '#00ff00' });
+    tagRepo.linkTransactionTags(tx.id, [t1.id, t2.id]);
+    const tags = tagRepo.getTransactionTags(tx.id);
+    assert.equal(tags.length, 2);
+    const names = tags.map(t => t.name).sort();
+    assert.deepEqual(names, ['link-tag1', 'link-tag2']);
+  });
+
+  it('linkTransactionTags() is idempotent', () => {
+    const acct = accountRepo.create(userId, { name: 'Idem Acct', type: 'checking', currency: 'INR', balance: 10000 });
+    const tx = txRepo.create(userId, { account_id: acct.id, type: 'expense', amount: 50, currency: 'INR', description: 'Idem Tx', date: today() });
+    const tag = tagRepo.create(userId, { name: 'idem-tag' });
+    tagRepo.linkTransactionTags(tx.id, [tag.id]);
+    tagRepo.linkTransactionTags(tx.id, [tag.id]); // should not throw
+    const tags = tagRepo.getTransactionTags(tx.id);
+    assert.equal(tags.length, 1);
+  });
+
+  it('getTransactionTags() returns empty array for untagged transaction', () => {
+    const acct = accountRepo.create(userId, { name: 'Notag Acct', type: 'checking', currency: 'INR', balance: 10000 });
+    const tx = txRepo.create(userId, { account_id: acct.id, type: 'expense', amount: 25, currency: 'INR', description: 'No Tags', date: today() });
+    const tags = tagRepo.getTransactionTags(tx.id);
+    assert.equal(tags.length, 0);
   });
 });

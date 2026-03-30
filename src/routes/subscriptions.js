@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { createSubscriptionSchema } = require('../schemas/subscription.schema');
+const createSubscriptionRepository = require('../repositories/subscription.repository');
 
 module.exports = function createSubscriptionRoutes({ db, audit }) {
+  const subRepo = createSubscriptionRepository({ db });
 
   // GET /api/subscriptions
   router.get('/', (req, res, next) => {
     try {
-      const subs = db.prepare('SELECT s.*, c.name as category_name FROM subscriptions s LEFT JOIN categories c ON s.category_id = c.id WHERE s.user_id = ? ORDER BY s.is_active DESC, s.next_billing_date').all(req.user.id);
+      const subs = subRepo.findAllByUser(req.user.id);
       const totalMonthly = subs.filter(s => s.is_active).reduce((sum, s) => {
         const multiplier = { weekly: 4.33, monthly: 1, quarterly: 1 / 3, yearly: 1 / 12 };
         return sum + s.amount * (multiplier[s.frequency] || 1);
@@ -23,41 +25,29 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
       if (!parsed.success) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      const { name, amount, currency, frequency, category_id, next_billing_date, provider, notes } = parsed.data;
-      const result = db.prepare(`
-        INSERT INTO subscriptions (user_id, name, amount, currency, frequency, category_id, next_billing_date, provider, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(req.user.id, name, amount, currency || req.user.defaultCurrency, frequency, category_id || null, next_billing_date || null, provider || null, notes || null);
-      audit.log(req.user.id, 'subscription.create', 'subscription', result.lastInsertRowid);
-      const sub = db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(result.lastInsertRowid);
-      res.status(201).json({ subscription: sub });
+      const data = { ...parsed.data, currency: parsed.data.currency || req.user.defaultCurrency };
+      const subscription = subRepo.create(req.user.id, data);
+      audit.log(req.user.id, 'subscription.create', 'subscription', subscription.id);
+      res.status(201).json({ subscription });
     } catch (err) { next(err); }
   });
 
   // PUT /api/subscriptions/:id
   router.put('/:id', (req, res, next) => {
     try {
-      const existing = db.prepare('SELECT * FROM subscriptions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      const existing = subRepo.findById(req.params.id, req.user.id);
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Subscription not found' } });
-      const { name, amount, frequency, is_active, next_billing_date, provider, notes } = req.body;
-      db.prepare(`
-        UPDATE subscriptions SET name = COALESCE(?, name), amount = COALESCE(?, amount),
-        frequency = COALESCE(?, frequency), is_active = COALESCE(?, is_active),
-        next_billing_date = COALESCE(?, next_billing_date), provider = COALESCE(?, provider),
-        notes = COALESCE(?, notes), updated_at = datetime('now')
-        WHERE id = ? AND user_id = ?
-      `).run(name, amount, frequency, is_active, next_billing_date, provider, notes, req.params.id, req.user.id);
-      const sub = db.prepare('SELECT * FROM subscriptions WHERE id = ?').get(req.params.id);
-      res.json({ subscription: sub });
+      const subscription = subRepo.update(req.params.id, req.user.id, req.body);
+      res.json({ subscription });
     } catch (err) { next(err); }
   });
 
   // DELETE /api/subscriptions/:id
   router.delete('/:id', (req, res, next) => {
     try {
-      const existing = db.prepare('SELECT * FROM subscriptions WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      const existing = subRepo.findById(req.params.id, req.user.id);
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Subscription not found' } });
-      db.prepare('DELETE FROM subscriptions WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+      subRepo.delete(req.params.id, req.user.id);
       audit.log(req.user.id, 'subscription.delete', 'subscription', req.params.id);
       res.json({ ok: true });
     } catch (err) { next(err); }

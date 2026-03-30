@@ -1,13 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const { createBudgetSchema } = require('../schemas/budget.schema');
+const createBudgetRepository = require('../repositories/budget.repository');
 
 module.exports = function createBudgetRoutes({ db, audit }) {
+  const budgetRepo = createBudgetRepository({ db });
 
   // GET /api/budgets
   router.get('/', (req, res, next) => {
     try {
-      const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ? ORDER BY created_at DESC, id DESC').all(req.user.id);
+      const budgets = budgetRepo.findAllByUser(req.user.id);
       res.json({ budgets });
     } catch (err) { next(err); }
   });
@@ -15,13 +17,9 @@ module.exports = function createBudgetRoutes({ db, audit }) {
   // GET /api/budgets/:id
   router.get('/:id', (req, res, next) => {
     try {
-      const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      const budget = budgetRepo.findById(req.params.id, req.user.id);
       if (!budget) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget not found' } });
-      const items = db.prepare(`
-        SELECT bi.*, c.name as category_name, c.icon as category_icon
-        FROM budget_items bi LEFT JOIN categories c ON bi.category_id = c.id
-        WHERE bi.budget_id = ?
-      `).all(budget.id);
+      const items = budgetRepo.getItems(budget.id);
       res.json({ budget, items });
     } catch (err) { next(err); }
   });
@@ -29,14 +27,10 @@ module.exports = function createBudgetRoutes({ db, audit }) {
   // GET /api/budgets/:id/summary
   router.get('/:id/summary', (req, res, next) => {
     try {
-      const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      const budget = budgetRepo.findById(req.params.id, req.user.id);
       if (!budget) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget not found' } });
 
-      const items = db.prepare(`
-        SELECT bi.*, c.name as category_name, c.icon as category_icon
-        FROM budget_items bi LEFT JOIN categories c ON bi.category_id = c.id
-        WHERE bi.budget_id = ?
-      `).all(budget.id);
+      const items = budgetRepo.getItems(budget.id);
 
       // Get spending per category in budget period
       const spending = db.prepare(`
@@ -113,34 +107,18 @@ module.exports = function createBudgetRoutes({ db, audit }) {
       if (!parsed.success) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      const { name, period, start_date, end_date, items } = parsed.data;
-      const result = db.prepare('INSERT INTO budgets (user_id, name, period, start_date, end_date) VALUES (?, ?, ?, ?, ?)')
-        .run(req.user.id, name, period, start_date || null, end_date || null);
-      if (items && items.length) {
-        const insert = db.prepare('INSERT INTO budget_items (budget_id, category_id, amount, rollover) VALUES (?, ?, ?, ?)');
-        const tx = db.transaction(() => {
-          items.forEach(item => insert.run(result.lastInsertRowid, item.category_id, item.amount, item.rollover ? 1 : 0));
-        });
-        tx();
-      }
-      audit.log(req.user.id, 'budget.create', 'budget', result.lastInsertRowid);
-      res.status(201).json({ id: result.lastInsertRowid });
+      const budget = budgetRepo.create(req.user.id, parsed.data);
+      audit.log(req.user.id, 'budget.create', 'budget', budget.id);
+      res.status(201).json({ id: budget.id });
     } catch (err) { next(err); }
   });
 
   // PUT /api/budgets/:id
   router.put('/:id', (req, res, next) => {
     try {
-      const existing = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      const existing = budgetRepo.findById(req.params.id, req.user.id);
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget not found' } });
-      const { name, period, start_date, end_date, is_active } = req.body;
-      db.prepare(`
-        UPDATE budgets SET name = COALESCE(?, name), period = COALESCE(?, period),
-        start_date = COALESCE(?, start_date), end_date = COALESCE(?, end_date),
-        is_active = COALESCE(?, is_active), updated_at = datetime('now')
-        WHERE id = ? AND user_id = ?
-      `).run(name, period, start_date, end_date, is_active, req.params.id, req.user.id);
-      const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(req.params.id);
+      const budget = budgetRepo.update(req.params.id, req.user.id, req.body);
       res.json({ budget });
     } catch (err) { next(err); }
   });
@@ -148,21 +126,13 @@ module.exports = function createBudgetRoutes({ db, audit }) {
   // PUT /api/budgets/:id/items/:itemId — update budget item (rollover toggle, amount)
   router.put('/:id/items/:itemId', (req, res, next) => {
     try {
-      const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      const budget = budgetRepo.findById(req.params.id, req.user.id);
       if (!budget) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget not found' } });
 
-      const item = db.prepare('SELECT * FROM budget_items WHERE id = ? AND budget_id = ?').get(req.params.itemId, budget.id);
+      const item = budgetRepo.findItemById(req.params.itemId, budget.id);
       if (!item) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget item not found' } });
 
-      const updates = [];
-      const values = [];
-      if (req.body.rollover !== undefined) { updates.push('rollover = ?'); values.push(req.body.rollover); }
-      if (req.body.amount !== undefined) { updates.push('amount = ?'); values.push(req.body.amount); }
-      if (updates.length > 0) {
-        values.push(item.id);
-        db.prepare(`UPDATE budget_items SET ${updates.join(', ')} WHERE id = ?`).run(...values);
-      }
-      const updated = db.prepare('SELECT * FROM budget_items WHERE id = ?').get(item.id);
+      const updated = budgetRepo.updateItem(item.id, budget.id, req.body);
       res.json({ item: updated });
     } catch (err) { next(err); }
   });
@@ -170,7 +140,7 @@ module.exports = function createBudgetRoutes({ db, audit }) {
   // DELETE /api/budgets/:id
   router.delete('/:id', (req, res, next) => {
     try {
-      db.prepare('DELETE FROM budgets WHERE id = ? AND user_id = ?').run(req.params.id, req.user.id);
+      budgetRepo.delete(req.params.id, req.user.id);
       audit.log(req.user.id, 'budget.delete', 'budget', req.params.id);
       res.json({ ok: true });
     } catch (err) { next(err); }
