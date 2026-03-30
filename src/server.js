@@ -105,6 +105,7 @@ const createExportRoutes = require('./routes/export');
 const createDuplicateRoutes = require('./routes/duplicates');
 const createPreferencesRoutes = require('./routes/preferences');
 const createAdminRoutes = require('./routes/admin');
+const createCalendarRoutes = require('./routes/calendar');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -143,6 +144,7 @@ app.use('/api', requireAuth, createAttachmentRoutes(deps));
 app.use('/api/notifications', requireAuth, createNotificationRoutes(deps));
 app.use('/api/export', requireAuth, createExportRoutes(deps));
 app.use('/api/preferences', requireAuth, createPreferencesRoutes(deps));
+app.use('/api/calendar', requireAuth, createCalendarRoutes(deps));
 app.use('/api/admin', requireAuth, createAdminRoutes(deps));
 
 // GET /api/upcoming — shortcut for upcoming bills

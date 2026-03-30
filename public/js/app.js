@@ -27,6 +27,8 @@ const views = {
   settings:      () => import('./views/settings.js').then(m => m.renderSettings),
   search:        () => import('./views/search.js').then(m => m.renderSearch),
   insights:      () => import('./views/insights.js').then(m => m.renderInsights),
+  recurring:     () => import('./views/recurring.js').then(m => m.renderRecurring),
+  calendar:      () => import('./views/calendar.js').then(m => m.renderCalendar),
 };
 
 function placeholder(title, desc) {
