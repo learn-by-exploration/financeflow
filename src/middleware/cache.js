@@ -1,13 +1,14 @@
 const crypto = require('crypto');
 
-// In-memory cache store: key -> { data, statusCode, headers, expiresAt }
+// In-memory cache store: key -> { data, statusCode, headers, expiresAt, tags }
 const cache = new Map();
 
 /**
  * Cache middleware for GET responses keyed by URL + userId.
  * @param {number} ttlSeconds - Time-to-live in seconds (default 60)
+ * @param {string[]} tags - Entity-type tags for tag-based invalidation (e.g. ['transactions', 'accounts'])
  */
-function cacheMiddleware(ttlSeconds = 60) {
+function cacheMiddleware(ttlSeconds = 60, tags = []) {
   return (req, res, next) => {
     if (req.method !== 'GET') return next();
 
@@ -47,6 +48,7 @@ function cacheMiddleware(ttlSeconds = 60) {
           statusCode: res.statusCode || 200,
           contentType: 'application/json; charset=utf-8',
           etag,
+          tags: tags.length > 0 ? tags : [],
           expiresAt: Date.now() + ttlSeconds * 1000,
         });
       }
@@ -80,6 +82,23 @@ function invalidateCache(userId, patterns) {
 }
 
 /**
+ * Clear cache entries for a user that have any of the given tags.
+ * @param {number} userId
+ * @param {string[]} tags - Entity-type tags to match (e.g. ['transactions', 'accounts'])
+ */
+function invalidateCacheByTags(userId, tags) {
+  if (!userId || !tags || tags.length === 0) return;
+
+  for (const [key, entry] of cache) {
+    const prefix = `${userId}:`;
+    if (!key.startsWith(prefix)) continue;
+    if (entry.tags && entry.tags.some(t => tags.includes(t))) {
+      cache.delete(key);
+    }
+  }
+}
+
+/**
  * Clear all cache entries (useful for tests).
  */
 function clearAllCache() {
@@ -93,4 +112,4 @@ function getCacheStore() {
   return cache;
 }
 
-module.exports = { cacheMiddleware, invalidateCache, clearAllCache, getCacheStore };
+module.exports = { cacheMiddleware, invalidateCache, invalidateCacheByTags, clearAllCache, getCacheStore };

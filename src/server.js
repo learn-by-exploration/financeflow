@@ -14,7 +14,8 @@ const createRequestIdMiddleware = require('./middleware/request-id');
 const requireJsonContentType = require('./middleware/content-type');
 const createScheduler = require('./scheduler');
 const logger = require('./logger');
-const { cacheMiddleware, invalidateCache, clearAllCache } = require('./middleware/cache');
+const { cacheMiddleware, invalidateCache, invalidateCacheByTags, clearAllCache } = require('./middleware/cache');
+const { timeoutMiddleware } = require('./middleware/timeout');
 const { etagMiddleware } = require('./middleware/etag');
 const { metricsMiddleware } = require('./middleware/metrics');
 
@@ -52,6 +53,7 @@ app.use(helmet({
 
 // ─── Middleware ───
 app.use(metricsMiddleware);
+app.use(timeoutMiddleware());
 app.use(express.json({ limit: '1mb' }));
 const corsOrigins = config.corsOrigin
   ? config.corsOrigin.split(',').map(s => s.trim())
@@ -128,11 +130,11 @@ app.use('/api/search', requireAuth, createSearchRoutes(deps));
 app.use('/api/net-worth', requireAuth, createNetWorthRoutes(deps));
 app.use('/api/audit', requireAuth, createAuditRoutes(deps));
 app.use('/api/reminders', requireAuth, createReminderRoutes(deps));
-app.use('/api/reports', requireAuth, cacheMiddleware(60), createReportRoutes(deps));
-app.use('/api/insights', requireAuth, cacheMiddleware(60), createInsightRoutes(deps));
+app.use('/api/reports', requireAuth, cacheMiddleware(60, ['transactions', 'accounts', 'categories', 'budgets']), createReportRoutes(deps));
+app.use('/api/insights', requireAuth, cacheMiddleware(60, ['transactions', 'accounts', 'categories', 'budgets', 'goals']), createInsightRoutes(deps));
 app.use('/api/exchange-rates', requireAuth, createExchangeRateRoutes(deps));
 app.use('/api/tokens', requireAuth, createApiTokenRoutes(deps));
-app.use('/api/charts', requireAuth, cacheMiddleware(60), createChartRoutes(deps));
+app.use('/api/charts', requireAuth, cacheMiddleware(60, ['transactions', 'accounts', 'categories']), createChartRoutes(deps));
 app.use('/api', requireAuth, createAttachmentRoutes(deps));
 app.use('/api/notifications', requireAuth, createNotificationRoutes(deps));
 app.use('/api/export', requireAuth, createExportRoutes(deps));
@@ -234,4 +236,4 @@ if (!config.isTest) {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-module.exports = { app, db, invalidateCache, clearAllCache, validateStartup };
+module.exports = { app, db, invalidateCache, invalidateCacheByTags, clearAllCache, validateStartup };
