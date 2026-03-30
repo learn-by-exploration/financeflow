@@ -92,6 +92,7 @@ const createApiTokenRoutes = require('./routes/api-tokens');
 const createChartRoutes = require('./routes/charts');
 const createAttachmentRoutes = require('./routes/attachments');
 const createNotificationRoutes = require('./routes/notifications');
+const createExportRoutes = require('./routes/export');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -123,6 +124,7 @@ app.use('/api/tokens', requireAuth, createApiTokenRoutes(deps));
 app.use('/api/charts', requireAuth, createChartRoutes(deps));
 app.use('/api', requireAuth, createAttachmentRoutes(deps));
 app.use('/api/notifications', requireAuth, createNotificationRoutes(deps));
+app.use('/api/export', requireAuth, createExportRoutes(deps));
 
 // GET /api/upcoming — shortcut for upcoming bills
 app.get('/api/upcoming', requireAuth, (req, res, next) => {
