@@ -61,9 +61,9 @@ export async function renderSettings(container) {
   // App info
   const infoCard = el('div', { className: 'card settings-section' }, [
     el('h3', { textContent: 'About' }),
-    el('div', { className: 'settings-row' }, [
+    el('div', { className: 'settings-row', id: 'version-row' }, [
       el('span', { className: 'settings-label', textContent: 'Version' }),
-      el('span', { className: 'settings-value', textContent: '0.1.7' }),
+      el('span', { className: 'settings-value version-value', textContent: 'loading...' }),
     ]),
     el('div', { className: 'settings-row' }, [
       el('span', { className: 'settings-label', textContent: 'License' }),
@@ -75,6 +75,16 @@ export async function renderSettings(container) {
     ]),
   ]);
   container.appendChild(infoCard);
+
+  // Fetch version from API
+  try {
+    const { version } = await Api.get('/version');
+    const versionEl = infoCard.querySelector('.version-value');
+    if (versionEl) versionEl.textContent = version || 'unknown';
+  } catch {
+    const versionEl = infoCard.querySelector('.version-value');
+    if (versionEl) versionEl.textContent = 'unknown';
+  }
 }
 
 function settingRow(label, key, currentValue, options) {

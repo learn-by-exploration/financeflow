@@ -125,6 +125,7 @@ const createDemoRoutes = require('./routes/demo');
 const createSpendingLimitRoutes = require('./routes/spending-limits');
 const createBrandingRoutes = require('./routes/branding');
 const createWhatsNewRoutes = require('./routes/whats-new');
+const createOnboardingRoutes = require('./routes/onboarding');
 
 // ─── Version endpoint (public) ───
 app.get('/api/version', (_req, res) => {
@@ -173,6 +174,7 @@ app.use('/api/export', requireAuth, createExportRoutes(deps));
 app.use('/api/preferences', requireAuth, createPreferencesRoutes(deps));
 app.use('/api/calendar', requireAuth, createCalendarRoutes(deps));
 app.use('/api/spending-limits', requireAuth, createSpendingLimitRoutes(deps));
+app.use('/api/users', requireAuth, createOnboardingRoutes(deps));
 app.use('/api/admin', requireAuth, requireAdmin, createAdminRoutes(deps));
 
 // ─── Metrics endpoint (admin only) ───

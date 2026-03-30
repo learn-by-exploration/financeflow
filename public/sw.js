@@ -1,12 +1,15 @@
-// PersonalFi — Service Worker (PWA)
-const CACHE_NAME = 'personalfi-v0.3.47';
+// FinanceFlow — Service Worker (PWA)
+const CACHE_NAME = 'financeflow-v0.4.0';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/login.html',
   '/styles.css',
+  '/css/login.css',
   '/js/app.js',
   '/js/utils.js',
+  '/js/login.js',
+  '/js/vendor/chart.min.js',
   '/manifest.json',
 ];
 

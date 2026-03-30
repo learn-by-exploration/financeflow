@@ -70,6 +70,8 @@ function cleanDb() {
   db.exec('DELETE FROM tags');
   db.exec('DELETE FROM settings');
   db.exec('DELETE FROM audit_log');
+  // Reset onboarding for test user
+  try { db.exec('UPDATE users SET onboarding_completed = 0'); } catch {}
   // Don't delete users/sessions — test user stays
   try { db.exec('DELETE FROM exchange_rates'); } catch {}
   try { db.exec('DELETE FROM category_rules'); } catch {}
