@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const createTransactionService = require('../services/transaction.service');
 const { safePatternTest } = require('../utils/safe-regex');
+const { createTransactionSchema } = require('../schemas/transaction.schema');
 
 module.exports = function createTransactionRoutes({ db, audit }) {
 
-  const VALID_TYPES = ['income', 'expense', 'transfer'];
   const txService = createTransactionService({ db });
 
   // GET /api/transactions
@@ -39,21 +39,11 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   // POST /api/transactions
   router.post('/', (req, res, next) => {
     try {
-      const { account_id, category_id, type, amount, currency, description, note, date, payee, tags, transfer_to_account_id, tag_ids } = req.body;
-
-      // Validation
-      if (!description) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Description is required' } });
+      const parsed = createTransactionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      if (!type || !VALID_TYPES.includes(type)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Type must be one of: income, expense, transfer' } });
-      }
-      if (!amount || amount <= 0) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Amount must be a positive number' } });
-      }
-      if (!date) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Date is required' } });
-      }
+      const { account_id, category_id, type, amount, currency, description, note, date, payee, transfer_to_account_id, tag_ids } = parsed.data;
 
       // Transfer handling
       if (type === 'transfer') {
@@ -67,7 +57,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         const transaction = txService.createTransfer({
           userId: req.user.id, accountId: account_id, transferToAccountId: transfer_to_account_id,
           categoryId: category_id, amount, currency: currency || req.user.defaultCurrency,
-          description, note, date, payee, tags
+          description, note, date, payee, tags: tag_ids
         });
         audit.log(req.user.id, 'transaction.create', 'transaction', transaction.id);
         return res.status(201).json({ transaction });
@@ -89,7 +79,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       const result = db.prepare(`
         INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, note, date, payee, tags)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(req.user.id, account_id, resolvedCategoryId, type, amount, currency || req.user.defaultCurrency, description, note || null, date, payee || null, JSON.stringify(tags || []));
+      `).run(req.user.id, account_id, resolvedCategoryId, type, amount, currency || req.user.defaultCurrency, description, note || null, date, payee || null, JSON.stringify(tag_ids || []));
 
       // Update account balance
       const balanceChange = type === 'income' ? amount : -amount;

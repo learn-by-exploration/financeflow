@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const router = express.Router();
+const { registerSchema, loginSchema, passwordChangeSchema, accountDeleteSchema } = require('../schemas/auth.schema');
 
 module.exports = function createAuthRoutes({ db, audit }) {
   const config = require('../config');
@@ -9,13 +10,11 @@ module.exports = function createAuthRoutes({ db, audit }) {
   // POST /api/auth/register
   router.post('/register', (req, res, next) => {
     try {
-      const { username, password, email, display_name } = req.body;
-      if (!username || !password) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Username and password required' } });
+      const parsed = registerSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      if (password.length < 8) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password must be at least 8 characters' } });
-      }
+      const { username, password, email, display_name } = parsed.data;
       const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
       if (existing) {
         return res.status(409).json({ error: { code: 'CONFLICT', message: 'Username already taken' } });
@@ -49,7 +48,11 @@ module.exports = function createAuthRoutes({ db, audit }) {
   // POST /api/auth/login
   router.post('/login', (req, res, next) => {
     try {
-      const { username, password } = req.body;
+      const parsed = loginSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      }
+      const { username, password } = parsed.data;
       const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
       if (!user || !bcrypt.compareSync(password, user.password_hash)) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
@@ -103,13 +106,11 @@ module.exports = function createAuthRoutes({ db, audit }) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
       }
 
-      const { current_password, new_password } = req.body;
-      if (!current_password || !new_password) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Current password and new password required' } });
+      const parsed = passwordChangeSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
-      if (new_password.length < 8) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'New password must be at least 8 characters' } });
-      }
+      const { current_password, new_password } = parsed.data;
 
       if (!bcrypt.compareSync(current_password, session.password_hash)) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Current password is incorrect' } });

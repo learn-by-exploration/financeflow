@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const { createRecurringSchema, VALID_FREQUENCIES } = require('../schemas/recurring.schema');
 
 module.exports = function createRecurringRoutes({ db, audit }) {
-  const VALID_FREQUENCIES = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
-  const VALID_TYPES = ['income', 'expense'];
 
   // GET /api/recurring — list user's recurring rules
   router.get('/', (req, res, next) => {
@@ -24,16 +23,11 @@ module.exports = function createRecurringRoutes({ db, audit }) {
   // POST /api/recurring — create recurring rule
   router.post('/', (req, res, next) => {
     try {
-      const { account_id, category_id, type, amount, description, payee, frequency, next_date, end_date } = req.body;
-      if (!account_id || !type || !amount || !description || !frequency || !next_date) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'account_id, type, amount, description, frequency, and next_date are required' } });
+      const parsed = createRecurringSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      if (!VALID_FREQUENCIES.includes(frequency)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `frequency must be one of: ${VALID_FREQUENCIES.join(', ')}` } });
-      }
-      if (!VALID_TYPES.includes(type)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `type must be one of: ${VALID_TYPES.join(', ')}` } });
-      }
+      const { account_id, category_id, type, amount, description, payee, frequency, next_date, end_date } = parsed.data;
       const acct = db.prepare('SELECT id FROM accounts WHERE id = ? AND user_id = ?').get(account_id, req.user.id);
       if (!acct) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Account not found' } });

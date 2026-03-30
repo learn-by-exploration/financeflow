@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createTagSchema } = require('../schemas/tag.schema');
 
 module.exports = function createTagRoutes({ db, audit }) {
   // GET /api/tags
@@ -13,15 +14,16 @@ module.exports = function createTagRoutes({ db, audit }) {
   // POST /api/tags
   router.post('/', (req, res, next) => {
     try {
-      const { name, color } = req.body;
-      if (!name || !name.trim()) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Tag name is required' } });
+      const parsed = createTagSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
-      const existing = db.prepare('SELECT id FROM tags WHERE user_id = ? AND name = ?').get(req.user.id, name.trim());
+      const { name, color } = parsed.data;
+      const existing = db.prepare('SELECT id FROM tags WHERE user_id = ? AND name = ?').get(req.user.id, name);
       if (existing) {
         return res.status(409).json({ error: { code: 'CONFLICT', message: 'Tag already exists' } });
       }
-      const r = db.prepare('INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)').run(req.user.id, name.trim(), color || null);
+      const r = db.prepare('INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)').run(req.user.id, name, color || null);
       const tag = db.prepare('SELECT * FROM tags WHERE id = ?').get(r.lastInsertRowid);
       audit.log(req.user.id, 'tag.create', 'tag', tag.id);
       res.status(201).json({ tag });

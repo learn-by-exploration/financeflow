@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createGoalSchema } = require('../schemas/goal.schema');
 
 module.exports = function createGoalRoutes({ db, audit }) {
 
@@ -14,13 +15,11 @@ module.exports = function createGoalRoutes({ db, audit }) {
   // POST /api/goals
   router.post('/', (req, res, next) => {
     try {
-      const { name, target_amount, current_amount, currency, icon, color, deadline } = req.body;
-      if (!name) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name is required' } });
+      const parsed = createGoalSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      if (!target_amount || target_amount <= 0) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Target amount must be a positive number' } });
-      }
+      const { name, target_amount, current_amount, currency, icon, color, deadline } = parsed.data;
       const result = db.prepare(`
         INSERT INTO savings_goals (user_id, name, target_amount, current_amount, currency, icon, color, deadline, position)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM savings_goals WHERE user_id = ?))

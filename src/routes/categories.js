@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const { createCategorySchema } = require('../schemas/category.schema');
 
 module.exports = function createCategoryRoutes({ db }) {
-
-  const VALID_TYPES = ['income', 'expense', 'transfer'];
 
   // GET /api/categories
   router.get('/', (req, res, next) => {
@@ -16,13 +15,11 @@ module.exports = function createCategoryRoutes({ db }) {
   // POST /api/categories
   router.post('/', (req, res, next) => {
     try {
-      const { name, icon, color, type, parent_id } = req.body;
-      if (!name) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Category name is required' } });
+      const parsed = createCategorySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      if (!type || !VALID_TYPES.includes(type)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Category type must be one of: income, expense, transfer' } });
-      }
+      const { name, icon, color, type, parent_id } = parsed.data;
       const result = db.prepare(`
         INSERT INTO categories (user_id, name, icon, color, type, parent_id, position)
         VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM categories WHERE user_id = ? AND type = ?))

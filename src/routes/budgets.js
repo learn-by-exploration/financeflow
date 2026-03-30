@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const { createBudgetSchema } = require('../schemas/budget.schema');
 
 module.exports = function createBudgetRoutes({ db, audit }) {
-
-  const VALID_PERIODS = ['weekly', 'monthly', 'quarterly', 'yearly', 'custom'];
 
   // GET /api/budgets
   router.get('/', (req, res, next) => {
@@ -110,13 +109,11 @@ module.exports = function createBudgetRoutes({ db, audit }) {
   // POST /api/budgets
   router.post('/', (req, res, next) => {
     try {
-      const { name, period, start_date, end_date, items } = req.body;
-      if (!name) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Budget name is required' } });
+      const parsed = createBudgetSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      if (!period || !VALID_PERIODS.includes(period)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Period must be one of: weekly, monthly, quarterly, yearly, custom' } });
-      }
+      const { name, period, start_date, end_date, items } = parsed.data;
       const result = db.prepare('INSERT INTO budgets (user_id, name, period, start_date, end_date) VALUES (?, ?, ?, ?, ?)')
         .run(req.user.id, name, period, start_date || null, end_date || null);
       if (items && items.length) {

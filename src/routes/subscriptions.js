@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const { createSubscriptionSchema } = require('../schemas/subscription.schema');
 
 module.exports = function createSubscriptionRoutes({ db, audit }) {
-
-  const VALID_FREQUENCIES = ['weekly', 'monthly', 'quarterly', 'yearly'];
 
   // GET /api/subscriptions
   router.get('/', (req, res, next) => {
@@ -20,16 +19,11 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
   // POST /api/subscriptions
   router.post('/', (req, res, next) => {
     try {
-      const { name, amount, currency, frequency, category_id, next_billing_date, provider, notes } = req.body;
-      if (!name) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name is required' } });
+      const parsed = createSubscriptionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
-      if (!amount) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Amount is required' } });
-      }
-      if (!frequency || !VALID_FREQUENCIES.includes(frequency)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Frequency must be one of: weekly, monthly, quarterly, yearly' } });
-      }
+      const { name, amount, currency, frequency, category_id, next_billing_date, provider, notes } = parsed.data;
       const result = db.prepare(`
         INSERT INTO subscriptions (user_id, name, amount, currency, frequency, category_id, next_billing_date, provider, notes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)

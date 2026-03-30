@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { createAccountSchema } = require('../schemas/account.schema');
 
 module.exports = function createAccountRoutes({ db, audit }) {
 
@@ -14,10 +15,11 @@ module.exports = function createAccountRoutes({ db, audit }) {
   // POST /api/accounts
   router.post('/', (req, res, next) => {
     try {
-      const { name, type, currency, balance, icon, color, institution, account_number_last4 } = req.body;
-      if (!name) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Account name is required' } });
+      const parsed = createAccountSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
+      const { name, type, currency, balance, icon, color, institution, account_number_last4 } = parsed.data;
       const result = db.prepare(`
         INSERT INTO accounts (user_id, name, type, currency, balance, icon, color, institution, account_number_last4, position)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM accounts WHERE user_id = ?))

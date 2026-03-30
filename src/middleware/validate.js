@@ -8,7 +8,7 @@ function validate(schema) {
       next();
     } catch (err) {
       if (err instanceof z.ZodError) {
-        next(new ValidationError('Validation failed', err.errors));
+        next(new ValidationError('Validation failed', err.issues));
       } else {
         next(err);
       }
