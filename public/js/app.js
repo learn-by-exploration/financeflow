@@ -25,6 +25,8 @@ const views = {
   reports:       () => import('./views/reports.js').then(m => m.renderReports),
   rules:         () => import('./views/rules.js').then(m => m.renderRules),
   settings:      () => import('./views/settings.js').then(m => m.renderSettings),
+  search:        () => import('./views/search.js').then(m => m.renderSearch),
+  insights:      () => import('./views/insights.js').then(m => m.renderInsights),
 };
 
 function placeholder(title, desc) {
@@ -70,6 +72,8 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
   window.location.href = '/login.html';
 });
 
+let currentSearchQuery = '';
+
 // ─── Render dispatcher ───
 async function render() {
   const container = document.getElementById('view-container');
@@ -87,7 +91,11 @@ async function render() {
     const loader = views[currentView];
     if (!loader) { container.innerHTML = '<p>View not found</p>'; return; }
     const renderFn = await loader();
-    await renderFn(container);
+    if (currentView === 'search') {
+      await renderFn(container, currentSearchQuery);
+    } else {
+      await renderFn(container);
+    }
   } catch (err) {
     container.innerHTML = '';
     const errDiv = document.createElement('div');
@@ -212,6 +220,36 @@ function navigateTo(view) {
 document.getElementById('modal-overlay').addEventListener('click', (e) => {
   if (e.target === e.currentTarget) closeModal();
 });
+
+// ─── Global search bar ───
+const searchInput = document.getElementById('global-search');
+if (searchInput) {
+  let searchTimeout;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      const q = searchInput.value.trim();
+      if (q.length > 0) {
+        currentSearchQuery = q;
+        currentView = 'search';
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        render();
+      }
+    }, 300);
+  });
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      clearTimeout(searchTimeout);
+      const q = searchInput.value.trim();
+      if (q.length > 0) {
+        currentSearchQuery = q;
+        currentView = 'search';
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        render();
+      }
+    }
+  });
+}
 
 // ─── Init ───
 render();
