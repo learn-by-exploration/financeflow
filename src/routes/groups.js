@@ -2,10 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { createGroupSchema, addMemberSchema, updateGroupSchema } = require('../schemas/group.schema');
 const createGroupRepository = require('../repositories/group.repository');
+const createSplitService = require('../services/split.service');
+const createNotificationRepository = require('../repositories/notification.repository');
 
 module.exports = function createGroupRoutes({ db, audit }) {
 
   const groupRepo = createGroupRepository({ db });
+  const splitService = createSplitService({ db });
+  const notifRepo = createNotificationRepository({ db });
 
   // GET /api/groups — list groups user belongs to
   router.get('/', (req, res, next) => {
@@ -103,6 +107,7 @@ module.exports = function createGroupRoutes({ db, audit }) {
 
       const memberId = groupRepo.addMember(req.params.id, userId, displayName, 'member');
       audit.log(req.user.id, 'group.add_member', 'group_member', memberId);
+      groupRepo.createActivity(req.params.id, req.user.id, 'member_added', `${displayName} was added to the group`);
       res.status(201).json({ id: memberId });
     } catch (err) { next(err); }
   });
@@ -126,7 +131,9 @@ module.exports = function createGroupRoutes({ db, audit }) {
         }
       }
 
+      const removedName = target ? target.display_name : 'Unknown';
       groupRepo.removeMember(req.params.memberId, req.params.id);
+      groupRepo.createActivity(req.params.id, req.user.id, 'member_removed', `${removedName} was removed from the group`);
       res.json({ ok: true });
     } catch (err) { next(err); }
   });
@@ -205,6 +212,81 @@ module.exports = function createGroupRoutes({ db, audit }) {
       groupRepo.deleteSharedBudget(existing.id);
       audit.log(req.user.id, 'shared_budget.delete', 'shared_budget', existing.id);
       res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  // ═══════════════════════════════════════════
+  // SPLIT PAYMENT REMINDERS
+  // ═══════════════════════════════════════════
+
+  // POST /api/groups/:id/splits/remind — send reminders to debtors
+  router.post('/:id/splits/remind', (req, res, next) => {
+    try {
+      const group = groupRepo.findById(req.params.id);
+      if (!group) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Group not found' } });
+
+      const membership = groupRepo.getMembership(group.id, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+      // Rate limit: once per 24h per group
+      const lastReminder = groupRepo.getLastReminder(group.id);
+      if (lastReminder) {
+        const lastTime = new Date(lastReminder.created_at + 'Z').getTime();
+        const now = Date.now();
+        if (now - lastTime < 24 * 60 * 60 * 1000) {
+          return res.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Reminders can only be sent once every 24 hours' } });
+        }
+      }
+
+      // Calculate who owes money
+      const balances = splitService.calculateBalances(group.id);
+      const debtors = balances.filter(b => b.balance < -0.005);
+
+      if (debtors.length === 0) {
+        return res.json({ ok: true, reminded: 0 });
+      }
+
+      // Get member records with user_ids for notification
+      const members = groupRepo.getMembers(group.id);
+      const memberMap = {};
+      members.forEach(m => { memberMap[m.id] = m; });
+
+      let reminded = 0;
+      for (const debtor of debtors) {
+        const member = memberMap[debtor.id];
+        if (!member || !member.user_id) continue; // skip guest members
+        const owedAmount = Math.round(Math.abs(debtor.balance) * 100) / 100;
+        notifRepo.create(member.user_id, {
+          type: 'split_reminder',
+          title: 'Payment Reminder',
+          message: `You owe ₹${owedAmount} in group "${group.name}"`,
+        });
+        reminded++;
+      }
+
+      groupRepo.createActivity(group.id, req.user.id, 'remind', `Payment reminders sent to ${reminded} member(s)`);
+      res.json({ ok: true, reminded });
+    } catch (err) { next(err); }
+  });
+
+  // ═══════════════════════════════════════════
+  // GROUP ACTIVITY FEED
+  // ═══════════════════════════════════════════
+
+  // GET /api/groups/:id/activities — paginated activity feed
+  router.get('/:id/activities', (req, res, next) => {
+    try {
+      const group = groupRepo.findById(req.params.id);
+      if (!group) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Group not found' } });
+
+      const membership = groupRepo.getMembership(group.id, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
+      const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+
+      const { activities, total } = groupRepo.getActivities(group.id, { limit, offset });
+      res.json({ activities, total, limit, offset });
     } catch (err) { next(err); }
   });
 

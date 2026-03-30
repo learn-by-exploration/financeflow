@@ -51,6 +51,7 @@ function cleanDb() {
   db.exec('DELETE FROM shared_expenses');
   db.exec('DELETE FROM shared_budget_items');
   db.exec('DELETE FROM shared_budgets');
+  try { db.exec('DELETE FROM group_activities'); } catch {}
   db.exec('DELETE FROM group_members');
   db.exec('DELETE FROM groups');
   db.exec('DELETE FROM financial_health_scores');

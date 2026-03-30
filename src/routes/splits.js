@@ -2,12 +2,14 @@ const express = require('express');
 const router = express.Router();
 const createSplitService = require('../services/split.service');
 const createSplitRepository = require('../repositories/split.repository');
+const createGroupRepository = require('../repositories/group.repository');
 const { createExpenseSchema, createSettlementSchema } = require('../schemas/split.schema');
 
 module.exports = function createSplitRoutes({ db, audit }) {
 
   const splitService = createSplitService({ db });
   const splitRepo = createSplitRepository({ db });
+  const groupRepo = createGroupRepository({ db });
 
   // GET /api/groups/:groupId/expenses — list shared expenses
   router.get('/:groupId/expenses', (req, res, next) => {
@@ -83,6 +85,7 @@ module.exports = function createSplitRoutes({ db, audit }) {
       }
 
       audit.log(req.user.id, 'expense.create', 'shared_expense', expenseId);
+      groupRepo.createActivity(req.params.groupId, req.user.id, 'expense_created', `Expense "${parsed.data.description}" for ${parsed.data.amount} added`);
       res.status(201).json({ id: expenseId });
     } catch (err) { next(err); }
   });
@@ -123,6 +126,7 @@ module.exports = function createSplitRoutes({ db, audit }) {
         from_member, to_member, amount, currency: req.user.defaultCurrency, note,
       });
       audit.log(req.user.id, 'settlement.create', 'settlement', settlementId);
+      groupRepo.createActivity(req.params.groupId, req.user.id, 'settlement_created', `Settlement of ${amount} recorded`);
       res.status(201).json({ id: settlementId });
     } catch (err) { next(err); }
   });

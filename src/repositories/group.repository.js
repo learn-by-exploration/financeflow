@@ -111,11 +111,37 @@ module.exports = function createGroupRepository({ db }) {
     return db.prepare('DELETE FROM shared_budgets WHERE id = ?').run(budgetId);
   }
 
+  // ─── Group Activities ───
+
+  function createActivity(groupId, userId, action, details) {
+    const result = db.prepare(
+      'INSERT INTO group_activities (group_id, user_id, action, details) VALUES (?, ?, ?, ?)'
+    ).run(groupId, userId || null, action, details || null);
+    return result.lastInsertRowid;
+  }
+
+  function getActivities(groupId, { limit = 20, offset = 0 } = {}) {
+    const activities = db.prepare(
+      `SELECT ga.*, u.username, u.display_name as user_display_name
+       FROM group_activities ga LEFT JOIN users u ON ga.user_id = u.id
+       WHERE ga.group_id = ? ORDER BY ga.created_at DESC LIMIT ? OFFSET ?`
+    ).all(groupId, Number(limit), Number(offset));
+    const total = db.prepare('SELECT COUNT(*) as count FROM group_activities WHERE group_id = ?').get(groupId).count;
+    return { activities, total };
+  }
+
+  function getLastReminder(groupId) {
+    return db.prepare(
+      "SELECT * FROM group_activities WHERE group_id = ? AND action = 'remind' ORDER BY created_at DESC LIMIT 1"
+    ).get(groupId);
+  }
+
   return {
     getMembership, findByUser, create, findById, getMembers,
     update, delete: deleteById,
     findUserByUsername, addMember, getMemberById, getOwnerCount, removeMember,
     getSharedBudgets, createSharedBudget, getSharedBudget, getSharedBudgetItems,
     updateSharedBudget, deleteSharedBudget,
+    createActivity, getActivities, getLastReminder,
   };
 };
