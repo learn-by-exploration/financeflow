@@ -69,5 +69,59 @@ module.exports = function createGoalRepository({ db }) {
     return db.prepare('SELECT * FROM savings_goals WHERE id = ?').get(id);
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById, contribute, countByUser };
+  function linkTransaction(goalId, transactionId, amount) {
+    const result = db.prepare(
+      'INSERT INTO goal_transactions (goal_id, transaction_id, amount) VALUES (?, ?, ?)'
+    ).run(goalId, transactionId, amount);
+    return db.prepare('SELECT * FROM goal_transactions WHERE id = ?').get(result.lastInsertRowid);
+  }
+
+  function unlinkTransaction(goalId, transactionId) {
+    return db.prepare('DELETE FROM goal_transactions WHERE goal_id = ? AND transaction_id = ?').run(goalId, transactionId);
+  }
+
+  function getLinkedTransactions(goalId) {
+    return db.prepare(`
+      SELECT gt.id as link_id, gt.amount as linked_amount, gt.created_at as linked_at,
+             t.id, t.account_id, t.type, t.amount as transaction_amount, t.currency, t.description, t.date, t.payee
+      FROM goal_transactions gt
+      JOIN transactions t ON t.id = gt.transaction_id
+      WHERE gt.goal_id = ?
+      ORDER BY gt.created_at DESC
+    `).all(goalId);
+  }
+
+  function getLinkedTransactionSum(goalId) {
+    const row = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM goal_transactions WHERE goal_id = ?').get(goalId);
+    return row.total;
+  }
+
+  function recalculateCurrentAmount(goalId, userId) {
+    const total = getLinkedTransactionSum(goalId);
+    const isCompleted = db.prepare('SELECT target_amount FROM savings_goals WHERE id = ?').get(goalId);
+    const completed = isCompleted && total >= isCompleted.target_amount ? 1 : 0;
+    db.prepare("UPDATE savings_goals SET current_amount = ?, is_completed = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
+      .run(total, completed, goalId, userId);
+    return db.prepare('SELECT * FROM savings_goals WHERE id = ?').get(goalId);
+  }
+
+  function setAutoAllocate(goalId, userId, percent) {
+    db.prepare("UPDATE savings_goals SET auto_allocate_percent = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
+      .run(percent, goalId, userId);
+    return db.prepare('SELECT * FROM savings_goals WHERE id = ? AND user_id = ?').get(goalId, userId);
+  }
+
+  function getAutoAllocateGoals(userId) {
+    return db.prepare('SELECT * FROM savings_goals WHERE user_id = ? AND auto_allocate_percent > 0 AND is_completed = 0').all(userId);
+  }
+
+  function findLinkedTransaction(goalId, transactionId) {
+    return db.prepare('SELECT * FROM goal_transactions WHERE goal_id = ? AND transaction_id = ?').get(goalId, transactionId);
+  }
+
+  return {
+    findAllByUser, findById, create, update, delete: deleteById, contribute, countByUser,
+    linkTransaction, unlinkTransaction, getLinkedTransactions, getLinkedTransactionSum,
+    recalculateCurrentAmount, setAutoAllocate, getAutoAllocateGoals, findLinkedTransaction
+  };
 };

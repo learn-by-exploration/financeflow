@@ -7,6 +7,7 @@ const createTransactionRepository = require('../repositories/transaction.reposit
 const createAccountRepository = require('../repositories/account.repository');
 const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
 const createDuplicateRepository = require('../repositories/duplicate.repository');
+const createGoalRepository = require('../repositories/goal.repository');
 const { convert, buildRateMap } = require('../utils/currency-converter');
 const { ValidationError, NotFoundError } = require('../errors');
 const createNotificationService = require('../services/notification.service');
@@ -22,6 +23,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   const rateRepo = createExchangeRateRepository({ db });
   const notifService = createNotificationService({ db });
   const dupRepo = createDuplicateRepository({ db });
+  const goalRepo = createGoalRepository({ db });
 
   // GET /api/transactions
   router.get('/', (req, res, next) => {
@@ -133,8 +135,24 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         }
       } catch (_) { /* duplicate check failure should not break transaction */ }
 
+      // Auto-allocate to savings goals on income
+      let auto_allocations = [];
+      if (type === 'income') {
+        try {
+          const goals = goalRepo.getAutoAllocateGoals(req.user.id);
+          for (const goal of goals) {
+            const allocAmount = Math.round((amount * goal.auto_allocate_percent / 100) * 100) / 100;
+            if (allocAmount > 0) {
+              goalRepo.linkTransaction(goal.id, transaction.id, allocAmount);
+              goalRepo.recalculateCurrentAmount(goal.id, req.user.id);
+              auto_allocations.push({ goal_id: goal.id, goal_name: goal.name, amount: allocAmount });
+            }
+          }
+        } catch (_) { /* auto-allocation failure should not break transaction */ }
+      }
+
       invalidateCache(req.user.id, CACHE_PATTERNS);
-      res.status(201).json({ transaction, potential_duplicate, similar_transaction_id });
+      res.status(201).json({ transaction, potential_duplicate, similar_transaction_id, auto_allocations: auto_allocations.length > 0 ? auto_allocations : undefined });
     } catch (err) { next(err); }
   });
 

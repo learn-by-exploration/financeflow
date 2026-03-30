@@ -58,6 +58,7 @@ function cleanDb() {
   db.exec('DELETE FROM budget_items');
   db.exec('DELETE FROM budgets');
   db.exec('DELETE FROM transactions');
+  try { db.exec('DELETE FROM goal_transactions'); } catch {}
   try { db.exec('DELETE FROM transaction_tags'); } catch {}
   try { db.exec('DELETE FROM bill_reminders'); } catch {}
   db.exec('DELETE FROM recurring_rules');
