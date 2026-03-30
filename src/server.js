@@ -83,6 +83,7 @@ const createTagRoutes = require('./routes/tags');
 const createSearchRoutes = require('./routes/search');
 const createNetWorthRoutes = require('./routes/net-worth');
 const createAuditRoutes = require('./routes/audit');
+const createReminderRoutes = require('./routes/reminders');
 const createHealthRoutes = require('./routes/health');
 
 // Public routes
@@ -107,6 +108,18 @@ app.use('/api/tags', requireAuth, createTagRoutes(deps));
 app.use('/api/search', requireAuth, createSearchRoutes(deps));
 app.use('/api/net-worth', requireAuth, createNetWorthRoutes(deps));
 app.use('/api/audit', requireAuth, createAuditRoutes(deps));
+app.use('/api/reminders', requireAuth, createReminderRoutes(deps));
+
+// GET /api/upcoming — shortcut for upcoming bills
+app.get('/api/upcoming', requireAuth, (req, res, next) => {
+  try {
+    const createReminderRepository = require('./repositories/reminder.repository');
+    const reminderRepo = createReminderRepository({ db });
+    const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+    const upcoming = reminderRepo.getUpcoming(req.user.id, days);
+    res.json({ upcoming, days });
+  } catch (err) { next(err); }
+});
 
 // SPA fallback (Express 5 wildcard syntax)
 app.get('/{*splat}', (_req, res) => {
