@@ -51,6 +51,11 @@ describe('Security', () => {
       ['POST', '/api/data/csv-import'],
       ['PUT', '/api/auth/password'],
       ['DELETE', '/api/auth/account'],
+      ['GET', '/api/recurring'],
+      ['POST', '/api/recurring'],
+      ['PUT', '/api/recurring/1'],
+      ['DELETE', '/api/recurring/1'],
+      ['POST', '/api/recurring/1/skip'],
     ];
 
     for (const [method, path] of protectedRoutes) {
