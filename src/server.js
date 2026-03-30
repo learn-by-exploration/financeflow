@@ -302,8 +302,9 @@ if (!config.isTest) {
       .catch(err => logger.error('Auto-backup failed:', err.message));
   }
 
-  const server = app.listen(PORT, () => {
-    logger.info(`PersonalFi v${config.version} running on http://localhost:${PORT}`);
+  const HOST = process.env.HOST || '0.0.0.0';
+  const server = app.listen(PORT, HOST, () => {
+    logger.info(`PersonalFi v${config.version} running on http://${HOST}:${PORT}`);
   });
 
   // ─── Graceful shutdown ───
