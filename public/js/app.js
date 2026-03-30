@@ -56,6 +56,7 @@ const views = {
   insights:      () => import('./views/insights.js').then(m => m.renderInsights),
   recurring:     () => import('./views/recurring.js').then(m => m.renderRecurring),
   calendar:      () => import('./views/calendar.js').then(m => m.renderCalendar),
+  export:        () => import('./views/export.js').then(m => m.renderExport),
 };
 
 function placeholder(title, desc) {

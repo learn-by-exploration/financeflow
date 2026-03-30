@@ -7,6 +7,114 @@ module.exports = function createReportRoutes({ db }) {
 
   const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
   const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const YEAR_RE = /^\d{4}$/;
+
+  // GET /api/reports/year-in-review?year=2024
+  router.get('/year-in-review', (req, res, next) => {
+    try {
+      const { year } = req.query;
+      if (!year || !YEAR_RE.test(year)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'year query parameter required in YYYY format' } });
+      }
+      const userId = req.user.id;
+      const yearStr = String(year);
+      const from = `${yearStr}-01-01`;
+      const to = `${yearStr}-12-31`;
+
+      // Total income, expenses
+      const totals = db.prepare(`
+        SELECT
+          ROUND(COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0), 2) AS total_income,
+          ROUND(COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0), 2) AS total_expenses,
+          COUNT(*) AS transaction_count
+        FROM transactions
+        WHERE user_id = ? AND date >= ? AND date <= ? AND type IN ('income', 'expense')
+      `).get(userId, from, to);
+
+      const total_income = totals.total_income;
+      const total_expenses = totals.total_expenses;
+      const net_savings = Math.round((total_income - total_expenses) * 100) / 100;
+      const savings_rate = total_income > 0 ? Math.round((net_savings / total_income) * 10000) / 100 : 0;
+      const transaction_count = totals.transaction_count;
+
+      // Top 5 expense categories
+      const top_categories = db.prepare(`
+        SELECT c.name, ROUND(SUM(t.amount), 2) AS amount
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = ? AND t.type = 'expense' AND t.date >= ? AND t.date <= ?
+        GROUP BY c.id
+        ORDER BY amount DESC
+        LIMIT 5
+      `).all(userId, from, to);
+
+      // Monthly breakdown
+      const monthlyRows = db.prepare(`
+        SELECT
+          strftime('%m', date) AS month,
+          ROUND(COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0), 2) AS income,
+          ROUND(COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0), 2) AS expenses
+        FROM transactions
+        WHERE user_id = ? AND date >= ? AND date <= ? AND type IN ('income', 'expense')
+        GROUP BY month
+        ORDER BY month
+      `).all(userId, from, to);
+
+      // Fill in all 12 months
+      const monthly_breakdown = [];
+      for (let m = 1; m <= 12; m++) {
+        const mm = String(m).padStart(2, '0');
+        const found = monthlyRows.find(r => r.month === mm);
+        monthly_breakdown.push({
+          month: `${yearStr}-${mm}`,
+          income: found ? found.income : 0,
+          expenses: found ? found.expenses : 0,
+          net: found ? Math.round((found.income - found.expenses) * 100) / 100 : 0,
+        });
+      }
+
+      // Biggest single expense
+      const biggestRow = db.prepare(`
+        SELECT description, amount, date
+        FROM transactions
+        WHERE user_id = ? AND type = 'expense' AND date >= ? AND date <= ?
+        ORDER BY amount DESC
+        LIMIT 1
+      `).get(userId, from, to);
+
+      const biggest_expense = biggestRow ? { description: biggestRow.description, amount: biggestRow.amount, date: biggestRow.date } : null;
+
+      // Most frequent merchant/description
+      const freqRow = db.prepare(`
+        SELECT description, COUNT(*) AS count
+        FROM transactions
+        WHERE user_id = ? AND type = 'expense' AND date >= ? AND date <= ? AND description IS NOT NULL AND description != ''
+        GROUP BY description
+        ORDER BY count DESC
+        LIMIT 1
+      `).get(userId, from, to);
+
+      const most_frequent_merchant = freqRow ? { description: freqRow.description, count: freqRow.count } : null;
+
+      // Average daily spending
+      const daysInYear = (yearStr % 4 === 0 && (yearStr % 100 !== 0 || yearStr % 400 === 0)) ? 366 : 365;
+      const average_daily_spending = Math.round((total_expenses / daysInYear) * 100) / 100;
+
+      res.json({
+        year: yearStr,
+        total_income,
+        total_expenses,
+        net_savings,
+        savings_rate,
+        transaction_count,
+        top_categories,
+        monthly_breakdown,
+        biggest_expense,
+        most_frequent_merchant,
+        average_daily_spending,
+      });
+    } catch (err) { next(err); }
+  });
 
   // GET /api/reports/monthly?month=YYYY-MM
   router.get('/monthly', (req, res, next) => {

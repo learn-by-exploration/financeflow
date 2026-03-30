@@ -52,11 +52,13 @@ describe('GET /api/export/transactions', () => {
     assert.equal(res.headers['content-type'], 'text/csv; charset=utf-8');
     assert.ok(res.headers['content-disposition'].includes('attachment'));
     const { headers } = parseCsv(res.text);
-    assert.ok(headers.includes('id'));
     assert.ok(headers.includes('date'));
     assert.ok(headers.includes('amount'));
     assert.ok(headers.includes('category_name'));
     assert.ok(headers.includes('account_name'));
+    assert.ok(headers.includes('description'));
+    assert.ok(headers.includes('type'));
+    assert.ok(headers.includes('tags'));
   });
 
   it('returns headers only when no data', async () => {

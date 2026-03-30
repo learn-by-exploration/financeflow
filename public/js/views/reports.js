@@ -154,4 +154,48 @@ export async function renderReports(container) {
     ]);
     container.appendChild(catCard);
   }
+
+  // ─── Year in Review Section ───
+  const yirCard = el('div', { className: 'card' }, [
+    el('h3', { textContent: 'Year in Review' }),
+    el('p', { textContent: 'View your annual financial summary.' }),
+  ]);
+  const yirForm = el('form', { className: 'form-inline' });
+  const yearInput = el('input', { type: 'number', className: 'form-input', placeholder: 'YYYY', value: String(new Date().getFullYear()), min: '2000', max: '2099', style: 'width:100px;margin-right:8px' });
+  const yirBtn = el('button', { type: 'submit', className: 'btn btn-primary', textContent: 'View' });
+  yirForm.appendChild(yearInput);
+  yirForm.appendChild(yirBtn);
+  yirCard.appendChild(yirForm);
+
+  const yirResult = el('div', { className: 'yir-result' });
+  yirCard.appendChild(yirResult);
+
+  yirForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    yirResult.innerHTML = '<p>Loading...</p>';
+    try {
+      const data = await Api.get(`/reports/year-in-review?year=${yearInput.value}`);
+      yirResult.innerHTML = '';
+      const statsGrid = el('div', { className: 'stats-grid' }, [
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Income' }), el('div', { className: 'stat-value income', textContent: fmt(data.total_income) })]),
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Expenses' }), el('div', { className: 'stat-value expense', textContent: fmt(data.total_expenses) })]),
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Net Savings' }), el('div', { className: 'stat-value', textContent: fmt(data.net_savings) })]),
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Savings Rate' }), el('div', { className: 'stat-value', textContent: `${data.savings_rate}%` })]),
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Transactions' }), el('div', { className: 'stat-value', textContent: String(data.transaction_count) })]),
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Avg Daily Spending' }), el('div', { className: 'stat-value', textContent: fmt(data.average_daily_spending) })]),
+      ]);
+      yirResult.appendChild(statsGrid);
+
+      if (data.biggest_expense) {
+        yirResult.appendChild(el('p', { textContent: `Biggest expense: ${data.biggest_expense.description} — ${fmt(data.biggest_expense.amount)} on ${data.biggest_expense.date}` }));
+      }
+      if (data.most_frequent_merchant) {
+        yirResult.appendChild(el('p', { textContent: `Most frequent: ${data.most_frequent_merchant.description} (${data.most_frequent_merchant.count} times)` }));
+      }
+    } catch (err) {
+      yirResult.innerHTML = `<p class="error">Failed to load: ${err.message}</p>`;
+    }
+  });
+
+  container.appendChild(yirCard);
 }

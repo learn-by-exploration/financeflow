@@ -29,7 +29,11 @@ module.exports = function createExportRoutes({ db }) {
   router.get('/transactions', (req, res, next) => {
     try {
       const userId = req.user.id;
-      const { account_id, category_id, type, from, to, tag_id } = req.query;
+      const { account_id, category_id, type, from, to, start_date, end_date, tag_id, format } = req.query;
+
+      // Support both from/to and start_date/end_date
+      const dateFrom = from || start_date;
+      const dateTo = to || end_date;
 
       let sql = `SELECT t.id, t.date, t.type, t.amount, t.currency, t.description, t.note, t.payee,
                         c.name AS category_name, a.name AS account_name
@@ -42,15 +46,28 @@ module.exports = function createExportRoutes({ db }) {
       if (account_id) { sql += ' AND t.account_id = ?'; params.push(account_id); }
       if (category_id) { sql += ' AND t.category_id = ?'; params.push(category_id); }
       if (type) { sql += ' AND t.type = ?'; params.push(type); }
-      if (from) { sql += ' AND t.date >= ?'; params.push(from); }
-      if (to) { sql += ' AND t.date <= ?'; params.push(to); }
+      if (dateFrom) { sql += ' AND t.date >= ?'; params.push(dateFrom); }
+      if (dateTo) { sql += ' AND t.date <= ?'; params.push(dateTo); }
       if (tag_id) { sql += ' AND t.id IN (SELECT transaction_id FROM transaction_tags WHERE tag_id = ?)'; params.push(tag_id); }
 
       sql += ' ORDER BY t.date DESC, t.id DESC';
 
       const rows = db.prepare(sql).all(...params);
-      const headers = ['id', 'date', 'type', 'amount', 'currency', 'description', 'note', 'payee', 'category_name', 'account_name'];
 
+      // Attach tags
+      for (const row of rows) {
+        const tags = db.prepare('SELECT tg.name FROM transaction_tags tt JOIN tags tg ON tt.tag_id = tg.id WHERE tt.transaction_id = ?').all(row.id);
+        row.tags = tags.map(t => t.name).join('; ');
+      }
+
+      if (format === 'json') {
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', 'attachment; filename="transactions.json"');
+        return res.json(rows);
+      }
+
+      // Default: CSV
+      const headers = ['date', 'description', 'category_name', 'account_name', 'type', 'amount', 'tags'];
       setCsvHeaders(res, 'transactions.csv');
       res.send(toCsv(headers, rows));
     } catch (err) { next(err); }
