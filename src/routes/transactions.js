@@ -5,6 +5,7 @@ const { safePatternTest } = require('../utils/safe-regex');
 const { createTransactionSchema } = require('../schemas/transaction.schema');
 const createTransactionRepository = require('../repositories/transaction.repository');
 const createAccountRepository = require('../repositories/account.repository');
+const { ValidationError, NotFoundError } = require('../errors');
 
 module.exports = function createTransactionRoutes({ db, audit }) {
 
@@ -32,17 +33,17 @@ module.exports = function createTransactionRoutes({ db, audit }) {
     try {
       const parsed = createTransactionSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
+        throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
       }
       const { account_id, category_id, type, amount, currency, description, note, date, payee, transfer_to_account_id, tag_ids } = parsed.data;
 
       // Transfer handling
       if (type === 'transfer') {
         if (!transfer_to_account_id) {
-          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'transfer_to_account_id is required for transfers' } });
+          throw new ValidationError('transfer_to_account_id is required for transfers');
         }
         if (transfer_to_account_id === account_id) {
-          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Cannot transfer to the same account' } });
+          throw new ValidationError('Cannot transfer to the same account');
         }
 
         const transaction = txService.createTransfer({
@@ -92,7 +93,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   router.put('/:id', (req, res, next) => {
     try {
       const old = txRepo.findById(req.params.id, req.user.id);
-      if (!old) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Transaction not found' } });
+      if (!old) throw new NotFoundError('Transaction');
 
       // Handle amount update with delta-based balance recalculation
       txService.applyAmountDelta(old, req.body.amount);
@@ -106,7 +107,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   router.delete('/:id', (req, res, next) => {
     try {
       const tx = txRepo.findById(req.params.id, req.user.id);
-      if (!tx) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Transaction not found' } });
+      if (!tx) throw new NotFoundError('Transaction');
 
       if (tx.transfer_transaction_id) {
         txService.deleteTransfer(tx);

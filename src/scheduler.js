@@ -47,34 +47,42 @@ module.exports = function createScheduler(db, logger) {
       'SELECT * FROM recurring_rules WHERE is_active = 1 AND next_date <= ?'
     ).all(todayStr);
 
-    const spawnTx = db.transaction(() => {
-      for (const rule of rules) {
-        // Check if end_date has passed
-        if (rule.end_date && rule.end_date < todayStr) {
-          db.prepare('UPDATE recurring_rules SET is_active = 0 WHERE id = ?').run(rule.id);
-          continue;
-        }
+    const failures = [];
 
-        // Create transaction
-        db.prepare(`
-          INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, payee, date, is_recurring, recurring_rule_id, tags)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '[]')
-        `).run(rule.user_id, rule.account_id, rule.category_id, rule.type, rule.amount,
-          rule.currency, rule.description, rule.payee, todayStr, rule.id);
+    for (const rule of rules) {
+      try {
+        db.transaction(() => {
+          // Check if end_date has passed
+          if (rule.end_date && rule.end_date < todayStr) {
+            db.prepare('UPDATE recurring_rules SET is_active = 0 WHERE id = ?').run(rule.id);
+            return;
+          }
 
-        // Update account balance
-        const balanceChange = rule.type === 'income' ? rule.amount : -rule.amount;
-        db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
-          .run(balanceChange, rule.account_id, rule.user_id);
+          // Create transaction
+          db.prepare(`
+            INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, payee, date, is_recurring, recurring_rule_id, tags)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '[]')
+          `).run(rule.user_id, rule.account_id, rule.category_id, rule.type, rule.amount,
+            rule.currency, rule.description, rule.payee, todayStr, rule.id);
 
-        // Advance next_date
-        const nextDate = advanceDate(rule.next_date, rule.frequency);
-        db.prepare('UPDATE recurring_rules SET next_date = ? WHERE id = ?').run(nextDate, rule.id);
+          // Update account balance
+          const balanceChange = rule.type === 'income' ? rule.amount : -rule.amount;
+          db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
+            .run(balanceChange, rule.account_id, rule.user_id);
 
-        logger.info({ ruleId: rule.id, description: rule.description, nextDate }, 'Spawned recurring transaction');
+          // Advance next_date
+          const nextDate = advanceDate(rule.next_date, rule.frequency);
+          db.prepare('UPDATE recurring_rules SET next_date = ? WHERE id = ?').run(nextDate, rule.id);
+
+          logger.info({ ruleId: rule.id, description: rule.description, nextDate }, 'Spawned recurring transaction');
+        })();
+      } catch (err) {
+        logger.error({ err, ruleId: rule.id, description: rule.description }, 'Failed to spawn recurring transaction');
+        failures.push({ ruleId: rule.id, error: err.message });
       }
-    });
-    spawnTx();
+    }
+
+    return { processed: rules.length, failures };
   }
 
   function runCleanup() {

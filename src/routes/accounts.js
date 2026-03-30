@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createAccountSchema } = require('../schemas/account.schema');
 const createAccountRepository = require('../repositories/account.repository');
+const { ValidationError, NotFoundError } = require('../errors');
 
 module.exports = function createAccountRoutes({ db, audit }) {
 
@@ -20,7 +21,7 @@ module.exports = function createAccountRoutes({ db, audit }) {
     try {
       const parsed = createAccountSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
+        throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
       }
       const { name, type, currency, balance, icon, color, institution, account_number_last4 } = parsed.data;
       const account = accountRepo.create(req.user.id, {
@@ -36,7 +37,7 @@ module.exports = function createAccountRoutes({ db, audit }) {
     try {
       const account = accountRepo.update(req.params.id, req.user.id, req.body);
       if (!account) {
-        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Account not found' } });
+        throw new NotFoundError('Account');
       }
       res.json({ account });
     } catch (err) { next(err); }
