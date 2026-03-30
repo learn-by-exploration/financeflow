@@ -70,6 +70,7 @@ function cleanDb() {
   try { db.exec('DELETE FROM api_tokens'); } catch {}
   try { db.exec('DELETE FROM attachments'); } catch {}
   try { db.exec('DELETE FROM notifications'); } catch {}
+  try { db.exec('DELETE FROM duplicate_dismissals'); } catch {}
 }
 
 function teardown() {

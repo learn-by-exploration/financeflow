@@ -93,6 +93,7 @@ const createChartRoutes = require('./routes/charts');
 const createAttachmentRoutes = require('./routes/attachments');
 const createNotificationRoutes = require('./routes/notifications');
 const createExportRoutes = require('./routes/export');
+const createDuplicateRoutes = require('./routes/duplicates');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -100,6 +101,7 @@ app.use('/api/health', createHealthRoutes(deps));
 
 // Protected routes
 app.use('/api/accounts', requireAuth, createAccountRoutes(deps));
+app.use('/api/transactions/duplicates', requireAuth, createDuplicateRoutes(deps));
 app.use('/api/transactions', requireAuth, createTransactionRoutes(deps));
 app.use('/api/categories', requireAuth, createCategoryRoutes(deps));
 app.use('/api/budgets', requireAuth, createBudgetRoutes(deps));

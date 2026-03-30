@@ -6,6 +6,7 @@ const { createTransactionSchema, bulkDeleteSchema, bulkCategorizeSchema, bulkTag
 const createTransactionRepository = require('../repositories/transaction.repository');
 const createAccountRepository = require('../repositories/account.repository');
 const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
+const createDuplicateRepository = require('../repositories/duplicate.repository');
 const { convert, buildRateMap } = require('../utils/currency-converter');
 const { ValidationError, NotFoundError } = require('../errors');
 const createNotificationService = require('../services/notification.service');
@@ -17,6 +18,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   const accountRepo = createAccountRepository({ db });
   const rateRepo = createExchangeRateRepository({ db });
   const notifService = createNotificationService({ db });
+  const dupRepo = createDuplicateRepository({ db });
 
   // GET /api/transactions
   router.get('/', (req, res, next) => {
@@ -114,7 +116,20 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         notifService.checkLargeTransaction(req.user.id, transaction.id, amount, threshold);
       } catch (_) { /* notification failure should not break transaction */ }
 
-      res.status(201).json({ transaction });
+      // Duplicate detection
+      let potential_duplicate = false;
+      let similar_transaction_id = null;
+      try {
+        const match = dupRepo.isDuplicate(req.user.id, {
+          account_id, date, amount, description,
+        });
+        if (match && match.id !== transaction.id) {
+          potential_duplicate = true;
+          similar_transaction_id = match.id;
+        }
+      } catch (_) { /* duplicate check failure should not break transaction */ }
+
+      res.status(201).json({ transaction, potential_duplicate, similar_transaction_id });
     } catch (err) { next(err); }
   });
 
