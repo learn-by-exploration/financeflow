@@ -1,5 +1,5 @@
 // PersonalFi — Budgets View
-import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, fmt, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 import { rules, attachValidation } from '../form-validator.js';
 
@@ -87,7 +87,14 @@ async function budgetCard(budget) {
 }
 
 function progressBar(pct, color) {
-  const bar = el('div', { className: 'progress-bar' });
+  const bar = el('div', {
+    className: 'progress-bar',
+    role: 'progressbar',
+    'aria-valuenow': String(Math.round(pct)),
+    'aria-valuemin': '0',
+    'aria-valuemax': '100',
+    'aria-label': `${Math.round(pct)}% spent`,
+  });
   const fill = el('div', { className: 'progress-fill' });
   fill.style.width = `${Math.min(pct, 100)}%`;
   fill.style.background = color;
@@ -198,18 +205,26 @@ async function handleBudgetSubmit(e) {
   });
 
   try {
-    await Api.post('/budgets', {
-      name: f.name.value.trim(),
-      period: f.period.value,
-      start_date: f.start_date.value,
-      end_date: f.end_date.value,
-      items,
+    const submitBtn = f.querySelector('button[type="submit"]');
+    await withLoading(submitBtn, async () => {
+      await Api.post('/budgets', {
+        name: f.name.value.trim(),
+        period: f.period.value,
+        start_date: f.start_date.value,
+        end_date: f.end_date.value,
+        items,
+      });
+      toast('Budget created', 'success');
+      closeModal();
+      if (onRefresh) onRefresh();
     });
-    toast('Budget created', 'success');
-    closeModal();
-    if (onRefresh) onRefresh();
   } catch (err) {
-    toast(err.message, 'error');
+    let errDiv = f.querySelector('.modal-error');
+    if (!errDiv) {
+      errDiv = el('div', { className: 'modal-error' });
+      f.prepend(errDiv);
+    }
+    errDiv.textContent = err.message;
   }
 }
 

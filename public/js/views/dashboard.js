@@ -28,19 +28,23 @@ export async function renderDashboard(container) {
   container.appendChild(header);
 
   // Stats grid
+  const goTo = (view) => () => {
+    const nav = document.querySelector(`.nav-item[data-view="${view}"]`);
+    if (nav) nav.click();
+  };
   const stats = el('div', { className: 'stats-grid' }, [
-    statCard('Net Worth', fmt(data.net_worth), 'accent'),
-    statCard('Income (this month)', fmt(data.month_income), 'green'),
-    statCard('Expenses (this month)', fmt(data.month_expense), 'red'),
-    statCard('Savings (this month)', fmt(data.month_savings), data.month_savings >= 0 ? 'green' : 'red'),
+    statCard('Net Worth', fmt(data.net_worth), 'accent', goTo('accounts')),
+    statCard('Income (this month)', fmt(data.month_income), 'green', goTo('transactions')),
+    statCard('Expenses (this month)', fmt(data.month_expense), 'red', goTo('transactions')),
+    statCard('Savings (this month)', fmt(data.month_savings), data.month_savings >= 0 ? 'green' : 'red', goTo('budgets')),
   ]);
   container.appendChild(stats);
 
   // Charts grid
   const chartsGrid = el('div', { className: 'charts-grid' }, [
-    chartCard('Spending by Category', 'chart-spending'),
-    chartCard('Income vs Expense', 'chart-income-expense'),
-    chartCard('Spending Trend (30 days)', 'chart-trend'),
+    chartCard('Spending by Category', 'chart-spending', 'Doughnut chart showing spending breakdown by category this month'),
+    chartCard('Income vs Expense', 'chart-income-expense', 'Bar chart comparing income and expenses over the last 6 months'),
+    chartCard('Spending Trend (30 days)', 'chart-trend', 'Line chart showing daily spending over the last 30 days'),
   ]);
   container.appendChild(chartsGrid);
 
@@ -64,16 +68,25 @@ export async function renderDashboard(container) {
   initDashboardCharts(container);
 }
 
-function chartCard(title, canvasId) {
-  const canvas = el('canvas', { id: canvasId });
+function chartCard(title, canvasId, ariaLabel) {
+  const canvas = el('canvas', { id: canvasId, role: 'img', 'aria-label': ariaLabel || title });
   return el('div', { className: 'card chart-card' }, [
     el('h3', { textContent: title }),
     el('div', { className: 'chart-wrapper' }, [canvas]),
   ]);
 }
 
-function statCard(label, value, color) {
-  return el('div', { className: `stat-card ${color}` }, [
+function statCard(label, value, color, onClick) {
+  const attrs = { className: `stat-card ${color}` };
+  if (onClick) {
+    attrs.className += ' clickable';
+    attrs.onClick = onClick;
+    attrs.onKeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } };
+    attrs.tabindex = '0';
+    attrs.role = 'button';
+    attrs['aria-label'] = `${label}: ${value}`;
+  }
+  return el('div', attrs, [
     el('div', { className: 'stat-label', textContent: label }),
     el('div', { className: 'stat-value', textContent: value }),
   ]);

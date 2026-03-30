@@ -11,6 +11,8 @@ export async function api(path, options = {}) {
   const res = await fetch(`/api${path}`, { ...options, headers });
   if (res.status === 401) {
     localStorage.clear();
+    // Store message for login page
+    sessionStorage.setItem('pfi_session_expired', '1');
     window.location.href = '/login.html';
     return;
   }
@@ -50,11 +52,12 @@ export function formatDate(dateStr, format = 'YYYY-MM-DD') {
 // ─── Toast notifications ───
 export function toast(message, type = 'info') {
   const container = document.getElementById('toast-container');
-  const el = document.createElement('div');
-  el.className = `toast toast-${type}`;
-  el.textContent = message;
-  container.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = message;
+  container.appendChild(t);
+  const duration = type === 'error' ? 8000 : 5000;
+  setTimeout(() => t.remove(), duration);
   // A11y: announce to screen readers
   const announce = document.getElementById('a11y-announce');
   if (announce) {
@@ -64,20 +67,52 @@ export function toast(message, type = 'info') {
 }
 
 // ─── Modal ───
+let _modalTrigger = null;
+
 export function openModal(html) {
+  _modalTrigger = document.activeElement;
+  const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
+  content.innerHTML = '';
   if (typeof html === 'string') {
-    content.innerHTML = html;
+    content.textContent = html;
   } else {
-    content.innerHTML = '';
     content.appendChild(html);
   }
+  // Set aria-labelledby if modal has a title
+  const title = content.querySelector('.modal-title');
+  if (title) {
+    title.id = title.id || 'modal-title-auto';
+    overlay.setAttribute('aria-labelledby', title.id);
+  } else {
+    overlay.removeAttribute('aria-labelledby');
+  }
+  // Add close (X) button if not already present
+  if (!content.querySelector('.modal-close-btn')) {
+    const closeBtn = el('button', {
+      type: 'button',
+      className: 'modal-close-btn',
+      'aria-label': 'Close',
+      onClick: closeModal,
+    }, [el('span', { className: 'material-icons-round', textContent: 'close' })]);
+    content.prepend(closeBtn);
+  }
   document.getElementById('modal-overlay').classList.remove('hidden');
+  // Focus first focusable element inside modal
+  setTimeout(() => {
+    const focusable = content.querySelector('input:not([type="hidden"]), select, textarea, button:not(.modal-close-btn)');
+    if (focusable) focusable.focus();
+  }, 50);
 }
 
 export function closeModal() {
   document.getElementById('modal-overlay').classList.add('hidden');
   document.getElementById('modal-content').innerHTML = '';
+  // Restore focus to trigger element
+  if (_modalTrigger && _modalTrigger.isConnected) {
+    _modalTrigger.focus();
+    _modalTrigger = null;
+  }
 }
 
 // ─── Safe element creation ───
@@ -114,3 +149,18 @@ export function confirm(message) {
 
 export function getUser() { return user(); }
 export function getToken() { return token(); }
+
+// ─── Button loading state (prevent double-submit) ───
+export async function withLoading(button, asyncFn) {
+  if (button.disabled) return;
+  const original = button.textContent;
+  button.disabled = true;
+  button.classList.add('btn-loading');
+  try {
+    await asyncFn();
+  } finally {
+    button.disabled = false;
+    button.classList.remove('btn-loading');
+    button.textContent = original;
+  }
+}

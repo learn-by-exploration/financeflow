@@ -1,5 +1,5 @@
 // FinanceFlow — Service Worker (PWA)
-const CACHE_NAME = 'financeflow-v0.4.1';
+const CACHE_NAME = 'financeflow-v0.5.0';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -9,6 +9,18 @@ const STATIC_ASSETS = [
   '/js/app.js',
   '/js/utils.js',
   '/js/login.js',
+  '/js/charts.js',
+  '/js/notifications.js',
+  '/js/ui-states.js',
+  '/js/form-validator.js',
+  '/js/pagination.js',
+  '/js/views/dashboard.js',
+  '/js/views/transactions.js',
+  '/js/views/accounts.js',
+  '/js/views/budgets.js',
+  '/js/views/goals.js',
+  '/js/views/settings.js',
+  '/js/views/search.js',
   '/js/vendor/chart.min.js',
   '/manifest.json',
 ];

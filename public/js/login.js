@@ -11,14 +11,57 @@ toggleLink.addEventListener('click', (e) => {
   e.preventDefault();
   isLogin = !isLogin;
   btn.textContent = isLogin ? 'Sign In' : 'Register';
-  subtitle.textContent = isLogin ? 'Sign in to manage your finances' : 'Create your account';
+  subtitle.textContent = isLogin ? 'Your money. Your server. Your rules.' : 'Create your account';
   toggleText.textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
   toggleLink.textContent = isLogin ? 'Register' : 'Sign In';
   groupDisplay.style.display = isLogin ? 'none' : 'block';
   errorMsg.textContent = '';
   // Show/hide password requirements
   const reqBox = document.getElementById('password-requirements');
-  if (reqBox) reqBox.style.display = isLogin ? 'none' : 'block';
+  if (reqBox) {
+    reqBox.style.display = isLogin ? 'none' : 'block';
+    // Reset requirement marks when toggling to register
+    if (!isLogin) reqBox.querySelectorAll('li').forEach(li => li.classList.remove('met'));
+  }
+  // Update autocomplete
+  const pwInput = document.getElementById('password');
+  pwInput.setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
+});
+
+// ─── Password visibility toggle ───
+const pwToggle = document.querySelector('.password-toggle');
+if (pwToggle) {
+  pwToggle.addEventListener('click', () => {
+    const pw = document.getElementById('password');
+    const icon = pwToggle.querySelector('.material-icons-round');
+    if (pw.type === 'password') {
+      pw.type = 'text';
+      icon.textContent = 'visibility_off';
+      pwToggle.setAttribute('aria-label', 'Hide password');
+    } else {
+      pw.type = 'password';
+      icon.textContent = 'visibility';
+      pwToggle.setAttribute('aria-label', 'Show password');
+    }
+  });
+}
+
+// ─── Real-time password requirement checking ───
+const pwInput = document.getElementById('password');
+const rules = {
+  length: /.{8,}/,
+  upper: /[A-Z]/,
+  lower: /[a-z]/,
+  number: /[0-9]/,
+  special: /[^a-zA-Z0-9]/,
+};
+pwInput.addEventListener('input', () => {
+  if (isLogin) return;
+  const val = pwInput.value;
+  for (const [rule, regex] of Object.entries(rules)) {
+    const li = document.querySelector(`li[data-rule="${rule}"]`);
+    if (li) li.classList.toggle('met', regex.test(val));
+  }
 });
 
 form.addEventListener('submit', async (e) => {
@@ -48,3 +91,10 @@ form.addEventListener('submit', async (e) => {
 
 // Redirect if already logged in
 if (localStorage.getItem('pfi_token')) window.location.href = '/';
+
+// Show session expiry message
+if (sessionStorage.getItem('pfi_session_expired')) {
+  sessionStorage.removeItem('pfi_session_expired');
+  errorMsg.textContent = 'Your session expired. Please sign in again.';
+  errorMsg.style.color = 'var(--yellow, #f59e0b)';
+}

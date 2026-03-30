@@ -6,11 +6,13 @@
   <title>FinanceFlow — Login</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="css/login.css">
+  <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="fonts/MaterialIconsRound.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
   <div class="auth-card">
     <h1>💰 FinanceFlow</h1>
-    <p id="auth-subtitle">Sign in to manage your finances</p>
+    <p id="auth-subtitle">Your money. Your server. Your rules.</p>
     <div id="error-msg" class="error-msg"></div>
     <form id="auth-form">
       <div class="form-group" id="group-display" style="display:none">
@@ -23,15 +25,20 @@
       </div>
       <div class="form-group">
         <label for="password">Password</label>
-        <input type="password" id="password" name="password" required autocomplete="current-password">
-        <div id="password-requirements" class="password-requirements" style="display:none">
+        <div class="password-wrapper">
+          <input type="password" id="password" name="password" required autocomplete="current-password">
+          <button type="button" class="password-toggle" aria-label="Show password" tabindex="-1">
+            <span class="material-icons-round" style="font-size:20px">visibility</span>
+          </button>
+        </div>
+        <div id="password-requirements" class="password-requirements" style="display:none" aria-live="polite">
           Password must have:
           <ul>
-            <li>At least 8 characters</li>
-            <li>An uppercase letter</li>
-            <li>A lowercase letter</li>
-            <li>A number</li>
-            <li>A special character</li>
+            <li data-rule="length">At least 8 characters</li>
+            <li data-rule="upper">An uppercase letter</li>
+            <li data-rule="lower">A lowercase letter</li>
+            <li data-rule="number">A number</li>
+            <li data-rule="special">A special character</li>
           </ul>
         </div>
       </div>

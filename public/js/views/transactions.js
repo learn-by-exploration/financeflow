@@ -1,5 +1,5 @@
 // PersonalFi — Transactions View
-import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, fmt, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 import { rules, attachValidation } from '../form-validator.js';
 import { renderPagination as renderPaginationComponent } from '../pagination.js';
@@ -81,11 +81,63 @@ function buildFilterBar() {
   catSelect.addEventListener('change', () => { state.filters.category_id = catSelect.value; loadPage(0); });
   bar.appendChild(catSelect);
 
-  // Date range
-  const from = el('input', { type: 'date', className: 'filter-date', title: 'From date' });
-  const to = el('input', { type: 'date', className: 'filter-date', title: 'To date' });
+  // Date range presets
+  const presets = el('select', { className: 'filter-select', title: 'Date range presets' });
+  [
+    { value: '', label: 'Date Range' },
+    { value: 'this-month', label: 'This Month' },
+    { value: 'last-month', label: 'Last Month' },
+    { value: 'last-90', label: 'Last 90 Days' },
+    { value: 'this-year', label: 'This Year' },
+    { value: 'custom', label: 'Custom...' },
+  ].forEach(o => presets.appendChild(el('option', { value: o.value, textContent: o.label })));
+
+  // Date range inputs
+  const from = el('input', { type: 'date', className: 'filter-date', title: 'From date', style: 'display:none' });
+  const to = el('input', { type: 'date', className: 'filter-date', title: 'To date', style: 'display:none' });
+
+  presets.addEventListener('change', () => {
+    const today = new Date();
+    let fromDate, toDate;
+    switch (presets.value) {
+      case 'this-month':
+        fromDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        toDate = today;
+        break;
+      case 'last-month':
+        fromDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        toDate = new Date(today.getFullYear(), today.getMonth(), 0);
+        break;
+      case 'last-90':
+        fromDate = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+        toDate = today;
+        break;
+      case 'this-year':
+        fromDate = new Date(today.getFullYear(), 0, 1);
+        toDate = today;
+        break;
+      case 'custom':
+        from.style.display = '';
+        to.style.display = '';
+        return;
+      default:
+        from.value = ''; to.value = '';
+        state.filters.from = ''; state.filters.to = '';
+        from.style.display = 'none'; to.style.display = 'none';
+        loadPage(0);
+        return;
+    }
+    from.style.display = 'none'; to.style.display = 'none';
+    from.value = fromDate ? fromDate.toISOString().slice(0, 10) : '';
+    to.value = toDate ? toDate.toISOString().slice(0, 10) : '';
+    state.filters.from = from.value;
+    state.filters.to = to.value;
+    loadPage(0);
+  });
+
   from.addEventListener('change', () => { state.filters.from = from.value; loadPage(0); });
   to.addEventListener('change', () => { state.filters.to = to.value; loadPage(0); });
+  bar.appendChild(presets);
   bar.appendChild(from);
   bar.appendChild(to);
 
@@ -300,17 +352,26 @@ async function handleSubmit(e, existing) {
   }
 
   try {
-    if (existing) {
-      await Api.put(`/transactions/${existing.id}`, body);
-      toast('Transaction updated', 'success');
-    } else {
-      await Api.post('/transactions', body);
-      toast('Transaction added', 'success');
-    }
-    closeModal();
-    if (onRefresh) onRefresh();
+    const submitBtn = f.querySelector('button[type="submit"]');
+    await withLoading(submitBtn, async () => {
+      if (existing) {
+        await Api.put(`/transactions/${existing.id}`, body);
+        toast('Transaction updated', 'success');
+      } else {
+        await Api.post('/transactions', body);
+        toast('Transaction added', 'success');
+      }
+      closeModal();
+      if (onRefresh) onRefresh();
+    });
   } catch (err) {
-    toast(err.message, 'error');
+    // Keep modal open, show error inline
+    let errDiv = f.querySelector('.modal-error');
+    if (!errDiv) {
+      errDiv = el('div', { className: 'modal-error' });
+      f.prepend(errDiv);
+    }
+    errDiv.textContent = err.message;
   }
 }
 

@@ -11,5 +11,12 @@ body { display: flex; justify-content: center; align-items: center; min-height: 
 .toggle a { color: var(--accent); cursor: pointer; text-decoration: none; }
 .error-msg { color: var(--danger); text-align: center; font-size: 0.875rem; min-height: 1.25rem; }
 .password-requirements { background: var(--bg-tertiary); border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); }
-.password-requirements ul { margin: 0.25rem 0 0 1.25rem; padding: 0; }
-.password-requirements li { margin-bottom: 0.15rem; }
+.password-requirements ul { margin: 0.25rem 0 0 0; padding: 0; list-style: none; }
+.password-requirements li { margin-bottom: 0.15rem; padding-left: 1.5rem; position: relative; }
+.password-requirements li::before { content: '✗'; position: absolute; left: 0; color: var(--red, #ef4444); font-weight: 600; }
+.password-requirements li.met { color: var(--green, #10b981); }
+.password-requirements li.met::before { content: '✓'; color: var(--green, #10b981); }
+.password-wrapper { position: relative; }
+.password-wrapper input { padding-right: 2.5rem; }
+.password-toggle { position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted, #a5b0c2); cursor: pointer; padding: 0.25rem; display: flex; align-items: center; }
+.password-toggle:hover { color: var(--text-primary, #f1f5f9); }

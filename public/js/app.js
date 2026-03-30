@@ -1,5 +1,5 @@
 // PersonalFi — SPA Entry Point (ES module)
-import { Api, closeModal, toast, getToken, openModal, el, fmt } from './utils.js';
+import { Api, closeModal, toast, getToken, openModal, el, fmt, withLoading } from './utils.js';
 import { startPolling } from './notifications.js';
 import { showLoading, showError } from './ui-states.js';
 
@@ -115,12 +115,7 @@ document.querySelectorAll('.nav-group-header').forEach(header => {
 // ─── Navigation ───
 document.querySelectorAll('.nav-item[data-view]').forEach(el => {
   el.addEventListener('click', () => {
-    currentView = el.dataset.view;
-    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-    el.classList.add('active');
-    sidebar.classList.remove('open');
-    backdrop.classList.remove('active');
-    render();
+    navigateTo(el.dataset.view);
   });
   el.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -183,6 +178,10 @@ async function render() {
     if (!loader) { container.innerHTML = '<p>View not found</p>'; return; }
     const renderFn = await loader();
     container.innerHTML = '';
+    // Re-trigger fade-in animation on view switch
+    container.style.animation = 'none';
+    container.offsetHeight; // force reflow
+    container.style.animation = '';
     if (currentView === 'search') {
       await renderFn(container, currentSearchQuery);
     } else {
@@ -251,7 +250,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
 
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
   if (e.key === 'Escape') closeModal();
   if (e.key === 'n' || e.key === 'N') showQuickAdd();
   if (e.key === '?') showShortcutsHelp();
@@ -259,6 +258,12 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 't') navigateTo('transactions');
   if (e.key === 'b') navigateTo('budgets');
   if (e.key === 'g') navigateTo('groups');
+  // Ctrl+K or / to focus search
+  if ((e.key === 'k' && (e.ctrlKey || e.metaKey)) || e.key === '/') {
+    e.preventDefault();
+    const si = document.getElementById('global-search');
+    if (si) si.focus();
+  }
   // Number keys for navigation
   const navMap = { '1': 'dashboard', '2': 'transactions', '3': 'accounts', '4': 'budgets', '5': 'goals' };
   if (navMap[e.key]) { navigateTo(navMap[e.key]); }
@@ -274,6 +279,7 @@ function showShortcutsHelp() {
     { key: 'B', desc: 'Budgets' },
     { key: 'G', desc: 'Groups' },
     { key: '1-5', desc: 'Navigate (Dashboard, Transactions, Accounts, Budgets, Goals)' },
+    { key: 'Ctrl+K or /', desc: 'Focus search bar' },
     { key: 'Esc', desc: 'Close modal' },
   ];
   const list = el('div', { className: 'shortcuts-list' },
@@ -312,18 +318,28 @@ async function showQuickAdd() {
   const form = el('form', { className: 'modal-form', onSubmit: async (e) => {
     e.preventDefault();
     const f = e.target;
+    const submitBtn = f.querySelector('button[type="submit"]');
     try {
-      await Api.post('/transactions', {
-        account_id: parseInt(f.account_id.value, 10),
-        type: f.type.value,
-        amount: parseFloat(f.amount.value),
-        description: f.description.value.trim(),
-        date: f.date.value,
+      await withLoading(submitBtn, async () => {
+        await Api.post('/transactions', {
+          account_id: parseInt(f.account_id.value, 10),
+          type: f.type.value,
+          amount: parseFloat(f.amount.value),
+          description: f.description.value.trim(),
+          date: f.date.value,
+        });
+        toast('Transaction added', 'success');
+        closeModal();
+        if (currentView === 'dashboard' || currentView === 'transactions') render();
       });
-      toast('Transaction added', 'success');
-      closeModal();
-      if (currentView === 'dashboard' || currentView === 'transactions') render();
-    } catch (err) { toast(err.message, 'error'); }
+    } catch (err) {
+      let errDiv = f.querySelector('.modal-error');
+      if (!errDiv) {
+        errDiv = el('div', { className: 'modal-error' });
+        f.prepend(errDiv);
+      }
+      errDiv.textContent = err.message;
+    }
   }}, [
     el('h3', { className: 'modal-title', textContent: 'Quick Add Transaction' }),
     formGroup('Description', el('input', { type: 'text', name: 'description', required: 'true', placeholder: 'What did you spend on?', autofocus: 'true' })),
@@ -355,13 +371,21 @@ function formGroup(label, input) {
   return el('div', { className: 'form-group' }, [el('label', { textContent: label, for: id }), input]);
 }
 
-function navigateTo(view) {
+function navigateTo(view, pushHistory = true) {
   currentView = view;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const nav = document.querySelector(`.nav-item[data-view="${view}"]`);
   if (nav) nav.classList.add('active');
+  sidebar.classList.remove('open');
+  backdrop.classList.remove('active');
+  if (pushHistory) history.pushState({ view }, '', `/#/${view}`);
   render();
 }
+
+// ─── Browser back/forward support ───
+window.addEventListener('popstate', (e) => {
+  if (e.state && e.state.view) navigateTo(e.state.view, false);
+});
 
 // ─── Modal close on overlay click ───
 document.getElementById('modal-overlay').addEventListener('click', (e) => {
@@ -397,6 +421,24 @@ if (searchInput) {
     }
   });
 }
+
+// ─── Offline/online indicator ───
+const offlineBanner = document.getElementById('offline-banner');
+if (offlineBanner) {
+  window.addEventListener('offline', () => { offlineBanner.style.display = 'flex'; });
+  window.addEventListener('online', () => { offlineBanner.style.display = 'none'; toast('Back online', 'success'); });
+  if (!navigator.onLine) offlineBanner.style.display = 'flex';
+}
+
+// ─── Initial route from hash ───
+const hashView = location.hash.replace('#/', '');
+if (hashView && views[hashView]) {
+  currentView = hashView;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const nav = document.querySelector(`.nav-item[data-view="${hashView}"]`);
+  if (nav) nav.classList.add('active');
+}
+history.replaceState({ view: currentView }, '', `/#/${currentView}`);
 
 // ─── Init ───
 render();

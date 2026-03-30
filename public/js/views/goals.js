@@ -1,5 +1,5 @@
 // PersonalFi — Savings Goals View
-import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, fmt, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 
 const GOAL_ICONS = ['🎯', '🏠', '🚗', '✈️', '💍', '📱', '🎓', '🏥', '💰', '🎁'];
@@ -93,7 +93,14 @@ function goalCard(goal) {
         el('span', { className: 'budget-pct', textContent: `${pct}%` }),
       ]),
       (() => {
-        const bar = el('div', { className: 'progress-bar' });
+        const bar = el('div', {
+          className: 'progress-bar',
+          role: 'progressbar',
+          'aria-valuenow': String(pct),
+          'aria-valuemin': '0',
+          'aria-valuemax': '100',
+          'aria-label': `${pct}% complete`,
+        });
         const fill = el('div', { className: 'progress-fill' });
         fill.style.width = `${pct}%`;
         fill.style.background = barColor;
@@ -139,12 +146,19 @@ function showContribute(goal) {
     e.preventDefault();
     const amount = parseFloat(e.target.amount.value);
     if (!amount || amount <= 0) { toast('Enter a valid amount', 'error'); return; }
-    try {
-      await Api.put(`/goals/${goal.id}`, { current_amount: goal.current_amount + amount });
-      toast(`Added ${fmt(amount)} to ${goal.name}`, 'success');
-      closeModal();
-      if (onRefresh) onRefresh();
-    } catch (err) { toast(err.message, 'error'); }
+    const btn = e.target.querySelector('button[type="submit"]');
+    await withLoading(btn, async () => {
+      try {
+        await Api.put(`/goals/${goal.id}`, { current_amount: goal.current_amount + amount });
+        toast(`Added ${fmt(amount)} to ${goal.name}`, 'success');
+        closeModal();
+        if (onRefresh) onRefresh();
+      } catch (err) {
+        let errDiv = e.target.querySelector('.modal-error');
+        if (!errDiv) { errDiv = el('div', { className: 'modal-error' }); e.target.prepend(errDiv); }
+        errDiv.textContent = err.message;
+      }
+    });
   }}, [
     el('h3', { className: 'modal-title', textContent: `Add to "${goal.name}"` }),
     el('p', { textContent: `Current: ${fmt(goal.current_amount)} / ${fmt(goal.target_amount)}` }),
@@ -171,16 +185,26 @@ async function handleGoalSubmit(e, existing) {
   if (existing && f.current_amount) body.current_amount = parseFloat(f.current_amount.value);
 
   try {
-    if (existing) {
-      await Api.put(`/goals/${existing.id}`, body);
-      toast('Goal updated', 'success');
-    } else {
-      await Api.post('/goals', body);
-      toast('Goal created', 'success');
+    const submitBtn = f.querySelector('button[type="submit"]');
+    await withLoading(submitBtn, async () => {
+      if (existing) {
+        await Api.put(`/goals/${existing.id}`, body);
+        toast('Goal updated', 'success');
+      } else {
+        await Api.post('/goals', body);
+        toast('Goal created', 'success');
+      }
+      closeModal();
+      if (onRefresh) onRefresh();
+    });
+  } catch (err) {
+    let errDiv = f.querySelector('.modal-error');
+    if (!errDiv) {
+      errDiv = el('div', { className: 'modal-error' });
+      f.prepend(errDiv);
     }
-    closeModal();
-    if (onRefresh) onRefresh();
-  } catch (err) { toast(err.message, 'error'); }
+    errDiv.textContent = err.message;
+  }
 }
 
 async function deleteGoal(goal) {

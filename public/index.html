@@ -10,6 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="styles.css">
+  <link rel="preload" href="/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/material-icons/material-icons-round.woff2" as="font" type="font/woff2" crossorigin>
   <script src="/js/vendor/chart.min.js" defer></script>
 </head>
 <body>
@@ -148,6 +150,11 @@
       <div id="demo-banner" class="demo-banner" style="display:none;">
         <span class="material-icons-round">info</span>
         <span>Demo Mode — Sample data shown. <a href="#" id="demo-reset-link">Reset data</a></span>
+      </div>
+      <!-- Offline banner -->
+      <div id="offline-banner" class="offline-banner" style="display:none;">
+        <span class="material-icons-round">cloud_off</span>
+        <span>You're offline. Changes will not be saved.</span>
       </div>
       <div class="top-bar">
         <button id="mobile-menu" class="mobile-menu-btn inline">

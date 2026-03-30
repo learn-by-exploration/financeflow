@@ -1,5 +1,5 @@
 // PersonalFi — Accounts View (Full CRUD)
-import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, fmt, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 import { rules, attachValidation } from '../form-validator.js';
 
@@ -79,15 +79,6 @@ function statCard(label, value, color) {
   return el('div', { className: `stat-card ${color}` }, [
     el('div', { className: 'stat-label', textContent: label }),
     el('div', { className: 'stat-value', textContent: value }),
-  ]);
-}
-
-function emptyState() {
-  return el('div', { className: 'empty-state' }, [
-    el('span', { className: 'empty-icon', textContent: '🏦' }),
-    el('h3', { textContent: 'No accounts yet' }),
-    el('p', { textContent: 'Add your first account to start tracking your finances.' }),
-    el('button', { className: 'btn btn-primary', textContent: '+ Add Account', onClick: () => showAccountForm(null) }),
   ]);
 }
 
@@ -206,17 +197,25 @@ async function handleSubmit(e, existing) {
   };
 
   try {
-    if (existing) {
-      await Api.put(`/accounts/${existing.id}`, body);
-      toast('Account updated', 'success');
-    } else {
-      await Api.post('/accounts', body);
-      toast('Account added', 'success');
-    }
-    closeModal();
-    if (onRefresh) onRefresh();
+    const submitBtn = form.querySelector('button[type="submit"]');
+    await withLoading(submitBtn, async () => {
+      if (existing) {
+        await Api.put(`/accounts/${existing.id}`, body);
+        toast('Account updated', 'success');
+      } else {
+        await Api.post('/accounts', body);
+        toast('Account added', 'success');
+      }
+      closeModal();
+      if (onRefresh) onRefresh();
+    });
   } catch (err) {
-    toast(err.message, 'error');
+    let errDiv = form.querySelector('.modal-error');
+    if (!errDiv) {
+      errDiv = el('div', { className: 'modal-error' });
+      form.prepend(errDiv);
+    }
+    errDiv.textContent = err.message;
   }
 }
 
