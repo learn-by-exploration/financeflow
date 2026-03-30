@@ -61,6 +61,9 @@ describe('Security', () => {
       ['PUT', '/api/tags/1'],
       ['DELETE', '/api/tags/1'],
       ['GET', '/api/search?q=test'],
+      ['GET', '/api/net-worth'],
+      ['GET', '/api/net-worth/history'],
+      ['POST', '/api/net-worth/snapshot'],
     ];
 
     for (const [method, path] of protectedRoutes) {
