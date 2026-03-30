@@ -1,7 +1,8 @@
 function requireJsonContentType(req, res, next) {
   if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
-    // Skip for endpoints that accept non-JSON content (e.g. CSV import)
+    // Skip for endpoints that accept non-JSON content (e.g. CSV import, file uploads)
     if (req.path.endsWith('/csv-import')) return next();
+    if (req.path.endsWith('/attachments')) return next();
     const cl = req.headers['content-length'];
     const hasBody = (cl && cl !== '0') || req.headers['transfer-encoding'];
     if (hasBody) {

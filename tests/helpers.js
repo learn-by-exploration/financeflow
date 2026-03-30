@@ -68,6 +68,7 @@ function cleanDb() {
   try { db.exec('DELETE FROM exchange_rates'); } catch {}
   try { db.exec('DELETE FROM category_rules'); } catch {}
   try { db.exec('DELETE FROM api_tokens'); } catch {}
+  try { db.exec('DELETE FROM attachments'); } catch {}
 }
 
 function teardown() {
