@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createAccountSchema } = require('../schemas/account.schema');
 const createAccountRepository = require('../repositories/account.repository');
+const createTransactionRepository = require('../repositories/transaction.repository');
 const { ValidationError, NotFoundError } = require('../errors');
 const { invalidateCache } = require('../middleware/cache');
 
@@ -10,6 +11,7 @@ const CACHE_PATTERNS = ['/api/reports', '/api/charts', '/api/insights', '/api/st
 module.exports = function createAccountRoutes({ db, audit }) {
 
   const accountRepo = createAccountRepository({ db });
+  const txnRepo = createTransactionRepository({ db });
 
   // GET /api/accounts
   router.get('/', (req, res, next) => {
@@ -58,6 +60,53 @@ module.exports = function createAccountRoutes({ db, audit }) {
       audit.log(req.user.id, 'account.delete', 'account', req.params.id);
       invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/accounts/:id/transactions
+  router.get('/:id/transactions', (req, res, next) => {
+    try {
+      const accountId = Number(req.params.id);
+      const userId = req.user.id;
+
+      // Verify account belongs to user
+      const account = accountRepo.findById ? accountRepo.findById(accountId, userId) : null;
+      if (!account) {
+        // Try direct query
+        const acc = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(accountId, userId);
+        if (!acc) {
+          return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Account not found' } });
+        }
+      }
+
+      const page = Math.max(1, parseInt(req.query.page || '1', 10));
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit || '50', 10)));
+      const offset = (page - 1) * limit;
+
+      // Get total count
+      const total = db.prepare(
+        'SELECT COUNT(*) as count FROM transactions WHERE account_id = ? AND user_id = ?'
+      ).get(accountId, userId).count;
+
+      // Get transactions with running balance using window function
+      const transactions = db.prepare(`
+        SELECT *, running_balance FROM (
+          SELECT t.*,
+            SUM(CASE WHEN t.type = 'income' THEN t.amount WHEN t.type = 'expense' THEN -t.amount ELSE 0 END)
+              OVER (ORDER BY t.date ASC, t.id ASC) as running_balance
+          FROM transactions t
+          WHERE t.account_id = ? AND t.user_id = ?
+        ) sub
+        ORDER BY date DESC, id DESC
+        LIMIT ? OFFSET ?
+      `).all(accountId, userId, limit, offset);
+
+      // Round running_balance values
+      for (const tx of transactions) {
+        tx.running_balance = Math.round(tx.running_balance * 100) / 100;
+      }
+
+      res.json({ transactions, total, page, limit });
     } catch (err) { next(err); }
   });
 

@@ -158,6 +158,86 @@ module.exports = function createReportRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/reports/net-worth-history?from=YYYY-MM&to=YYYY-MM
+  router.get('/net-worth-history', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const { from, to } = req.query;
+
+      // Compute monthly net change from transactions
+      const rows = db.prepare(`
+        SELECT strftime('%Y-%m', date) as month,
+               SUM(CASE WHEN type = 'income' THEN amount WHEN type = 'expense' THEN -amount ELSE 0 END) as net_change
+        FROM transactions WHERE user_id = ? AND type IN ('income', 'expense')
+        GROUP BY month ORDER BY month
+      `).all(userId);
+
+      if (rows.length === 0) {
+        return res.json({ history: [] });
+      }
+
+      // Build running total (cumulative net worth)
+      let cumulative = 0;
+      let history = [];
+      for (const row of rows) {
+        cumulative = Math.round((cumulative + row.net_change) * 100) / 100;
+        history.push({ month: row.month, net_worth: cumulative });
+      }
+
+      // Apply date range filter
+      if (from) {
+        history = history.filter(h => h.month >= from);
+      }
+      if (to) {
+        history = history.filter(h => h.month <= to);
+      }
+
+      res.json({ history });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/reports/trends?from=YYYY-MM-DD&to=YYYY-MM-DD
+  router.get('/trends', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      let { from, to } = req.query;
+
+      // Validate if provided
+      if (from && !DATE_RE.test(from)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'from must be in YYYY-MM-DD format' } });
+      }
+      if (to && !DATE_RE.test(to)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'to must be in YYYY-MM-DD format' } });
+      }
+      if (from && to && from > to) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'from must be before to' } });
+      }
+
+      // Default: last 12 months
+      if (!from || !to) {
+        const now = new Date();
+        to = now.toISOString().slice(0, 10);
+        const start = new Date(now);
+        start.setMonth(start.getMonth() - 11);
+        start.setDate(1);
+        from = start.toISOString().slice(0, 10);
+      }
+
+      const months = db.prepare(`
+        SELECT
+          strftime('%Y-%m', date) AS month,
+          ROUND(COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0), 2) AS income,
+          ROUND(COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0), 2) AS expenses
+        FROM transactions
+        WHERE user_id = ? AND date >= ? AND date <= ? AND type IN ('income', 'expense')
+        GROUP BY month
+        ORDER BY month
+      `).all(userId, from, to);
+
+      res.json({ from, to, months });
+    } catch (err) { next(err); }
+  });
+
   // GET /api/reports/compare?month1=YYYY-MM&month2=YYYY-MM
   router.get('/compare', (req, res, next) => {
     try {
