@@ -1,5 +1,5 @@
 // PersonalFi — Service Worker (PWA)
-const CACHE_NAME = 'personalfi-v0.1.7';
+const CACHE_NAME = 'personalfi-v0.3.47';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

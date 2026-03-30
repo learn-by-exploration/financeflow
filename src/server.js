@@ -110,11 +110,15 @@ const createAdminRoutes = require('./routes/admin');
 const createCalendarRoutes = require('./routes/calendar');
 const createDemoRoutes = require('./routes/demo');
 const createSpendingLimitRoutes = require('./routes/spending-limits');
+const createBrandingRoutes = require('./routes/branding');
+const createWhatsNewRoutes = require('./routes/whats-new');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
 app.use('/api/health', createHealthRoutes(deps));
 app.use('/api/demo', createDemoRoutes(deps));
+app.use('/api/branding', createBrandingRoutes());
+app.use('/api/whats-new', createWhatsNewRoutes());
 
 // Per-user rate limiting (optionalAuth populates req.user if authenticated)
 app.use('/api', optionalAuth, createPerUserRateLimit());

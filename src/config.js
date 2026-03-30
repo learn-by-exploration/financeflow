@@ -53,6 +53,11 @@ const config = Object.freeze({
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS, 10) || 10000,
   trustProxy: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
   demoMode: process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1',
+  brand: {
+    name: process.env.BRAND_NAME || 'FinanceFlow',
+    logoUrl: process.env.BRAND_LOGO_URL || '',
+    color: process.env.BRAND_COLOR || '#6366f1',
+  },
 });
 
 module.exports = config;

@@ -1580,3 +1580,11 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
 .ui-error-retry:hover {
   background: var(--red-bg);
 }
+
+/* ─── What's New ─── */
+.whats-new-list { display: flex; flex-direction: column; gap: 1rem; max-width: 720px; }
+.whats-new-entry { padding: 1.25rem; }
+.whats-new-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
+.whats-new-version { font-weight: 600; font-size: 1.1rem; color: var(--accent); }
+.whats-new-date { font-size: 0.85rem; }
+.whats-new-changes { padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.35rem; color: var(--text-secondary); }

@@ -33,6 +33,24 @@ if (!getToken()) { window.location.href = '/login.html'; }
   } catch (_) { /* not in demo mode */ }
 })();
 
+// ─── Branding ───
+(async function applyBranding() {
+  try {
+    const res = await fetch('/api/branding');
+    const brand = await res.json();
+    if (brand.name) {
+      document.title = brand.name;
+      const logo = document.querySelector('.logo');
+      if (logo) logo.textContent = '💰 ' + brand.name;
+    }
+    if (brand.color) {
+      document.documentElement.style.setProperty('--accent', brand.color);
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', brand.color);
+    }
+  } catch (_) { /* use defaults */ }
+})();
+
 // ─── Start notification polling ───
 startPolling();
 
@@ -58,6 +76,7 @@ const views = {
   recurring:     () => import('./views/recurring.js').then(m => m.renderRecurring),
   calendar:      () => import('./views/calendar.js').then(m => m.renderCalendar),
   export:        () => import('./views/export.js').then(m => m.renderExport),
+  'whats-new':   () => import('./views/whats-new.js').then(m => m.renderWhatsNew),
 };
 
 function placeholder(title, desc) {
