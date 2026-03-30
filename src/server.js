@@ -79,7 +79,13 @@ app.use('/api', requireJsonContentType);
 app.use('/api', etagMiddleware());
 app.use(createRequestIdMiddleware());
 if (!config.isTest) {
-  app.use(rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.max }));
+  app.use('/api', rateLimit({
+    windowMs: config.rateLimit.windowMs,
+    max: config.rateLimit.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests, please try again later' } }
+  }));
 }
 app.use(createRequestLogger());
 // CSRF middleware disabled — app uses X-Session-Token header auth,
