@@ -2,6 +2,180 @@
 
 All notable changes to PersonalFi are documented here.
 
+## [0.3.25] — 2026-03-30
+
+### Added
+- Comprehensive API documentation (`docs/API.md`) — all 120+ endpoints
+- Complete README rewrite with features, setup, Docker quickstart, configuration reference
+- Multi-stage Docker build for smaller production images
+- Startup configuration validation (data directory, DB writability)
+- Graceful shutdown handler (SIGTERM/SIGINT) — closes server and database cleanly
+- Startup validation tests
+
+### Changed
+- Optimized Dockerfile with non-root user, health check, layer caching
+- Updated `.dockerignore` with comprehensive exclusions
+- Bumped version to 0.3.25
+
+## [0.3.24] — Health Check Enhancements & Monitoring
+
+### Added
+- `/api/health/ready` readiness probe
+- `/api/health/live` liveness probe
+- `/api/health/metrics` application metrics endpoint
+- Request metrics middleware (response times, status code counts)
+- ETag middleware for conditional responses
+- Cache middleware with TTL support
+
+## [0.3.23] — Database Backup & Recovery
+
+### Added
+- `POST /api/admin/backup` — create on-demand database backup
+- `GET /api/admin/backups` — list available backups
+- `GET /api/admin/backups/:filename` — download backup
+- `DELETE /api/admin/backups/:filename` — delete backup
+- Auto-backup on startup (configurable)
+- Backup rotation with configurable retention count
+
+## [0.3.22] — Session Management & Security Polish
+
+### Added
+- `GET /api/auth/sessions` — list active sessions
+- `DELETE /api/auth/sessions/:id` — revoke specific session
+- `POST /api/auth/sessions/revoke-others` — revoke all other sessions
+- Account lockout after repeated failed login attempts
+- Session token rotation on password change
+
+## [0.3.21] — Accessibility & Frontend Polish APIs
+
+### Added
+- `GET /api/preferences` / `PUT /api/preferences` — user display preferences
+- Date format, number format, timezone, theme, language settings
+
+## [0.3.20] — Performance Optimization & Caching
+
+### Added
+- In-memory response cache with TTL for reports, insights, charts
+- ETag-based conditional responses (304 Not Modified)
+- Database query optimization (indexes, query plans)
+
+## [0.3.19] — Recurring Transaction Auto-Detection
+
+### Added
+- `GET /api/recurring/suggestions` — auto-detected recurring patterns
+- `POST /api/recurring/suggestions/accept` — accept suggestion
+- `POST /api/recurring/suggestions/dismiss` — dismiss false positive
+
+## [0.3.18] — Duplicate Transaction Detection
+
+### Added
+- `GET /api/transactions/duplicates` — detect potential duplicates
+- `POST /api/transactions/duplicates/dismiss` — dismiss false positive pair
+
+## [0.3.17] — CSV Export Enhancements
+
+### Added
+- `GET /api/export/transactions` — export transactions as CSV
+- `GET /api/export/accounts` — export accounts as CSV
+- `GET /api/export/budgets` — export budgets as CSV
+- `GET /api/export/all` — export all data as ZIP archive
+
+## [0.3.16] — Notifications System
+
+### Added
+- `GET /api/notifications` — paginated notifications
+- `PUT /api/notifications/:id/read` — mark as read
+- `POST /api/notifications/read-all` — mark all as read
+- `DELETE /api/notifications/:id` — delete notification
+
+## [0.3.15] — Transaction Attachments (Receipts)
+
+### Added
+- `POST /api/transactions/:id/attachments` — upload receipt/document
+- `GET /api/transactions/:id/attachments` — list attachments
+- `GET /api/attachments/:id` — download attachment
+- `DELETE /api/attachments/:id` — delete attachment
+
+## [0.3.14] — Advanced Charts & Visualization Data API
+
+### Added
+- 6 chart data endpoints: cashflow, balance-history, spending-pie, income-expense, net-worth, budget-utilization
+
+## [0.3.13] — Personal API Tokens
+
+### Added
+- `POST /api/tokens` — create personal API token
+- `GET /api/tokens` — list tokens
+- `DELETE /api/tokens/:id` — revoke token
+- Token-based auth via `X-API-Token` header
+
+## [0.3.12] — Multi-Currency Display
+
+### Added
+- Exchange rate management (CRUD)
+- Per-account currency support
+
+## [0.3.11] — Spending Insights & Anomaly Detection
+
+### Added
+- 5 insight endpoints: trends, anomalies, velocity, categories, payees
+
+## [0.3.10] — Monthly Summary Reports
+
+### Added
+- 4 report endpoints: monthly, yearly, categories, compare
+
+## [0.3.9] — Integration Tests + Floating Point Currency Fix
+
+### Fixed
+- Floating point precision issues in currency calculations
+
+### Added
+- Comprehensive integration test suite
+
+## [0.3.8] — Transaction Bulk Operations
+
+### Added
+- Bulk delete, bulk categorize, bulk tag, bulk untag
+
+## [0.3.7] — Bill Reminders & Upcoming Expenses
+
+### Added
+- Bill reminders CRUD + upcoming expenses endpoint
+
+## [0.3.6] — Pagination & Filtering for All List Endpoints
+
+### Changed
+- All list endpoints support `page`, `limit` parameters
+- Transaction list supports comprehensive filtering
+
+## [0.3.5] — Error Handling Standardization + Scheduler Resilience
+
+### Changed
+- Standardized error response format: `{ error, code, details }`
+- Scheduler auto-recovery on job failure
+
+## [0.3.4] — Repository Layer Extraction (Part 2)
+
+### Changed
+- Remaining routes extracted to repository layer
+
+## [0.3.3] — Repository Layer Extraction (Part 1)
+
+### Changed
+- Database queries extracted from routes into repository modules
+
+## [0.3.2] — Security Hardening
+
+### Added
+- Helmet CSP, rate limiting, Zod validation, CSRF protection, bcrypt hashing
+
+## [0.3.1] — Zod Input Validation Schemas
+
+### Added
+- Zod validation schemas for all API inputs
+- Consistent validation error responses
+
 ## [0.3.0] — 2025-07-18
 
 ### Added

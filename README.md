@@ -12,34 +12,64 @@ PersonalFi fills this gap: manage your own money AND collaborate with friends, f
 
 ## Features
 
-- **Accounts** — Track checking, savings, credit cards, cash, investments, loans
-- **Transactions** — Income, expenses, transfers with auto-categorization and search
-- **Budgets** — Monthly/weekly/custom budgets with per-category allocation and progress tracking
+### Core Finance
+- **Accounts** — Track checking, savings, credit cards, cash, investments, loans with per-account currency
+- **Transactions** — Income, expenses, transfers with auto-categorization, tagging, and search
+- **Budgets** — Monthly/weekly/custom budgets with per-category allocation, progress tracking, and rollover
 - **Subscriptions** — Track recurring subscriptions, total monthly burn rate
 - **Savings Goals** — Set targets with deadlines, contribute, auto-complete on target
-- **Groups & Splitting** — Create groups, split expenses (equal/exact/percentage/shares), settle debts
-- **Financial Health** — Score based on emergency fund, savings rate, debt-to-income (30-day gated)
-- **Reports** — Trends, category breakdowns, visual bars
-- **Auto-Categorization** — Pattern-based rules (system + custom) applied on transaction creation
-- **Dashboard** — Configurable card layout, net worth, spending trends, budget progress
-- **Tags** — Organize transactions with custom tags
-- **Global Search** — Find transactions, accounts, categories, subscriptions instantly
-- **Charts** — Daily spending sparklines powered by Chart.js
 - **Net Worth** — Track net worth over time with snapshots
-- **Budget Rollover** — Carry forward under/overspend between budget periods
-- **Recurring Rules** — Full CRUD for recurring transactions with skip/advance
-- **Audit Log** — Paginated, filterable activity history
+- **Categories** — System + custom categories with auto-categorization rules
+
+### Collaboration
+- **Groups & Splitting** — Create groups, split expenses (equal/exact/percentage/shares), settle debts
 - **Shared Budgets** — Collaborative budgets within groups
+
+### Intelligence
+- **Reports** — Monthly/yearly summaries, category breakdowns, month-over-month comparisons
+- **Insights** — Spending trends, anomaly detection, velocity tracking, top payees
+- **Charts** — Cashflow, balance history, spending pie, income/expense bars, net worth, budget utilization
+- **Financial Health** — Score based on emergency fund, savings rate, debt-to-income
+- **Duplicate Detection** — Detect and dismiss potential duplicate transactions
+- **Recurring Suggestions** — Auto-detect recurring patterns from transaction history
+
+### Data & Export
 - **Data Portability** — Full JSON export/import, CSV import with template
+- **CSV Export** — Export transactions, accounts, budgets, or all data as ZIP
+- **Attachments** — Upload receipts and documents to transactions (images, PDFs)
+- **Backup & Recovery** — On-demand database backup with rotation and auto-backup
+
+### Security & Auth
 - **Multi-user** — Session-based auth with bcrypt password hashing, per-user data isolation
+- **API Tokens** — Personal API tokens for programmatic access
+- **Session Management** — List, revoke individual or all-other sessions
 - **Account Security** — Password change with session rotation, account deletion with cascade
-- **Health Check** — `GET /api/health` for monitoring (status, version, uptime, db)
+- **Account Lockout** — Automatic lockout after repeated failed login attempts
+- **CSRF Protection** — Cross-site request forgery prevention
+
+### Infrastructure
+- **Bill Reminders** — Upcoming bill tracking with configurable notifications
+- **Notifications** — Budget overspend, bill due dates, goal milestones
+- **Exchange Rates** — Multi-currency display with stored rates
+- **Tags** — Organize transactions with custom colored tags
+- **Global Search** — Find transactions, accounts, categories, subscriptions instantly
+- **Bulk Operations** — Bulk delete, categorize, tag/untag transactions
+- **Audit Log** — Paginated, filterable activity history
+- **Preferences** — Date format, number format, timezone, theme, language
+
+### Developer & Ops
+- **Health Check** — `GET /api/health` + readiness/liveness probes + metrics
 - **Request IDs** — UUID per request in `X-Request-Id` header
+- **Graceful Shutdown** — Proper cleanup of server and database on SIGTERM/SIGINT
+- **Configuration Validation** — Startup checks for data directory and DB writability
+- **Docker** — Multi-stage build, non-root user, health check
+
+### Frontend
 - **PWA** — Installable with offline fallback, service worker caching
 - **Keyboard-first** — `N` = quick-add, `1-5` = nav, `Esc` = close modal
 - **Mobile-friendly** — Hamburger sidebar toggle, responsive layout
 - **Onboarding** — Welcome wizard for new users (3-step guide)
-- **Zero cloud** — SQLite database, no tracking, no telemetry
+- **Dark Theme** — Midnight theme with complete design system
 
 ## Quick Start
 
@@ -47,26 +77,33 @@ PersonalFi fills this gap: manage your own money AND collaborate with friends, f
 git clone <repo-url>
 cd personalfi
 npm install
-cp .env.example .env   # optional — works without it
 node src/server.js      # → http://localhost:3457
 ```
 
 ## Docker
 
+One-liner:
+
 ```bash
-docker compose up -d
+docker run -d -p 3457:3457 -v personalfi-data:/app/data --name personalfi personalfi
 ```
 
-Or standalone:
+Or build and run:
 
 ```bash
 docker build -t personalfi .
 docker run -d -p 3457:3457 -v personalfi-data:/app/data personalfi
 ```
 
+With Docker Compose:
+
+```bash
+docker compose up -d
+```
+
 Data is persisted in the `personalfi-data` volume at `/app/data/personalfi.db`.
 
-## Environment Variables
+## Configuration
 
 All values have sensible defaults — the app works without a `.env` file.
 
@@ -77,13 +114,56 @@ All values have sensible defaults — the app works without a `.env` file.
 | `NODE_ENV` | `development` | `development` / `production` / `test` |
 | `DEFAULT_CURRENCY` | `INR` | Default currency for new users |
 | `SESSION_MAX_AGE_DAYS` | `30` | Session token TTL |
+| `SESSION_REMEMBER_DAYS` | `30` | Remember-me session TTL |
 | `RATE_LIMIT_WINDOW_MS` | `60000` | Rate limit window (ms) |
 | `RATE_LIMIT_MAX` | `200` | Max requests per window |
 | `BCRYPT_SALT_ROUNDS` | `12` | Password hashing rounds (4 in test mode) |
 | `AUTH_LIMIT_WINDOW_MS` | `900000` | Auth rate limit window (15 min) |
 | `AUTH_LIMIT_MAX` | `20` | Max auth attempts per window |
+| `LOCKOUT_THRESHOLD` | `5` | Failed login attempts before lockout |
+| `LOCKOUT_DURATION_MS` | `900000` | Lockout duration (15 min) |
 | `LOG_LEVEL` | `info` | Pino log level: silent, error, warn, info, debug |
 | `TRUST_PROXY` | `false` | Set `true` behind a reverse proxy |
+| `CORS_ORIGIN` | ` ` | Comma-separated allowed origins |
+| `SHUTDOWN_TIMEOUT_MS` | `10000` | Graceful shutdown timeout |
+| `BACKUP_RETAIN_COUNT` | `7` | Number of backups to retain |
+| `BACKUP_INTERVAL_HOURS` | `24` | Auto-backup interval |
+| `BACKUP_MAX_BACKUPS` | `5` | Max backup files |
+| `BACKUP_AUTO_ON_START` | `false` | Auto-backup on server start |
+
+## API Reference
+
+See [docs/API.md](docs/API.md) for the complete API reference with 120+ endpoints.
+
+**Quick overview:**
+
+| Category | Base Path | Auth |
+|---|---|---|
+| Auth | `/api/auth` | Public (register, login) |
+| Health | `/api/health` | Public |
+| Accounts | `/api/accounts` | Required |
+| Transactions | `/api/transactions` | Required |
+| Categories | `/api/categories` | Required |
+| Budgets | `/api/budgets` | Required |
+| Goals | `/api/goals` | Required |
+| Subscriptions | `/api/subscriptions` | Required |
+| Recurring | `/api/recurring` | Required |
+| Tags | `/api/tags` | Required |
+| Reports | `/api/reports` | Required |
+| Insights | `/api/insights` | Required |
+| Charts | `/api/charts` | Required |
+| Export | `/api/export` | Required |
+| Notifications | `/api/notifications` | Required |
+| Reminders | `/api/reminders` | Required |
+| Exchange Rates | `/api/exchange-rates` | Required |
+| API Tokens | `/api/tokens` | Required |
+| Admin | `/api/admin` | Required |
+| Search | `/api/search` | Required |
+| Preferences | `/api/preferences` | Required |
+| Groups | `/api/groups` | Required |
+| Splits | `/api/splits` | Required |
+| Stats | `/api/stats` | Required |
+| Net Worth | `/api/net-worth` | Required |
 
 ## Tech Stack
 
@@ -93,10 +173,25 @@ All values have sensible defaults — the app works without a `.env` file.
 | Backend | Express 5, better-sqlite3 (WAL mode) |
 | Frontend | Vanilla JS SPA — ES modules, no framework, no build step |
 | Auth | bcryptjs, session tokens (`X-Session-Token` header) |
-| Security | Helmet CSP, express-rate-limit, input validation |
-| Testing | node:test (built-in) + supertest — 355 tests |
-| Container | Docker (node:22-slim) |
+| Validation | Zod schema validation |
+| Security | Helmet CSP, express-rate-limit, CSRF protection |
+| Logging | Pino (structured JSON logging) |
+| File Upload | Multer (receipts/attachments) |
+| Testing | node:test (built-in) + supertest |
+| Container | Docker (node:22-slim, multi-stage build) |
 | PWA | Service worker, Web App Manifest |
+
+## Testing
+
+```bash
+npm test
+```
+
+Runs the full test suite using Node.js built-in test runner.
+
+## License
+
+MIT
 
 ## Project Structure
 

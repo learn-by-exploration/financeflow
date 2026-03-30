@@ -158,8 +158,46 @@ app.get('/{*splat}', (_req, res) => {
 // ─── Error handler ───
 app.use(errorHandler);
 
+// ─── Startup validation ───
+function validateStartup(cfg) {
+  const fs = require('fs');
+
+  // Ensure data directory exists
+  const dataDir = cfg.dbDir;
+  try {
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      logger.info(`Created data directory: ${dataDir}`);
+    }
+  } catch (err) {
+    logger.error(`Cannot create data directory ${dataDir}: ${err.message}`);
+    process.exit(1);
+  }
+
+  // Ensure data directory is writable
+  try {
+    const testFile = path.join(dataDir, '.write-test-' + Date.now());
+    fs.writeFileSync(testFile, 'test');
+    fs.unlinkSync(testFile);
+  } catch (err) {
+    logger.error(`Data directory ${dataDir} is not writable: ${err.message}`);
+    process.exit(1);
+  }
+
+  // Validate port
+  if (cfg.port < 1 || cfg.port > 65535 || !Number.isInteger(cfg.port)) {
+    logger.error(`Invalid port: ${cfg.port}`);
+    process.exit(1);
+  }
+
+  logger.info('Startup validation passed');
+}
+
 // ─── Start ───
 if (!config.isTest) {
+  // ─── Startup validation ───
+  validateStartup(config);
+
   const scheduler = createScheduler(db, logger);
   scheduler.registerBuiltinJobs();
   scheduler.start();
@@ -196,4 +234,4 @@ if (!config.isTest) {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-module.exports = { app, db, invalidateCache, clearAllCache };
+module.exports = { app, db, invalidateCache, clearAllCache, validateStartup };
