@@ -25,12 +25,15 @@ describe('Phase 4 — Developer Experience', () => {
       assert.ok(content.includes('22'), 'ci.yml should reference Node.js 22');
     });
 
-    it('ci.yml runs npm test', () => {
+    it('ci.yml runs tests', () => {
       const content = fs.readFileSync(
         path.join(ROOT, '.github', 'workflows', 'ci.yml'),
         'utf8'
       );
-      assert.ok(content.includes('npm test'), 'ci.yml should run npm test');
+      assert.ok(
+        content.includes('npm test') || content.includes('npm run test'),
+        'ci.yml should run tests'
+      );
     });
 
     it('ci.yml triggers on push and pull_request', () => {
