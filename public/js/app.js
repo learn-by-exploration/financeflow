@@ -1,8 +1,12 @@
 // PersonalFi — SPA Entry Point (ES module)
 import { Api, closeModal, toast, getToken, openModal, el, fmt } from './utils.js';
+import { startPolling } from './notifications.js';
 
 // ─── Auth guard ───
 if (!getToken()) { window.location.href = '/login.html'; }
+
+// ─── Start notification polling ───
+startPolling();
 
 let currentView = 'dashboard';
 

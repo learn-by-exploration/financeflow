@@ -86,9 +86,30 @@
 
     <!-- Main content -->
     <main id="main-content" class="main-content">
-      <button id="mobile-menu" class="mobile-menu-btn">
-        <span class="material-icons-round">menu</span>
-      </button>
+      <div class="top-bar">
+        <button id="mobile-menu" class="mobile-menu-btn inline">
+          <span class="material-icons-round">menu</span>
+        </button>
+        <div class="top-bar-right">
+          <button id="notif-bell" class="btn-icon notif-bell" title="Notifications">
+            <span class="material-icons-round">notifications</span>
+            <span id="notif-badge" class="notif-badge hidden">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Notification panel -->
+      <div id="notif-panel" class="notif-panel hidden">
+        <div class="notif-panel-header">
+          <h3>Notifications</h3>
+          <button id="notif-mark-all" class="btn btn-sm btn-secondary">Mark all read</button>
+        </div>
+        <div id="notif-list" class="notif-list">
+          <div class="notif-empty">No notifications</div>
+        </div>
+      </div>
+      <div id="notif-backdrop" class="notif-backdrop hidden"></div>
+
       <div id="view-container"></div>
     </main>
   </div>
@@ -106,6 +127,7 @@
   <!-- Toast container -->
   <div id="toast-container" class="toast-container"></div>
 
+  <script src="js/notifications.js" type="module"></script>
   <script src="js/app.js" type="module"></script>
   <script>
     if ('serviceWorker' in navigator) {
