@@ -18,7 +18,7 @@ const logger = require('./logger');
 const { cacheMiddleware, invalidateCache, invalidateCacheByTags, clearAllCache } = require('./middleware/cache');
 const { timeoutMiddleware } = require('./middleware/timeout');
 const { etagMiddleware } = require('./middleware/etag');
-const { metricsMiddleware } = require('./middleware/metrics');
+const { metricsMiddleware, getMetrics } = require('./middleware/metrics');
 const createPerUserRateLimit = require('./middleware/per-user-rate-limit');
 
 const app = express();
@@ -62,6 +62,15 @@ const corsOrigins = config.corsOrigin
   ? config.corsOrigin.split(',').map(s => s.trim())
   : false;
 app.use(cors({ origin: corsOrigins }));
+
+// ─── API v1 prefix alias ───
+app.use((req, _res, next) => {
+  if (req.url === '/api/v1' || req.url.startsWith('/api/v1/') || req.url.startsWith('/api/v1?')) {
+    req.url = '/api' + req.url.slice(7);
+  }
+  next();
+});
+
 app.use('/api', requireJsonContentType);
 app.use('/api', etagMiddleware());
 app.use(createRequestIdMiddleware());
@@ -113,6 +122,11 @@ const createSpendingLimitRoutes = require('./routes/spending-limits');
 const createBrandingRoutes = require('./routes/branding');
 const createWhatsNewRoutes = require('./routes/whats-new');
 
+// ─── Version endpoint (public) ───
+app.get('/api/version', (_req, res) => {
+  res.json({ version: config.version, api_version: 'v1' });
+});
+
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
 app.use('/api/health', createHealthRoutes(deps));
@@ -156,6 +170,45 @@ app.use('/api/preferences', requireAuth, createPreferencesRoutes(deps));
 app.use('/api/calendar', requireAuth, createCalendarRoutes(deps));
 app.use('/api/spending-limits', requireAuth, createSpendingLimitRoutes(deps));
 app.use('/api/admin', requireAuth, requireAdmin, createAdminRoutes(deps));
+
+// ─── Metrics endpoint (admin only) ───
+app.get('/api/metrics', requireAuth, requireAdmin, (req, res) => {
+  const fs = require('fs');
+  const mem = process.memoryUsage();
+  const reqMetrics = getMetrics();
+
+  let totalUsers = 0;
+  let totalTransactions = 0;
+  try {
+    totalUsers = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
+    totalTransactions = db.prepare('SELECT COUNT(*) as cnt FROM transactions').get().cnt;
+  } catch {}
+
+  let dbFileSize = 0;
+  try {
+    const dbFile = path.join(config.dbDir, 'personalfi.db');
+    dbFileSize = fs.statSync(dbFile).size;
+  } catch {}
+
+  res.json({
+    uptime: Math.floor(process.uptime()),
+    memory: {
+      rss: mem.rss,
+      heapUsed: mem.heapUsed,
+      heapTotal: mem.heapTotal,
+    },
+    requests: {
+      total: reqMetrics.requestCount,
+      averageResponseTimeMs: reqMetrics.averageResponseTimeMs,
+    },
+    database: {
+      status: 'connected',
+      fileSize: dbFileSize,
+    },
+    totalUsers,
+    totalTransactions,
+  });
+});
 
 // GET /api/upcoming — shortcut for upcoming bills
 app.get('/api/upcoming', requireAuth, (req, res, next) => {

@@ -56,6 +56,7 @@ module.exports = function createHealthRoutes({ db }) {
 
     res.json({
       status: dbStatus === 'ok' ? 'ok' : 'degraded',
+      timestamp: new Date().toISOString(),
       version: config.version,
       uptime: process.uptime(),
       db: dbStatus,
