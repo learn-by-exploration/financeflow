@@ -127,5 +127,22 @@ module.exports = function createStatsRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/stats/daily-spending — daily spending totals for chart sparklines
+  router.get('/daily-spending', (req, res, next) => {
+    try {
+      const { from, to } = req.query;
+      let sql = `
+        SELECT date, SUM(amount) as total
+        FROM transactions WHERE user_id = ? AND type = 'expense'
+      `;
+      const params = [req.user.id];
+      if (from) { sql += ' AND date >= ?'; params.push(from); }
+      if (to) { sql += ' AND date <= ?'; params.push(to); }
+      sql += ' GROUP BY date ORDER BY date ASC';
+      const daily = db.prepare(sql).all(...params);
+      res.json({ daily });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };
