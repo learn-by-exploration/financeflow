@@ -605,6 +605,7 @@ describe('Integration: Data export/import roundtrip', () => {
     // Import over existing data
     const importRes = await api.post('/api/data/import').send({
       password: 'testpassword',
+      confirm: 'DELETE ALL DATA',
       data: exportRes.body
     }).expect(200);
 

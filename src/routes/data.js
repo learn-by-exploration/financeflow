@@ -6,6 +6,22 @@ const logger = require('../logger');
 
 module.exports = function createDataRoutes({ db }) {
 
+  function createExportSnapshot(db, userId) {
+    const accounts = db.prepare('SELECT * FROM accounts WHERE user_id = ?').all(userId);
+    const categories = db.prepare('SELECT * FROM categories WHERE user_id = ?').all(userId);
+    const transactions = db.prepare('SELECT * FROM transactions WHERE user_id = ?').all(userId);
+    const recurringRules = db.prepare('SELECT * FROM recurring_rules WHERE user_id = ?').all(userId);
+    const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ?').all(userId).map(b => {
+      b.items = db.prepare('SELECT * FROM budget_items WHERE budget_id = ?').all(b.id);
+      return b;
+    });
+    const goals = db.prepare('SELECT * FROM savings_goals WHERE user_id = ?').all(userId);
+    const subscriptions = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').all(userId);
+    const settings = db.prepare('SELECT * FROM settings WHERE user_id = ?').all(userId);
+    const rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ?').all(userId);
+    return { exported_at: new Date().toISOString(), version: '1.0', accounts, categories, transactions, recurring_rules: recurringRules, budgets, goals, subscriptions, settings, rules };
+  }
+
   // GET /api/data/export — complete JSON export of user data
   router.get('/export', (req, res, next) => {
     try {
@@ -61,7 +77,7 @@ module.exports = function createDataRoutes({ db }) {
   // POST /api/data/import — destructive import from JSON
   router.post('/import', (req, res, next) => {
     try {
-      const { password, data } = req.body;
+      const { password, data, confirm } = req.body;
       if (!password) {
         return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Password confirmation required' } });
       }
@@ -74,6 +90,14 @@ module.exports = function createDataRoutes({ db }) {
 
       if (!data || typeof data !== 'object') {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid import data' } });
+      }
+
+      // Require explicit confirmation for destructive import
+      if (!confirm) {
+        return res.status(400).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Confirm destructive import by sending confirm: "DELETE ALL DATA"' } });
+      }
+      if (confirm !== 'DELETE ALL DATA') {
+        return res.status(400).json({ error: { code: 'CONFIRMATION_REQUIRED', message: 'Confirm value must be exactly "DELETE ALL DATA"' } });
       }
 
       const userId = req.user.id;
@@ -236,6 +260,9 @@ module.exports = function createDataRoutes({ db }) {
         }
       });
 
+      // Auto-backup before destructive import
+      const backup = createExportSnapshot(db, userId);
+
       try {
         importTx();
       } catch (err) {
@@ -243,7 +270,7 @@ module.exports = function createDataRoutes({ db }) {
         return res.status(400).json({ error: { code: 'IMPORT_ERROR', message: 'Import failed due to invalid data' } });
       }
 
-      res.json({ ok: true });
+      res.json({ ok: true, backup });
     } catch (err) { next(err); }
   });
 

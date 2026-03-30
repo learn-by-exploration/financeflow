@@ -63,7 +63,7 @@ describe('Data Portability', () => {
       importData.accounts = [{ name: 'New Checking', type: 'checking', currency: 'INR', balance: 75000, icon: '🏦', color: '#000', is_active: 1, include_in_net_worth: 1, position: 0 }];
       importData.transactions = [];
 
-      const res = await agent().post('/api/data/import').send({ password: 'testpassword', data: importData }).expect(200);
+      const res = await agent().post('/api/data/import').send({ password: 'testpassword', confirm: 'DELETE ALL DATA', data: importData }).expect(200);
       assert.ok(res.body.ok);
 
       // Verify data replaced
@@ -80,7 +80,7 @@ describe('Data Portability', () => {
       const exportRes = await agent().get('/api/data/export').expect(200);
       const importData = exportRes.body;
 
-      const res = await agent().post('/api/data/import').send({ password: 'testpassword', data: importData }).expect(200);
+      const res = await agent().post('/api/data/import').send({ password: 'testpassword', confirm: 'DELETE ALL DATA', data: importData }).expect(200);
       assert.ok(res.body.ok);
 
       // Verify transactions have valid category references
@@ -100,6 +100,7 @@ describe('Data Portability', () => {
       // Send malformed import data that should cause failure
       const res = await agent().post('/api/data/import').send({
         password: 'testpassword',
+        confirm: 'DELETE ALL DATA',
         data: { accounts: [{ name: null }], categories: 'invalid' }
       });
       // Should fail
@@ -225,7 +226,7 @@ describe('Data Portability', () => {
       assert.ok(exportRes.body.recurring_rules.length >= 1);
 
       const importRes = await agent().post('/api/data/import').send({
-        password: 'testpassword', data: exportRes.body
+        password: 'testpassword', confirm: 'DELETE ALL DATA', data: exportRes.body
       }).expect(200);
       assert.ok(importRes.body.ok);
 
@@ -243,7 +244,7 @@ describe('Data Portability', () => {
       assert.ok(exportRes.body.groups[0].members.length >= 1);
 
       const importRes = await agent().post('/api/data/import').send({
-        password: 'testpassword', data: exportRes.body
+        password: 'testpassword', confirm: 'DELETE ALL DATA', data: exportRes.body
       }).expect(200);
       assert.ok(importRes.body.ok);
 
@@ -255,6 +256,7 @@ describe('Data Portability', () => {
     it('does not leak internal errors on import failure', async () => {
       const res = await agent().post('/api/data/import').send({
         password: 'testpassword',
+        confirm: 'DELETE ALL DATA',
         data: { accounts: [{ name: null }], categories: 'invalid' }
       });
       assert.ok(res.status >= 400);

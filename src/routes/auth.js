@@ -357,6 +357,11 @@ module.exports = function createAuthRoutes({ db, audit }) {
       const targetId = parseInt(req.params.id, 10);
       if (isNaN(targetId)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid session ID' } });
 
+      // Prevent revoking current session
+      if (targetId === currentSession.session_id) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Cannot revoke your current session' } });
+      }
+
       // Check the target session exists and belongs to current user
       const target = db.prepare('SELECT id, user_id FROM sessions WHERE id = ?').get(targetId);
       if (!target || target.user_id !== currentSession.user_id) {
@@ -365,6 +370,33 @@ module.exports = function createAuthRoutes({ db, audit }) {
 
       db.prepare('DELETE FROM sessions WHERE id = ?').run(targetId);
       res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/auth/security-status — security checkup widget
+  router.get('/security-status', (req, res, next) => {
+    try {
+      const token = req.headers['x-session-token'];
+      if (!token) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+
+      const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+      const currentSession = db.prepare(
+        `SELECT s.user_id FROM sessions s WHERE s.token = ? AND s.expires_at > datetime('now')`
+      ).get(tokenHash);
+      if (!currentSession) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid session' } });
+
+      const user = db.prepare('SELECT totp_enabled, updated_at FROM users WHERE id = ?').get(currentSession.user_id);
+      const sessionCount = db.prepare(
+        `SELECT COUNT(*) as cnt FROM sessions WHERE user_id = ? AND expires_at > datetime('now')`
+      ).get(currentSession.user_id).cnt;
+
+      res.json({
+        security: {
+          has_2fa: !!user.totp_enabled,
+          session_count: sessionCount,
+          last_password_change: user.updated_at || null,
+        },
+      });
     } catch (err) { next(err); }
   });
 
