@@ -153,6 +153,8 @@ function announceToScreenReader(message) {
 
 // ─── A11y: Focus management on view change ───
 function focusMainHeading() {
+  // Don't steal focus from search input
+  if (document.activeElement && document.activeElement.id === 'global-search') return;
   const container = document.getElementById('view-container');
   const heading = container && container.querySelector('h2, h3');
   if (heading) {

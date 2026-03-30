@@ -9,6 +9,16 @@ services:
       - NODE_ENV=production
       - DB_DIR=/app/data
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
 
 volumes:
   personalfi-data:

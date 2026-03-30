@@ -207,8 +207,8 @@ body {
   margin-left: var(--sidebar-width);
   flex: 1;
   padding: 2rem;
-  max-width: 1200px;
   width: 100%;
+  max-width: 1800px;
 }
 
 .view-header {
@@ -1289,7 +1289,29 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
 }
 .sidebar-backdrop.active { display: block; }
 
-/* ─── Responsive ─── */
+/* ─── Responsive: Large desktop (≥1400px) ─── */
+@media (min-width: 1400px) {
+  .stats-grid { grid-template-columns: repeat(4, 1fr); }
+  .dashboard-grid { grid-template-columns: repeat(3, 1fr); }
+  .charts-grid { grid-template-columns: repeat(3, 1fr); }
+  .accounts-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ─── Responsive: Desktop (≥1024px, <1400px) ─── */
+@media (min-width: 1024px) and (max-width: 1399px) {
+  .stats-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+  .charts-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─── Responsive: Tablet/small laptop (≤1024px) ─── */
+@media (max-width: 1024px) {
+  .main-content { padding: 1.5rem; }
+  .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── Responsive: Mobile (≤768px) ─── */
 @media (max-width: 768px) {
   .mobile-menu-btn, .mobile-menu-btn.inline { display: block; }
   .sidebar {
