@@ -1,23 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const createSplitService = require('../services/split.service');
+const createSplitRepository = require('../repositories/split.repository');
 const { createExpenseSchema, createSettlementSchema } = require('../schemas/split.schema');
 
 module.exports = function createSplitRoutes({ db, audit }) {
 
   const splitService = createSplitService({ db });
+  const splitRepo = createSplitRepository({ db });
 
   // GET /api/groups/:groupId/expenses — list shared expenses
   router.get('/:groupId/expenses', (req, res, next) => {
     try {
-      const membership = db.prepare('SELECT * FROM group_members WHERE group_id = ? AND user_id = ?').get(req.params.groupId, req.user.id);
+      const membership = splitRepo.getMembership(req.params.groupId, req.user.id);
       if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
 
-      const expenses = db.prepare(`
-        SELECT se.*, gm.display_name as paid_by_name
-        FROM shared_expenses se JOIN group_members gm ON se.paid_by = gm.id
-        WHERE se.group_id = ? ORDER BY se.date DESC
-      `).all(req.params.groupId);
+      const expenses = splitRepo.getGroupExpenses(req.params.groupId);
       res.json({ expenses });
     } catch (err) { next(err); }
   });
@@ -63,60 +61,38 @@ module.exports = function createSplitRoutes({ db, audit }) {
         }
       }
 
-      const result = db.prepare(`
-        INSERT INTO shared_expenses (group_id, paid_by, amount, currency, description, category_id, date, note, split_method)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(req.params.groupId, paid_by, amount, currency || req.user.defaultCurrency, description, category_id || null, date, note || null, split_method || 'equal');
+      const expenseId = splitRepo.createExpense(req.params.groupId, {
+        paid_by, amount, currency: currency || req.user.defaultCurrency,
+        description, category_id, date, note, split_method,
+      });
 
       if (split_method === 'percentage' && splits && splits.length) {
-        // Calculate amounts from percentages
         const percentages = splits.map(s => s.percentage);
         const amounts = splitService.calculatePercentageSplit(amount, percentages);
-        const insert = db.prepare('INSERT INTO expense_splits (expense_id, member_id, amount) VALUES (?, ?, ?)');
-        const tx = db.transaction(() => {
-          splits.forEach((s, i) => insert.run(result.lastInsertRowid, s.member_id, amounts[i]));
-        });
-        tx();
+        splitRepo.createExpenseSplits(expenseId, splits.map((s, i) => ({ member_id: s.member_id, amount: amounts[i] })));
       } else if (split_method === 'shares' && splits && splits.length) {
-        // Calculate amounts from shares
         const sharesArr = splits.map(s => s.shares);
         const amounts = splitService.calculateSharesSplit(amount, sharesArr);
-        const insert = db.prepare('INSERT INTO expense_splits (expense_id, member_id, amount) VALUES (?, ?, ?)');
-        const tx = db.transaction(() => {
-          splits.forEach((s, i) => insert.run(result.lastInsertRowid, s.member_id, amounts[i]));
-        });
-        tx();
+        splitRepo.createExpenseSplits(expenseId, splits.map((s, i) => ({ member_id: s.member_id, amount: amounts[i] })));
       } else if (splits && splits.length) {
-        const insert = db.prepare('INSERT INTO expense_splits (expense_id, member_id, amount) VALUES (?, ?, ?)');
-        const tx = db.transaction(() => {
-          splits.forEach(s => insert.run(result.lastInsertRowid, s.member_id, s.amount));
-        });
-        tx();
+        splitRepo.createExpenseSplits(expenseId, splits.map(s => ({ member_id: s.member_id, amount: s.amount })));
       } else {
-        // Auto equal split with proper rounding
-        const members = db.prepare('SELECT id FROM group_members WHERE group_id = ?').all(req.params.groupId);
+        const members = splitRepo.getGroupMembers(req.params.groupId);
         const amounts = splitService.calculateEqualSplit(amount, members.length);
-        const insert = db.prepare('INSERT INTO expense_splits (expense_id, member_id, amount) VALUES (?, ?, ?)');
-        const tx = db.transaction(() => {
-          members.forEach((m, i) => {
-            insert.run(result.lastInsertRowid, m.id, amounts[i]);
-          });
-        });
-        tx();
+        splitRepo.createExpenseSplits(expenseId, members.map((m, i) => ({ member_id: m.id, amount: amounts[i] })));
       }
 
-      audit.log(req.user.id, 'expense.create', 'shared_expense', result.lastInsertRowid);
-      res.status(201).json({ id: result.lastInsertRowid });
+      audit.log(req.user.id, 'expense.create', 'shared_expense', expenseId);
+      res.status(201).json({ id: expenseId });
     } catch (err) { next(err); }
   });
 
   // DELETE /api/groups/:groupId/expenses/:id
   router.delete('/:groupId/expenses/:id', (req, res, next) => {
     try {
-      const expense = db.prepare('SELECT * FROM shared_expenses WHERE id = ? AND group_id = ?').get(req.params.id, req.params.groupId);
+      const expense = splitRepo.getExpense(req.params.id, req.params.groupId);
       if (!expense) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Expense not found' } });
-      // CASCADE will handle expense_splits
-      db.prepare('DELETE FROM shared_expenses WHERE id = ?').run(req.params.id);
+      splitRepo.deleteExpense(req.params.id);
       audit.log(req.user.id, 'expense.delete', 'shared_expense', req.params.id);
       res.json({ ok: true });
     } catch (err) { next(err); }
@@ -125,7 +101,7 @@ module.exports = function createSplitRoutes({ db, audit }) {
   // GET /api/groups/:groupId/balances — who owes whom (simplified debts)
   router.get('/:groupId/balances', (req, res, next) => {
     try {
-      const membership = db.prepare('SELECT * FROM group_members WHERE group_id = ? AND user_id = ?').get(req.params.groupId, req.user.id);
+      const membership = splitRepo.getMembership(req.params.groupId, req.user.id);
       if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
 
       const balanceList = splitService.calculateBalances(req.params.groupId);
@@ -143,10 +119,11 @@ module.exports = function createSplitRoutes({ db, audit }) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
       const { from_member, to_member, amount, note } = parsed.data;
-      const result = db.prepare('INSERT INTO settlements (group_id, from_member, to_member, amount, currency, note) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(req.params.groupId, from_member, to_member, amount, req.user.defaultCurrency, note || null);
-      audit.log(req.user.id, 'settlement.create', 'settlement', result.lastInsertRowid);
-      res.status(201).json({ id: result.lastInsertRowid });
+      const settlementId = splitRepo.createSettlement(req.params.groupId, {
+        from_member, to_member, amount, currency: req.user.defaultCurrency, note,
+      });
+      audit.log(req.user.id, 'settlement.create', 'settlement', settlementId);
+      res.status(201).json({ id: settlementId });
     } catch (err) { next(err); }
   });
 
