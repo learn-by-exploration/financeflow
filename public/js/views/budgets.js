@@ -1,13 +1,25 @@
 // PersonalFi — Budgets View
 import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 
 let categories = [];
 let onRefresh = null;
 
 export async function renderBudgets(container) {
   container.innerHTML = '';
-  const [budgetData, catData] = await Promise.all([Api.get('/budgets'), Api.get('/categories')]);
-  categories = catData.categories.filter(c => c.type === 'expense');
+  showLoading(container);
+
+  let budgetData;
+  try {
+    const [bData, catData] = await Promise.all([Api.get('/budgets'), Api.get('/categories')]);
+    budgetData = bData;
+    categories = catData.categories.filter(c => c.type === 'expense');
+    hideStates(container);
+  } catch (err) {
+    container.innerHTML = '';
+    showError(container, { message: 'Failed to load budgets: ' + err.message, retryHandler: () => renderBudgets(container) });
+    return;
+  }
 
   const header = el('div', { className: 'view-header' }, [
     el('h2', { textContent: 'Budgets' }),
@@ -16,12 +28,13 @@ export async function renderBudgets(container) {
   container.appendChild(header);
 
   if (budgetData.budgets.length === 0) {
-    container.appendChild(el('div', { className: 'empty-state' }, [
-      el('span', { className: 'empty-icon', textContent: '📊' }),
-      el('h3', { textContent: 'No budgets yet' }),
-      el('p', { textContent: 'Create a budget to track your spending by category.' }),
-      el('button', { className: 'btn btn-primary', textContent: '+ New Budget', onClick: () => showBudgetForm() }),
-    ]));
+    showEmpty(container, {
+      icon: '📊',
+      title: 'No budgets yet',
+      message: 'Create a budget to track your spending by category.',
+      actionText: '+ New Budget',
+      actionHandler: () => showBudgetForm(),
+    });
     return;
   }
 

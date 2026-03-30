@@ -1,5 +1,6 @@
 // PersonalFi — Accounts View (Full CRUD)
 import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 
 const ACCOUNT_TYPES = [
   { value: 'checking', label: 'Checking' },
@@ -18,7 +19,18 @@ let onRefresh = null;
 
 export async function renderAccounts(container) {
   container.innerHTML = '';
-  const { accounts } = await Api.get('/accounts');
+  showLoading(container);
+
+  let accounts;
+  try {
+    const data = await Api.get('/accounts');
+    accounts = data.accounts;
+    hideStates(container);
+  } catch (err) {
+    container.innerHTML = '';
+    showError(container, { message: 'Failed to load accounts: ' + err.message, retryHandler: () => renderAccounts(container) });
+    return;
+  }
 
   // Header with add button
   const header = el('div', { className: 'view-header' }, [
@@ -44,7 +56,13 @@ export async function renderAccounts(container) {
 
   // Account list or empty state
   if (accounts.length === 0) {
-    container.appendChild(emptyState());
+    showEmpty(container, {
+      icon: '🏦',
+      title: 'No accounts yet',
+      message: 'Add your first account to start tracking your finances.',
+      actionText: '+ Add Account',
+      actionHandler: () => showAccountForm(null),
+    });
   } else {
     const grid = el('div', { className: 'accounts-grid' });
     for (const account of accounts) {

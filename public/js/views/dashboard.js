@@ -1,13 +1,24 @@
 // PersonalFi — Dashboard View
 import { Api, fmt, el, getUser } from '../utils.js';
 import { initDashboardCharts, destroyCharts } from '../charts.js';
+import { showLoadingSkeleton, showError, hideStates } from '../ui-states.js';
 
 export async function renderDashboard(container) {
   destroyCharts();
-  const data = await Api.get('/stats/overview');
-  const user = getUser();
-
   container.innerHTML = '';
+  showLoadingSkeleton(container);
+
+  let data;
+  try {
+    data = await Api.get('/stats/overview');
+  } catch (err) {
+    container.innerHTML = '';
+    showError(container, { message: 'Failed to load dashboard: ' + err.message, retryHandler: () => renderDashboard(container) });
+    return;
+  }
+
+  hideStates(container);
+  const user = getUser();
 
   // Header
   const header = el('div', { className: 'view-header' }, [

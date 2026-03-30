@@ -1,5 +1,6 @@
 // PersonalFi — Transactions View
 import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 
 const PAGE_SIZE = 20;
 let state = { transactions: [], total: 0, page: 0, filters: {} };
@@ -9,11 +10,19 @@ let onRefresh = null;
 
 export async function renderTransactions(container) {
   container.innerHTML = '';
+  showLoading(container);
 
-  // Load reference data
-  const [acctData, catData] = await Promise.all([Api.get('/accounts'), Api.get('/categories')]);
-  accounts = acctData.accounts;
-  categories = catData.categories;
+  try {
+    // Load reference data
+    const [acctData, catData] = await Promise.all([Api.get('/accounts'), Api.get('/categories')]);
+    accounts = acctData.accounts;
+    categories = catData.categories;
+    hideStates(container);
+  } catch (err) {
+    container.innerHTML = '';
+    showError(container, { message: 'Failed to load transactions: ' + err.message, retryHandler: () => renderTransactions(container) });
+    return;
+  }
 
   // Header
   const header = el('div', { className: 'view-header' }, [
@@ -88,12 +97,20 @@ async function loadPage(page) {
   params.set('offset', page * PAGE_SIZE);
   Object.entries(state.filters).forEach(([k, v]) => { if (v) params.set(k, v); });
 
-  const data = await Api.get(`/transactions?${params}`);
-  state.transactions = data.transactions;
-  state.total = data.total;
+  try {
+    const data = await Api.get(`/transactions?${params}`);
+    state.transactions = data.transactions;
+    state.total = data.total;
 
-  renderTable();
-  renderPagination();
+    renderTable();
+    renderPagination();
+  } catch (err) {
+    const wrap = document.getElementById('txn-table-wrap');
+    if (wrap) {
+      wrap.innerHTML = '';
+      showError(wrap, { message: 'Failed to load transactions: ' + err.message, retryHandler: () => loadPage(page) });
+    }
+  }
 }
 
 function renderTable() {
@@ -101,11 +118,13 @@ function renderTable() {
   wrap.innerHTML = '';
 
   if (state.transactions.length === 0) {
-    wrap.appendChild(el('div', { className: 'empty-state' }, [
-      el('span', { className: 'empty-icon', textContent: '📭' }),
-      el('h3', { textContent: 'No transactions found' }),
-      el('p', { textContent: 'Add your first transaction or adjust your filters.' }),
-    ]));
+    showEmpty(wrap, {
+      icon: '📭',
+      title: 'No transactions found',
+      message: 'Add your first transaction or adjust your filters.',
+      actionText: '+ Add Transaction',
+      actionHandler: () => showTxnForm(null),
+    });
     return;
   }
 

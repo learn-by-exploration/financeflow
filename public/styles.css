@@ -1350,3 +1350,130 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
   .trend-bars { gap: 0.25rem; }
   .accounts-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── UI States: Loading ─── */
+.ui-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 3rem 1rem;
+  gap: 1.5rem;
+}
+
+.ui-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--bg-tertiary);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: ui-spin 0.8s linear infinite;
+}
+
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+
+.skeleton-rows {
+  width: 100%;
+  max-width: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.skeleton-line {
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: ui-shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-line-lg { width: 100%; height: 20px; }
+.skeleton-line-md { width: 75%; }
+.skeleton-line-sm { width: 50%; }
+
+@keyframes ui-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.skeleton-card {
+  height: 100px;
+  border-radius: var(--radius);
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: ui-shimmer 1.5s ease-in-out infinite;
+}
+
+/* ─── UI States: Empty ─── */
+.ui-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.ui-empty-icon {
+  font-size: 3rem;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.ui-empty-title {
+  color: var(--text-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.ui-empty-message {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  max-width: 360px;
+}
+
+.ui-empty-action {
+  margin-top: 0.75rem;
+}
+
+/* ─── UI States: Error ─── */
+.ui-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.ui-error-icon {
+  font-size: 3rem;
+  color: var(--red);
+}
+
+.ui-error-message {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  max-width: 400px;
+}
+
+.ui-error-retry {
+  margin-top: 0.5rem;
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.ui-error-retry:hover {
+  background: var(--red-bg);
+}

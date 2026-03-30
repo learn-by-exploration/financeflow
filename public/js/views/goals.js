@@ -1,12 +1,24 @@
 // PersonalFi — Savings Goals View
 import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 
 const GOAL_ICONS = ['🎯', '🏠', '🚗', '✈️', '💍', '📱', '🎓', '🏥', '💰', '🎁'];
 let onRefresh = null;
 
 export async function renderGoals(container) {
   container.innerHTML = '';
-  const { goals } = await Api.get('/goals');
+  showLoading(container);
+
+  let goals;
+  try {
+    const data = await Api.get('/goals');
+    goals = data.goals;
+    hideStates(container);
+  } catch (err) {
+    container.innerHTML = '';
+    showError(container, { message: 'Failed to load goals: ' + err.message, retryHandler: () => renderGoals(container) });
+    return;
+  }
 
   const header = el('div', { className: 'view-header' }, [
     el('h2', { textContent: 'Savings Goals' }),
@@ -15,12 +27,13 @@ export async function renderGoals(container) {
   container.appendChild(header);
 
   if (goals.length === 0) {
-    container.appendChild(el('div', { className: 'empty-state' }, [
-      el('span', { className: 'empty-icon', textContent: '🎯' }),
-      el('h3', { textContent: 'No savings goals' }),
-      el('p', { textContent: 'Set a savings goal and track your progress toward it.' }),
-      el('button', { className: 'btn btn-primary', textContent: '+ New Goal', onClick: () => showGoalForm(null) }),
-    ]));
+    showEmpty(container, {
+      icon: '🎯',
+      title: 'No savings goals',
+      message: 'Set a savings goal and track your progress toward it.',
+      actionText: '+ New Goal',
+      actionHandler: () => showGoalForm(null),
+    });
     return;
   }
 

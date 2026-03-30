@@ -1,6 +1,7 @@
 // PersonalFi — SPA Entry Point (ES module)
 import { Api, closeModal, toast, getToken, openModal, el, fmt } from './utils.js';
 import { startPolling } from './notifications.js';
+import { showLoading, showError } from './ui-states.js';
 
 // ─── Auth guard ───
 if (!getToken()) { window.location.href = '/login.html'; }
@@ -107,12 +108,14 @@ let currentSearchQuery = '';
 // ─── Render dispatcher ───
 async function render() {
   const container = document.getElementById('view-container');
-  container.innerHTML = '<div class="loading">Loading...</div>';
+  container.innerHTML = '';
+  showLoading(container);
   try {
     // Onboarding check: if on dashboard and no accounts, show welcome
     if (currentView === 'dashboard') {
       const { accounts } = await Api.get('/accounts');
       if (accounts.length === 0) {
+        container.innerHTML = '';
         renderOnboarding(container);
         return;
       }
@@ -121,6 +124,7 @@ async function render() {
     const loader = views[currentView];
     if (!loader) { container.innerHTML = '<p>View not found</p>'; return; }
     const renderFn = await loader();
+    container.innerHTML = '';
     if (currentView === 'search') {
       await renderFn(container, currentSearchQuery);
     } else {
@@ -128,12 +132,10 @@ async function render() {
     }
   } catch (err) {
     container.innerHTML = '';
-    const errDiv = document.createElement('div');
-    errDiv.className = 'error-state';
-    const p = document.createElement('p');
-    p.textContent = 'Error loading view: ' + err.message;
-    errDiv.appendChild(p);
-    container.appendChild(errDiv);
+    showError(container, {
+      message: 'Error loading view: ' + err.message,
+      retryHandler: () => render(),
+    });
   }
 }
 
