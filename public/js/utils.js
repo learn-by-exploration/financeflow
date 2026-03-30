@@ -39,6 +39,12 @@ export function toast(message, type = 'info') {
   el.textContent = message;
   container.appendChild(el);
   setTimeout(() => el.remove(), 3000);
+  // A11y: announce to screen readers
+  const announce = document.getElementById('a11y-announce');
+  if (announce) {
+    announce.textContent = '';
+    setTimeout(() => { announce.textContent = message; }, 100);
+  }
 }
 
 // ─── Modal ───

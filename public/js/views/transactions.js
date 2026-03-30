@@ -151,7 +151,7 @@ function renderTable() {
   for (const t of state.transactions) {
     const typeClass = t.type === 'income' ? 'badge-green' : t.type === 'expense' ? 'badge-red' : 'badge-accent';
     const amtClass = t.type === 'income' ? 'income' : 'expense';
-    const prefix = t.type === 'income' ? '+' : t.type === 'transfer' ? '' : '-';
+    const prefix = t.type === 'income' ? '+' : t.type === 'transfer' ? '\u2192' : '\u2212';
 
     const row = el('tr', {}, [
       el('td', { textContent: t.date, 'data-label': 'Date' }),

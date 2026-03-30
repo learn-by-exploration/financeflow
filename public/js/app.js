@@ -110,6 +110,12 @@ document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     backdrop.classList.remove('active');
     render();
   });
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      el.click();
+    }
+  });
 });
 
 // ─── Logout ───
