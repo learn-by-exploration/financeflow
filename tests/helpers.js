@@ -65,6 +65,7 @@ function cleanDb() {
   db.exec('DELETE FROM settings');
   db.exec('DELETE FROM audit_log');
   // Don't delete users/sessions — test user stays
+  try { db.exec('DELETE FROM exchange_rates'); } catch {}
   try { db.exec('DELETE FROM category_rules'); } catch {}
 }
 

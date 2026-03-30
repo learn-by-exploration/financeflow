@@ -5,6 +5,8 @@ const { safePatternTest } = require('../utils/safe-regex');
 const { createTransactionSchema, bulkDeleteSchema, bulkCategorizeSchema, bulkTagSchema, bulkUntagSchema } = require('../schemas/transaction.schema');
 const createTransactionRepository = require('../repositories/transaction.repository');
 const createAccountRepository = require('../repositories/account.repository');
+const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
+const { convert, buildRateMap } = require('../utils/currency-converter');
 const { ValidationError, NotFoundError } = require('../errors');
 
 module.exports = function createTransactionRoutes({ db, audit }) {
@@ -12,15 +14,31 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   const txService = createTransactionService({ db });
   const txRepo = createTransactionRepository({ db });
   const accountRepo = createAccountRepository({ db });
+  const rateRepo = createExchangeRateRepository({ db });
 
   // GET /api/transactions
   router.get('/', (req, res, next) => {
     try {
+      const defaultCurrency = req.user.defaultCurrency || 'INR';
       const transactions = txRepo.findAllByUser(req.user.id, req.query);
 
       // Attach tags to each transaction
       for (const txn of transactions) {
         txn.tags = txRepo.getTagsForTransaction(txn.id);
+      }
+
+      // Add converted_amount for transactions in non-default currency
+      const hasForeign = transactions.some(t => t.currency && t.currency !== defaultCurrency);
+      if (hasForeign) {
+        const allRates = db.prepare('SELECT * FROM exchange_rates ORDER BY date DESC').all();
+        const rateMap = buildRateMap(allRates);
+        for (const txn of transactions) {
+          if (txn.currency && txn.currency !== defaultCurrency) {
+            const result = convert(txn.amount, txn.currency, defaultCurrency, rateMap);
+            txn.converted_amount = result ? result.converted : null;
+            txn.converted_currency = defaultCurrency;
+          }
+        }
       }
 
       const { limit = 50, offset = 0 } = req.query;

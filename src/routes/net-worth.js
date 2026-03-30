@@ -1,32 +1,61 @@
 const express = require('express');
 const router = express.Router();
+const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
+const { convert, buildRateMap } = require('../utils/currency-converter');
 
 module.exports = function createNetWorthRoutes({ db, audit }) {
+
+  const rateRepo = createExchangeRateRepository({ db });
 
   // GET /api/net-worth — current net worth calculated from accounts
   router.get('/', (req, res, next) => {
     try {
       const userId = req.user.id;
+      const defaultCurrency = req.user.defaultCurrency || 'INR';
       const accounts = db.prepare(
         'SELECT * FROM accounts WHERE user_id = ? AND is_active = 1 AND include_in_net_worth = 1'
       ).all(userId);
 
+      // Gather all latest exchange rates for conversion
+      const allRates = db.prepare('SELECT * FROM exchange_rates ORDER BY date DESC').all();
+      const rateMap = buildRateMap(allRates);
+
       let totalAssets = 0;
       let totalLiabilities = 0;
+      const unconvertible = [];
+
       for (const a of accounts) {
+        let balance = a.balance;
+        let convertedBalance = balance;
+
+        if (a.currency !== defaultCurrency) {
+          const result = convert(Math.abs(balance), a.currency, defaultCurrency, rateMap);
+          if (result) {
+            convertedBalance = balance >= 0 ? result.converted : -result.converted;
+          } else {
+            unconvertible.push({ id: a.id, name: a.name, currency: a.currency });
+            convertedBalance = 0; // Exclude unconvertible accounts from totals
+          }
+        }
+
         if (a.type === 'credit_card' || a.type === 'loan') {
-          totalLiabilities += Math.abs(a.balance);
+          totalLiabilities += Math.abs(convertedBalance);
         } else {
-          totalAssets += a.balance;
+          totalAssets += convertedBalance;
         }
       }
 
-      res.json({
+      const response = {
         net_worth: totalAssets - totalLiabilities,
         total_assets: totalAssets,
         total_liabilities: totalLiabilities,
-        accounts: accounts.map(a => ({ id: a.id, name: a.name, type: a.type, balance: a.balance, icon: a.icon })),
-      });
+        currency: defaultCurrency,
+        accounts: accounts.map(a => ({ id: a.id, name: a.name, type: a.type, balance: a.balance, currency: a.currency, icon: a.icon })),
+      };
+      if (unconvertible.length > 0) {
+        response.unconvertible = unconvertible;
+      }
+      res.json(response);
     } catch (err) { next(err); }
   });
 
