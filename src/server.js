@@ -14,6 +14,8 @@ const createRequestIdMiddleware = require('./middleware/request-id');
 const requireJsonContentType = require('./middleware/content-type');
 const createScheduler = require('./scheduler');
 const logger = require('./logger');
+const { cacheMiddleware, invalidateCache, clearAllCache } = require('./middleware/cache');
+const { etagMiddleware } = require('./middleware/etag');
 
 const app = express();
 const PORT = config.port;
@@ -54,6 +56,7 @@ const corsOrigins = config.corsOrigin
   : false;
 app.use(cors({ origin: corsOrigins }));
 app.use('/api', requireJsonContentType);
+app.use('/api', etagMiddleware());
 app.use(createRequestIdMiddleware());
 if (!config.isTest) {
   app.use(rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.max }));
@@ -121,11 +124,11 @@ app.use('/api/search', requireAuth, createSearchRoutes(deps));
 app.use('/api/net-worth', requireAuth, createNetWorthRoutes(deps));
 app.use('/api/audit', requireAuth, createAuditRoutes(deps));
 app.use('/api/reminders', requireAuth, createReminderRoutes(deps));
-app.use('/api/reports', requireAuth, createReportRoutes(deps));
-app.use('/api/insights', requireAuth, createInsightRoutes(deps));
+app.use('/api/reports', requireAuth, cacheMiddleware(60), createReportRoutes(deps));
+app.use('/api/insights', requireAuth, cacheMiddleware(60), createInsightRoutes(deps));
 app.use('/api/exchange-rates', requireAuth, createExchangeRateRoutes(deps));
 app.use('/api/tokens', requireAuth, createApiTokenRoutes(deps));
-app.use('/api/charts', requireAuth, createChartRoutes(deps));
+app.use('/api/charts', requireAuth, cacheMiddleware(60), createChartRoutes(deps));
 app.use('/api', requireAuth, createAttachmentRoutes(deps));
 app.use('/api/notifications', requireAuth, createNotificationRoutes(deps));
 app.use('/api/export', requireAuth, createExportRoutes(deps));
@@ -178,4 +181,4 @@ if (!config.isTest) {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-module.exports = { app, db };
+module.exports = { app, db, invalidateCache, clearAllCache };

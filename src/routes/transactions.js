@@ -10,6 +10,9 @@ const createDuplicateRepository = require('../repositories/duplicate.repository'
 const { convert, buildRateMap } = require('../utils/currency-converter');
 const { ValidationError, NotFoundError } = require('../errors');
 const createNotificationService = require('../services/notification.service');
+const { invalidateCache } = require('../middleware/cache');
+
+const CACHE_PATTERNS = ['/api/reports', '/api/charts', '/api/insights', '/api/stats', '/api/net-worth'];
 
 module.exports = function createTransactionRoutes({ db, audit }) {
 
@@ -75,6 +78,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
           description, note, date, payee, tags: tag_ids
         });
         audit.log(req.user.id, 'transaction.create', 'transaction', transaction.id);
+        invalidateCache(req.user.id, CACHE_PATTERNS);
         return res.status(201).json({ transaction });
       }
 
@@ -129,6 +133,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         }
       } catch (_) { /* duplicate check failure should not break transaction */ }
 
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.status(201).json({ transaction, potential_duplicate, similar_transaction_id });
     } catch (err) { next(err); }
   });
@@ -142,6 +147,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       }
       const deleted = txRepo.bulkDelete(req.user.id, parsed.data.ids);
       audit.log(req.user.id, 'transaction.bulk-delete', 'transaction', null);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ deleted });
     } catch (err) {
       if (err.message && (err.message.includes('not found') || err.message.includes('transfer'))) {
@@ -160,6 +166,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       }
       const updated = txRepo.bulkCategorize(req.user.id, parsed.data.ids, parsed.data.category_id);
       audit.log(req.user.id, 'transaction.bulk-categorize', 'transaction', null);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ updated });
     } catch (err) { next(err); }
   });
@@ -200,6 +207,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       txService.applyAmountDelta(old, req.body.amount);
 
       const transaction = txRepo.update(req.params.id, req.user.id, req.body);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ transaction });
     } catch (err) { next(err); }
   });
@@ -220,6 +228,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       }
 
       audit.log(req.user.id, 'transaction.delete', 'transaction', req.params.id);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ ok: true });
     } catch (err) { next(err); }
   });

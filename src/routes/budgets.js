@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { createBudgetSchema } = require('../schemas/budget.schema');
 const createBudgetRepository = require('../repositories/budget.repository');
+const { invalidateCache } = require('../middleware/cache');
+
+const CACHE_PATTERNS = ['/api/reports', '/api/charts', '/api/insights', '/api/stats'];
 
 module.exports = function createBudgetRoutes({ db, audit }) {
   const budgetRepo = createBudgetRepository({ db });
@@ -112,6 +115,7 @@ module.exports = function createBudgetRoutes({ db, audit }) {
       }
       const budget = budgetRepo.create(req.user.id, parsed.data);
       audit.log(req.user.id, 'budget.create', 'budget', budget.id);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.status(201).json({ id: budget.id });
     } catch (err) { next(err); }
   });
@@ -145,6 +149,7 @@ module.exports = function createBudgetRoutes({ db, audit }) {
     try {
       budgetRepo.delete(req.params.id, req.user.id);
       audit.log(req.user.id, 'budget.delete', 'budget', req.params.id);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ ok: true });
     } catch (err) { next(err); }
   });

@@ -41,6 +41,9 @@ function _ensureTestAuth() {
 
 function cleanDb() {
   const { db } = setup();
+  // Clear in-memory response cache
+  const { clearAllCache } = require('../src/middleware/cache');
+  clearAllCache();
   // Delete in reverse-dependency order
   db.exec('DELETE FROM expense_splits');
   db.exec('DELETE FROM settlements');

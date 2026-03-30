@@ -3,6 +3,9 @@ const router = express.Router();
 const { createAccountSchema } = require('../schemas/account.schema');
 const createAccountRepository = require('../repositories/account.repository');
 const { ValidationError, NotFoundError } = require('../errors');
+const { invalidateCache } = require('../middleware/cache');
+
+const CACHE_PATTERNS = ['/api/reports', '/api/charts', '/api/insights', '/api/stats', '/api/net-worth'];
 
 module.exports = function createAccountRoutes({ db, audit }) {
 
@@ -31,6 +34,7 @@ module.exports = function createAccountRoutes({ db, audit }) {
         name, type, currency: currency || req.user.defaultCurrency, balance, icon, color, institution, account_number_last4
       });
       audit.log(req.user.id, 'account.create', 'account', account.id);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.status(201).json({ account });
     } catch (err) { next(err); }
   });
@@ -42,6 +46,7 @@ module.exports = function createAccountRoutes({ db, audit }) {
       if (!account) {
         throw new NotFoundError('Account');
       }
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ account });
     } catch (err) { next(err); }
   });
@@ -51,6 +56,7 @@ module.exports = function createAccountRoutes({ db, audit }) {
     try {
       accountRepo.delete(req.params.id, req.user.id);
       audit.log(req.user.id, 'account.delete', 'account', req.params.id);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ ok: true });
     } catch (err) { next(err); }
   });
