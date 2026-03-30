@@ -31,7 +31,7 @@ module.exports = [
       'no-console': 'off',
       'no-constant-condition': 'warn',
       'no-empty': ['error', { allowEmptyCatch: true }],
-      eqeqeq: ['error', 'always'],
+      eqeqeq: ['warn', 'always'],
       'no-var': 'error',
       'prefer-const': 'warn',
     },

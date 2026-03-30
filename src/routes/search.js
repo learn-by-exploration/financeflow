@@ -19,6 +19,7 @@ module.exports = function createSearchRoutes({ db }) {
       const userId = req.user.id;
 
       // Sanitize search term for FTS5: remove special operators and wrap in quotes
+      // eslint-disable-next-line no-control-regex
       const sanitized = q.replace(/["*{}():\x00]/g, ' ').replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ').trim();
       const like = `%${q}%`;
 
