@@ -250,5 +250,136 @@ module.exports = function createReportRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/reports/cashflow-forecast?days=30
+  router.get('/cashflow-forecast', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const days = Math.min(Math.max(Number(req.query.days) || 30, 1), 365);
+
+      // Starting balance = sum of all account balances
+      const balanceRow = db.prepare(
+        'SELECT COALESCE(SUM(balance), 0) as total FROM accounts WHERE user_id = ? AND is_active = 1'
+      ).get(userId);
+      let runningBalance = balanceRow.total;
+
+      // Load active recurring rules
+      const recurringRules = db.prepare(
+        'SELECT * FROM recurring_rules WHERE user_id = ? AND is_active = 1'
+      ).all(userId);
+
+      // Load active subscriptions
+      const subscriptions = db.prepare(
+        'SELECT * FROM subscriptions WHERE user_id = ? AND is_active = 1'
+      ).all(userId);
+
+      const todayDate = new Date();
+      todayDate.setHours(0, 0, 0, 0);
+      const forecast = [];
+
+      for (let i = 0; i < days; i++) {
+        const d = new Date(todayDate);
+        d.setDate(d.getDate() + i);
+        const dateStr = d.toISOString().slice(0, 10);
+        const dayOfMonth = d.getDate();
+        const dayOfWeek = d.getDay();
+
+        let dailyChange = 0;
+
+        // Check recurring rules
+        for (const rule of recurringRules) {
+          if (isRuleDueOnDate(rule, d, dateStr)) {
+            if (rule.type === 'income') {
+              dailyChange += rule.amount;
+            } else {
+              dailyChange -= rule.amount;
+            }
+          }
+        }
+
+        // Check subscriptions (treat as expenses on billing date)
+        for (const sub of subscriptions) {
+          if (isSubscriptionDueOnDate(sub, d, dateStr)) {
+            dailyChange -= sub.amount;
+          }
+        }
+
+        if (i > 0) {
+          runningBalance += dailyChange;
+        }
+
+        forecast.push({
+          date: dateStr,
+          projected_balance: Math.round(runningBalance * 100) / 100,
+        });
+      }
+
+      res.json({ forecast });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };
+
+function isRuleDueOnDate(rule, date, dateStr) {
+  if (rule.end_date && dateStr > rule.end_date) return false;
+  if (dateStr < rule.next_date) return false;
+
+  const nextDate = new Date(rule.next_date);
+  const freq = rule.frequency;
+
+  if (freq === 'daily') return true;
+
+  if (freq === 'weekly') {
+    const diff = Math.round((date - nextDate) / (1000 * 60 * 60 * 24));
+    return diff >= 0 && diff % 7 === 0;
+  }
+
+  if (freq === 'biweekly') {
+    const diff = Math.round((date - nextDate) / (1000 * 60 * 60 * 24));
+    return diff >= 0 && diff % 14 === 0;
+  }
+
+  if (freq === 'monthly') {
+    return date.getDate() === nextDate.getDate();
+  }
+
+  if (freq === 'quarterly') {
+    const monthDiff = (date.getFullYear() - nextDate.getFullYear()) * 12 + date.getMonth() - nextDate.getMonth();
+    return monthDiff >= 0 && monthDiff % 3 === 0 && date.getDate() === nextDate.getDate();
+  }
+
+  if (freq === 'yearly') {
+    return date.getMonth() === nextDate.getMonth() && date.getDate() === nextDate.getDate();
+  }
+
+  return false;
+}
+
+function isSubscriptionDueOnDate(sub, date, dateStr) {
+  if (!sub.next_billing_date) return false;
+
+  const freq = sub.frequency;
+  const nextBilling = new Date(sub.next_billing_date);
+
+  if (dateStr < sub.next_billing_date) return false;
+
+  if (freq === 'weekly') {
+    const diff = Math.round((date - nextBilling) / (1000 * 60 * 60 * 24));
+    return diff >= 0 && diff % 7 === 0;
+  }
+
+  if (freq === 'monthly') {
+    return date.getDate() === nextBilling.getDate();
+  }
+
+  if (freq === 'quarterly') {
+    const monthDiff = (date.getFullYear() - nextBilling.getFullYear()) * 12 + date.getMonth() - nextBilling.getMonth();
+    return monthDiff >= 0 && monthDiff % 3 === 0 && date.getDate() === nextBilling.getDate();
+  }
+
+  if (freq === 'yearly') {
+    return date.getMonth() === nextBilling.getMonth() && date.getDate() === nextBilling.getDate();
+  }
+
+  return false;
+}

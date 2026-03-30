@@ -128,6 +128,7 @@ const createWhatsNewRoutes = require('./routes/whats-new');
 const createOnboardingRoutes = require('./routes/onboarding');
 const createGroupInviteRoutes = require('./routes/group-invites');
 const createExpenseCommentRoutes = require('./routes/expense-comments');
+const createTransactionTemplateRoutes = require('./routes/transaction-templates');
 
 // ─── Version endpoint (public) ───
 app.get('/api/version', (_req, res) => {
@@ -147,6 +148,9 @@ app.use('/api', optionalAuth, createPerUserRateLimit());
 // Protected routes
 app.use('/api/accounts', requireAuth, createAccountRoutes(deps));
 app.use('/api/transactions/duplicates', requireAuth, createDuplicateRoutes(deps));
+const templateRoutes = createTransactionTemplateRoutes(deps);
+app.use('/api/transaction-templates', requireAuth, templateRoutes);
+app.use('/api/transactions', requireAuth, templateRoutes.fromTemplateRouter);
 app.use('/api/transactions', requireAuth, createTransactionRoutes(deps));
 app.use('/api/categories', requireAuth, createCategoryRoutes(deps));
 app.use('/api/budgets', requireAuth, createBudgetRoutes(deps));

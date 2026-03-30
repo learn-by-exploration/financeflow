@@ -3,10 +3,40 @@ const router = express.Router();
 const { createCategorySchema } = require('../schemas/category.schema');
 const createCategoryRepository = require('../repositories/category.repository');
 const { ValidationError, NotFoundError } = require('../errors');
+const { safePatternTest } = require('../utils/safe-regex');
 
 module.exports = function createCategoryRoutes({ db }) {
 
   const categoryRepo = createCategoryRepository({ db });
+
+  // GET /api/categories/suggest?description=X
+  router.get('/suggest', (req, res, next) => {
+    try {
+      const { description } = req.query;
+      if (!description) {
+        return res.json({ suggestion: null });
+      }
+      const rules = db.prepare(
+        `SELECT r.*, c.name as category_name
+         FROM category_rules r
+         LEFT JOIN categories c ON r.category_id = c.id
+         WHERE r.user_id = ?
+         ORDER BY r.position ASC, r.id ASC`
+      ).all(req.user.id);
+
+      for (const rule of rules) {
+        if (safePatternTest(rule.pattern, description)) {
+          return res.json({
+            suggestion: {
+              category_id: rule.category_id,
+              category_name: rule.category_name,
+            },
+          });
+        }
+      }
+      res.json({ suggestion: null });
+    } catch (err) { next(err); }
+  });
 
   // GET /api/categories
   router.get('/', (req, res, next) => {
