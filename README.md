@@ -21,9 +21,20 @@ PersonalFi fills this gap: manage your own money AND collaborate with friends, f
 - **Financial Health** — Score based on emergency fund, savings rate, debt-to-income (30-day gated)
 - **Reports** — Trends, category breakdowns, visual bars
 - **Auto-Categorization** — Pattern-based rules (system + custom) applied on transaction creation
-- **Dashboard** — Net worth, income vs expenses, top categories, recent transactions
+- **Dashboard** — Configurable card layout, net worth, spending trends, budget progress
+- **Tags** — Organize transactions with custom tags
+- **Global Search** — Find transactions, accounts, categories, subscriptions instantly
+- **Charts** — Daily spending sparklines powered by Chart.js
+- **Net Worth** — Track net worth over time with snapshots
+- **Budget Rollover** — Carry forward under/overspend between budget periods
+- **Recurring Rules** — Full CRUD for recurring transactions with skip/advance
+- **Audit Log** — Paginated, filterable activity history
+- **Shared Budgets** — Collaborative budgets within groups
 - **Data Portability** — Full JSON export/import, CSV import with template
 - **Multi-user** — Session-based auth with bcrypt password hashing, per-user data isolation
+- **Account Security** — Password change with session rotation, account deletion with cascade
+- **Health Check** — `GET /api/health` for monitoring (status, version, uptime, db)
+- **Request IDs** — UUID per request in `X-Request-Id` header
 - **PWA** — Installable with offline fallback, service worker caching
 - **Keyboard-first** — `N` = quick-add, `1-5` = nav, `Esc` = close modal
 - **Mobile-friendly** — Hamburger sidebar toggle, responsive layout

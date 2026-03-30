@@ -3,7 +3,7 @@ const router = express.Router();
 
 module.exports = function createSettingsRoutes({ db }) {
 
-  const ALLOWED_KEYS = ['default_currency', 'date_format'];
+  const ALLOWED_KEYS = ['default_currency', 'date_format', 'dashboard_layout'];
 
   // GET /api/settings
   router.get('/', (req, res, next) => {
@@ -30,6 +30,17 @@ module.exports = function createSettingsRoutes({ db }) {
       db.prepare('INSERT INTO settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = ?')
         .run(req.user.id, key, value, value);
       res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
+  const DEFAULT_DASHBOARD_LAYOUT = ['net_worth', 'spending_trend', 'budget_progress', 'recent_transactions', 'upcoming_recurring', 'savings_goals'];
+
+  // GET /api/settings/dashboard — dashboard card layout
+  router.get('/dashboard', (req, res, next) => {
+    try {
+      const row = db.prepare('SELECT value FROM settings WHERE user_id = ? AND key = ?').get(req.user.id, 'dashboard_layout');
+      const layout = row ? JSON.parse(row.value) : DEFAULT_DASHBOARD_LAYOUT;
+      res.json({ layout });
     } catch (err) { next(err); }
   });
 

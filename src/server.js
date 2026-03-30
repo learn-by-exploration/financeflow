@@ -10,6 +10,7 @@ const errorHandler = require('./middleware/errors');
 const createCsrfMiddleware = require('./middleware/csrf');
 const createAuditLogger = require('./services/audit');
 const createRequestLogger = require('./middleware/request-logger');
+const createRequestIdMiddleware = require('./middleware/request-id');
 const createScheduler = require('./scheduler');
 const logger = require('./logger');
 
@@ -48,6 +49,7 @@ app.use(helmet({
 // ─── Middleware ───
 app.use(express.json({ limit: '1mb' }));
 app.use(cors());
+app.use(createRequestIdMiddleware());
 if (!config.isTest) {
   app.use(rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.max }));
 }
@@ -76,9 +78,11 @@ const createTagRoutes = require('./routes/tags');
 const createSearchRoutes = require('./routes/search');
 const createNetWorthRoutes = require('./routes/net-worth');
 const createAuditRoutes = require('./routes/audit');
+const createHealthRoutes = require('./routes/health');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
+app.use('/api/health', createHealthRoutes(deps));
 
 // Protected routes
 app.use('/api/accounts', requireAuth, createAccountRoutes(deps));
