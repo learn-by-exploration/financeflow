@@ -18,6 +18,7 @@ const { cacheMiddleware, invalidateCache, invalidateCacheByTags, clearAllCache }
 const { timeoutMiddleware } = require('./middleware/timeout');
 const { etagMiddleware } = require('./middleware/etag');
 const { metricsMiddleware } = require('./middleware/metrics');
+const createPerUserRateLimit = require('./middleware/per-user-rate-limit');
 
 const app = express();
 const PORT = config.port;
@@ -108,6 +109,9 @@ const createAdminRoutes = require('./routes/admin');
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
 app.use('/api/health', createHealthRoutes(deps));
+
+// Per-user rate limiting (optionalAuth populates req.user if authenticated)
+app.use('/api', optionalAuth, createPerUserRateLimit());
 
 // Protected routes
 app.use('/api/accounts', requireAuth, createAccountRoutes(deps));

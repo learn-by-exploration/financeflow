@@ -4,9 +4,11 @@ const path = require('path');
 const config = require('../config');
 const { createBackup, listBackups, deleteBackup, rotateBackups, resolveBackupPath } = require('../services/backup');
 const { backupFilenameSchema } = require('../schemas/admin.schema');
+const createAuditRetention = require('../services/audit-retention');
 
 module.exports = function createAdminRoutes({ db }) {
   const backupDir = path.join(config.dbDir, 'backups');
+  const auditRetention = createAuditRetention(db);
 
   // POST /api/admin/backup — create a new backup
   router.post('/backup', async (req, res, next) => {
@@ -47,6 +49,23 @@ module.exports = function createAdminRoutes({ db }) {
       }
       deleteBackup(backupDir, parsed.data.filename);
       res.json({ deleted: true });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/admin/audit/purge — purge old audit logs
+  router.post('/audit/purge', (req, res, next) => {
+    try {
+      const retentionDays = parseInt(req.body.retentionDays, 10) || 90;
+      const result = auditRetention.purgeOldLogs(retentionDays);
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/admin/audit/stats — audit log statistics by age bucket
+  router.get('/audit/stats', (req, res, next) => {
+    try {
+      const stats = auditRetention.getAuditStats();
+      res.json(stats);
     } catch (err) { next(err); }
   });
 
