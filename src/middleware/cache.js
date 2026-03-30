@@ -1,7 +1,25 @@
 const crypto = require('crypto');
+const config = require('../config');
 
-// In-memory cache store: key -> { data, statusCode, headers, expiresAt, tags }
+// In-memory cache store: key -> { data, statusCode, headers, expiresAt, tags, accessedAt }
 const cache = new Map();
+
+/**
+ * Evict the least recently used cache entry if cache is at or above max size.
+ */
+function evictLRU() {
+  if (cache.size < config.cache.maxSize) return;
+  let oldestKey = null;
+  let oldestTime = Infinity;
+  for (const [key, entry] of cache) {
+    const t = entry.accessedAt || entry.expiresAt;
+    if (t < oldestTime) {
+      oldestTime = t;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey) cache.delete(oldestKey);
+}
 
 /**
  * Cache middleware for GET responses keyed by URL + userId.
@@ -19,6 +37,8 @@ function cacheMiddleware(ttlSeconds = 60, tags = []) {
     const entry = cache.get(key);
 
     if (entry && entry.expiresAt > Date.now()) {
+      // Update access time for LRU tracking
+      entry.accessedAt = Date.now();
       // Check If-None-Match for conditional requests even on cache hits
       if (entry.etag) {
         const ifNoneMatch = req.get('If-None-Match');
@@ -43,6 +63,7 @@ function cacheMiddleware(ttlSeconds = 60, tags = []) {
         const bodyStr = JSON.stringify(body);
         const hash = crypto.createHash('md5').update(bodyStr).digest('hex');
         const etag = `"${hash}"`;
+        evictLRU();
         cache.set(key, {
           data: body,
           statusCode: res.statusCode || 200,
@@ -50,6 +71,7 @@ function cacheMiddleware(ttlSeconds = 60, tags = []) {
           etag,
           tags: tags.length > 0 ? tags : [],
           expiresAt: Date.now() + ttlSeconds * 1000,
+          accessedAt: Date.now(),
         });
       }
       res.set('X-Cache', 'MISS');
@@ -112,4 +134,4 @@ function getCacheStore() {
   return cache;
 }
 
-module.exports = { cacheMiddleware, invalidateCache, invalidateCacheByTags, clearAllCache, getCacheStore };
+module.exports = { cacheMiddleware, invalidateCache, invalidateCacheByTags, clearAllCache, getCacheStore, evictLRU };

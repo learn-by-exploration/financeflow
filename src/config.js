@@ -58,6 +58,9 @@ const config = Object.freeze({
     logoUrl: process.env.BRAND_LOGO_URL || '',
     color: process.env.BRAND_COLOR || '#6366f1',
   },
+  cache: {
+    maxSize: parseInt(process.env.CACHE_MAX_SIZE, 10) || 200,
+  },
 });
 
 module.exports = config;
