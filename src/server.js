@@ -78,9 +78,9 @@ if (!config.isTest) {
   app.use(rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.max }));
 }
 app.use(createRequestLogger());
-if (!config.isTest) {
-  app.use(createCsrfMiddleware());
-}
+// CSRF middleware disabled — app uses X-Session-Token header auth,
+// which inherently prevents CSRF (browsers don't auto-attach custom headers).
+// The middleware exists at middleware/csrf.js for future cookie-auth use.
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // ─── Routes ───
