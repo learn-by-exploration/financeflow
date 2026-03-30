@@ -85,6 +85,7 @@ const createNetWorthRoutes = require('./routes/net-worth');
 const createAuditRoutes = require('./routes/audit');
 const createReminderRoutes = require('./routes/reminders');
 const createHealthRoutes = require('./routes/health');
+const createReportRoutes = require('./routes/reports');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -109,6 +110,7 @@ app.use('/api/search', requireAuth, createSearchRoutes(deps));
 app.use('/api/net-worth', requireAuth, createNetWorthRoutes(deps));
 app.use('/api/audit', requireAuth, createAuditRoutes(deps));
 app.use('/api/reminders', requireAuth, createReminderRoutes(deps));
+app.use('/api/reports', requireAuth, createReportRoutes(deps));
 
 // GET /api/upcoming — shortcut for upcoming bills
 app.get('/api/upcoming', requireAuth, (req, res, next) => {
