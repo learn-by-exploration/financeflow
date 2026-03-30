@@ -132,6 +132,7 @@ async function markAllRead() {
 // ─── Toggle panel ───
 function togglePanel() {
   panelOpen = !panelOpen;
+  bell.setAttribute('aria-expanded', String(panelOpen));
   if (panelOpen) {
     panel.classList.remove('hidden');
     backdrop.classList.remove('hidden');
@@ -144,6 +145,7 @@ function togglePanel() {
 
 function closePanel() {
   panelOpen = false;
+  bell.setAttribute('aria-expanded', 'false');
   panel.classList.add('hidden');
   backdrop.classList.add('hidden');
 }

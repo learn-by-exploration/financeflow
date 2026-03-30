@@ -133,13 +133,13 @@ function renderTable() {
   // Header
   const thead = el('thead', {}, [
     el('tr', {}, [
-      el('th', { textContent: 'Date' }),
-      el('th', { textContent: 'Description' }),
-      el('th', { textContent: 'Category' }),
-      el('th', { textContent: 'Account' }),
-      el('th', { textContent: 'Type' }),
-      el('th', { className: 'text-right', textContent: 'Amount' }),
-      el('th', { textContent: '' }),
+      el('th', { textContent: 'Date', scope: 'col' }),
+      el('th', { textContent: 'Description', scope: 'col' }),
+      el('th', { textContent: 'Category', scope: 'col' }),
+      el('th', { textContent: 'Account', scope: 'col' }),
+      el('th', { textContent: 'Type', scope: 'col' }),
+      el('th', { className: 'text-right', textContent: 'Amount', scope: 'col' }),
+      el('th', { textContent: '', scope: 'col' }),
     ]),
   ]);
   table.appendChild(thead);
@@ -162,10 +162,10 @@ function renderTable() {
       el('td', { 'data-label': 'Type' }, [el('span', { className: `badge ${typeClass}`, textContent: t.type })]),
       el('td', { className: `text-right txn-amount ${amtClass}`, textContent: `${prefix}${fmt(t.amount)}`, 'data-label': 'Amount' }),
       el('td', { className: 'row-actions' }, [
-        el('button', { className: 'btn-icon', title: 'Edit', onClick: () => showTxnForm(t) }, [
+        el('button', { className: 'btn-icon', title: 'Edit', 'aria-label': `Edit ${t.description}`, onClick: () => showTxnForm(t) }, [
           el('span', { className: 'material-icons-round', textContent: 'edit' }),
         ]),
-        el('button', { className: 'btn-icon danger', title: 'Delete', onClick: () => deleteTxn(t) }, [
+        el('button', { className: 'btn-icon danger', title: 'Delete', 'aria-label': `Delete ${t.description}`, onClick: () => deleteTxn(t) }, [
           el('span', { className: 'material-icons-round', textContent: 'delete' }),
         ]),
       ]),
@@ -272,7 +272,9 @@ function updateFormVisibility(form) {
 }
 
 function formGroup(label, input) {
-  return el('div', { className: 'form-group' }, [el('label', { textContent: label }), input]);
+  const id = 'txn-' + label.toLowerCase().replace(/\s+/g, '-');
+  if (input.tagName) input.id = id;
+  return el('div', { className: 'form-group' }, [el('label', { textContent: label, for: id }), input]);
 }
 
 async function handleSubmit(e, existing) {

@@ -14,9 +14,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" defer></script>
 </head>
 <body>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
   <div id="app">
     <!-- Sidebar -->
-    <nav id="sidebar" class="sidebar">
+    <nav id="sidebar" class="sidebar" aria-label="Main navigation">
       <div class="sidebar-header">
         <h1 class="logo">💰 PersonalFi</h1>
       </div>
@@ -101,7 +102,7 @@
     </nav>
 
     <!-- Main content -->
-    <main id="main-content" class="main-content">
+    <main id="main-content" class="main-content" role="main">
       <!-- Demo mode banner -->
       <div id="demo-banner" class="demo-banner" style="display:none;">
         <span class="material-icons-round">info</span>
@@ -116,7 +117,7 @@
           <input type="text" id="global-search" class="search-input" placeholder="Search transactions, accounts..." autocomplete="off" />
         </div>
         <div class="top-bar-right">
-          <button id="notif-bell" class="btn-icon notif-bell" title="Notifications">
+          <button id="notif-bell" class="btn-icon notif-bell" title="Notifications" aria-label="Notifications" aria-expanded="false">
             <span class="material-icons-round">notifications</span>
             <span id="notif-badge" class="notif-badge hidden">0</span>
           </button>
@@ -129,13 +130,14 @@
           <h3>Notifications</h3>
           <button id="notif-mark-all" class="btn btn-sm btn-secondary">Mark all read</button>
         </div>
-        <div id="notif-list" class="notif-list">
+        <div id="notif-list" class="notif-list" role="list">
           <div class="notif-empty">No notifications</div>
         </div>
       </div>
       <div id="notif-backdrop" class="notif-backdrop hidden"></div>
 
       <div id="view-container"></div>
+      <div id="a11y-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     </main>
   </div>
 
@@ -145,7 +147,7 @@
   </button>
 
   <!-- Modal overlay -->
-  <div id="modal-overlay" class="modal-overlay hidden">
+  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
     <div id="modal-content" class="modal-content"></div>
   </div>
 

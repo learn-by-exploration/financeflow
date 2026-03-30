@@ -105,6 +105,25 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 
 let currentSearchQuery = '';
 
+// ─── A11y: Announce to screen readers ───
+function announceToScreenReader(message) {
+  const region = document.getElementById('a11y-announce');
+  if (region) {
+    region.textContent = '';
+    setTimeout(() => { region.textContent = message; }, 100);
+  }
+}
+
+// ─── A11y: Focus management on view change ───
+function focusMainHeading() {
+  const container = document.getElementById('view-container');
+  const heading = container && container.querySelector('h2, h3');
+  if (heading) {
+    heading.setAttribute('tabindex', '-1');
+    heading.focus();
+  }
+}
+
 // ─── Render dispatcher ───
 async function render() {
   const container = document.getElementById('view-container');
@@ -130,6 +149,10 @@ async function render() {
     } else {
       await renderFn(container);
     }
+    // A11y: announce view change and focus heading
+    const viewName = currentView.charAt(0).toUpperCase() + currentView.slice(1);
+    announceToScreenReader(`${viewName} view loaded`);
+    focusMainHeading();
   } catch (err) {
     container.innerHTML = '';
     showError(container, {
@@ -171,6 +194,24 @@ function onboardingStep(num, emoji, title, desc, view) {
 
 // ─── Keyboard shortcuts ───
 document.addEventListener('keydown', (e) => {
+  // A11y: Tab trap in modal
+  const modalOverlay = document.getElementById('modal-overlay');
+  if (modalOverlay && !modalOverlay.classList.contains('hidden')) {
+    if (e.key === 'Escape') { closeModal(); return; }
+    if (e.key === 'Tab') {
+      const focusable = modalOverlay.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+      return;
+    }
+  }
+
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
   if (e.key === 'Escape') closeModal();
   if (e.key === 'n' || e.key === 'N') showQuickAdd();
@@ -237,7 +278,9 @@ async function showQuickAdd() {
 }
 
 function formGroup(label, input) {
-  return el('div', { className: 'form-group' }, [el('label', { textContent: label }), input]);
+  const id = 'qa-' + label.toLowerCase().replace(/\s+/g, '-');
+  if (input.tagName) input.id = id;
+  return el('div', { className: 'form-group' }, [el('label', { textContent: label, for: id }), input]);
 }
 
 function navigateTo(view) {

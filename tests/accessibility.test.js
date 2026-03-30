@@ -134,3 +134,95 @@ describe('GET /api/search', () => {
     assert.equal(res.body.error.code, 'VALIDATION_ERROR');
   });
 });
+
+// ═══════════════════════════════════════════
+// WCAG 2.1 AA — Accessibility
+// ═══════════════════════════════════════════
+
+const fs = require('fs');
+const path = require('path');
+
+const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf-8');
+const stylesCSS = fs.readFileSync(path.join(__dirname, '..', 'public', 'styles.css'), 'utf-8');
+
+describe('WCAG 2.1 AA — HTML Accessibility', () => {
+  it('html element has lang attribute', () => {
+    assert.match(indexHtml, /<html[^>]+lang="en"/);
+  });
+
+  it('skip-to-content link is present', () => {
+    assert.match(indexHtml, /class="skip-link"/);
+    assert.match(indexHtml, /Skip to main content/);
+  });
+
+  it('aria-live region is present for announcements', () => {
+    assert.match(indexHtml, /aria-live="polite"/);
+    assert.match(indexHtml, /id="a11y-announce"/);
+  });
+
+  it('nav landmark has aria-label', () => {
+    assert.match(indexHtml, /<nav[^>]+aria-label="Main navigation"/);
+  });
+
+  it('main landmark is present', () => {
+    assert.match(indexHtml, /<main[^>]+id="main-content"/);
+    assert.match(indexHtml, /role="main"/);
+  });
+
+  it('modal has role="dialog" and aria-modal', () => {
+    assert.match(indexHtml, /role="dialog"/);
+    assert.match(indexHtml, /aria-modal="true"/);
+  });
+
+  it('notification bell has aria-label', () => {
+    assert.match(indexHtml, /id="notif-bell"[^>]*aria-label="Notifications"/);
+  });
+
+  it('notification bell has aria-expanded attribute', () => {
+    assert.match(indexHtml, /id="notif-bell"[^>]*aria-expanded=/);
+  });
+
+  it('notification list has role="list"', () => {
+    assert.match(indexHtml, /id="notif-list"[^>]*role="list"/);
+  });
+});
+
+describe('WCAG 2.1 AA — CSS Accessibility', () => {
+  it('has focus-visible styles', () => {
+    assert.match(stylesCSS, /:focus-visible/);
+  });
+
+  it('has skip-link styles', () => {
+    assert.match(stylesCSS, /\.skip-link/);
+  });
+
+  it('has reduced motion media query', () => {
+    assert.match(stylesCSS, /prefers-reduced-motion:\s*reduce/);
+  });
+
+  it('has sr-only class for screen readers', () => {
+    assert.match(stylesCSS, /\.sr-only/);
+  });
+});
+
+describe('WCAG 2.1 AA — API Accessibility', () => {
+  it('API error responses have proper error field', async () => {
+    const res = await agent().post('/api/transactions').send({});
+    assert.ok(res.status >= 400);
+    assert.ok(res.body.error);
+  });
+
+  it('API endpoints accept application/json content type', async () => {
+    const acc = makeAccount();
+    const res = await agent()
+      .post('/api/transactions')
+      .set('Content-Type', 'application/json')
+      .send({ account_id: acc.id, type: 'expense', amount: 50, description: 'A11y test', date: '2025-01-15' });
+    assert.equal(res.status, 201);
+  });
+
+  it('API responses have proper content-type header', async () => {
+    const res = await agent().get('/api/accounts');
+    assert.ok(res.headers['content-type'].includes('application/json'));
+  });
+});
