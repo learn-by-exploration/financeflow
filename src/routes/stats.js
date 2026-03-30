@@ -1,10 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const createHealthService = require('../services/health.service');
+const createSplitService = require('../services/split.service');
 
 module.exports = function createStatsRoutes({ db }) {
 
   const healthService = createHealthService();
+  const splitService = createSplitService({ db });
 
   // GET /api/stats/overview — dashboard summary
   router.get('/overview', (req, res, next) => {
@@ -33,6 +35,28 @@ module.exports = function createStatsRoutes({ db }) {
 
       const subscriptionTotal = db.prepare('SELECT COALESCE(SUM(amount), 0) as monthly FROM subscriptions WHERE user_id = ? AND is_active = 1 AND frequency = \'monthly\'').get(userId);
 
+      // Groups balance: aggregate simplified debts across all groups
+      const userGroups = db.prepare(`
+        SELECT g.id FROM groups g
+        JOIN group_members gm ON g.id = gm.group_id
+        WHERE gm.user_id = ?
+      `).all(userId);
+
+      let totalOwed = 0;
+      let totalOwing = 0;
+      for (const g of userGroups) {
+        const balances = splitService.calculateBalances(g.id);
+        const debts = splitService.simplifyDebts(balances);
+        // Find the member id for the current user in this group
+        const userMember = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?').get(g.id, userId);
+        if (userMember) {
+          for (const d of debts) {
+            if (d.to === userMember.id) totalOwed += d.amount;
+            if (d.from === userMember.id) totalOwing += d.amount;
+          }
+        }
+      }
+
       res.json({
         net_worth: (accounts.assets || 0) - (accounts.liabilities || 0),
         total_assets: accounts.assets || 0,
@@ -43,6 +67,12 @@ module.exports = function createStatsRoutes({ db }) {
         top_categories: topCategories,
         recent_transactions: recentTransactions,
         monthly_subscriptions: subscriptionTotal.monthly,
+        groups_balance: {
+          total_owed: Math.round(totalOwed * 100) / 100,
+          total_owing: Math.round(totalOwing * 100) / 100,
+          net: Math.round((totalOwed - totalOwing) * 100) / 100,
+          group_count: userGroups.length,
+        },
       });
     } catch (err) { next(err); }
   });

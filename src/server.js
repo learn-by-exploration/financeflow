@@ -126,6 +126,8 @@ const createSpendingLimitRoutes = require('./routes/spending-limits');
 const createBrandingRoutes = require('./routes/branding');
 const createWhatsNewRoutes = require('./routes/whats-new');
 const createOnboardingRoutes = require('./routes/onboarding');
+const createGroupInviteRoutes = require('./routes/group-invites');
+const createExpenseCommentRoutes = require('./routes/expense-comments');
 
 // ─── Version endpoint (public) ───
 app.get('/api/version', (_req, res) => {
@@ -149,6 +151,8 @@ app.use('/api/transactions', requireAuth, createTransactionRoutes(deps));
 app.use('/api/categories', requireAuth, createCategoryRoutes(deps));
 app.use('/api/budgets', requireAuth, createBudgetRoutes(deps));
 app.use('/api/groups', requireAuth, createGroupRoutes(deps));
+app.use('/api/groups', requireAuth, createGroupInviteRoutes(deps));
+app.use('/api/groups', requireAuth, createExpenseCommentRoutes(deps));
 app.use('/api/splits', requireAuth, createSplitRoutes(deps));
 app.use('/api/stats', requireAuth, createStatsRoutes(deps));
 app.use('/api/subscriptions', requireAuth, createSubscriptionRoutes(deps));

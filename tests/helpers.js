@@ -49,9 +49,11 @@ function cleanDb() {
   db.exec('DELETE FROM expense_splits');
   db.exec('DELETE FROM settlements');
   db.exec('DELETE FROM shared_expenses');
+  try { db.exec('DELETE FROM expense_comments'); } catch {}
   db.exec('DELETE FROM shared_budget_items');
   db.exec('DELETE FROM shared_budgets');
   try { db.exec('DELETE FROM group_activities'); } catch {}
+  try { db.exec('DELETE FROM group_invites'); } catch {}
   db.exec('DELETE FROM group_members');
   db.exec('DELETE FROM groups');
   db.exec('DELETE FROM financial_health_scores');

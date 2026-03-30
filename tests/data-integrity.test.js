@@ -41,9 +41,9 @@ describe('Data Integrity', () => {
       }
     });
 
-    it('all 21 migrations are recorded in _migrations', () => {
+    it('all 23 migrations are recorded in _migrations', () => {
       const count = db.prepare('SELECT COUNT(*) as c FROM _migrations').get().c;
-      assert.equal(count, 21, 'should have exactly 21 migrations applied');
+      assert.equal(count, 23, 'should have exactly 23 migrations applied');
     });
 
     it('migration order is alphabetical (sorted by filename)', () => {
@@ -362,7 +362,7 @@ describe('Data Integrity', () => {
       'category_rules', 'transaction_tags', 'api_tokens', 'bill_reminders',
       'exchange_rates', 'attachments', 'notifications', 'duplicate_dismissals',
       'recurring_suggestion_dismissals', 'spending_limits', 'goal_transactions',
-      'group_activities'
+      'group_activities', 'group_invites', 'expense_comments'
     ];
 
     it('all expected core tables exist', () => {
