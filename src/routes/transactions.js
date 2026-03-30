@@ -66,7 +66,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       if (!parsed.success) {
         throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
       }
-      const { account_id, category_id, type, amount, currency, description, note, date, payee, transfer_to_account_id, tag_ids } = parsed.data;
+      const { account_id, category_id, type, amount, currency, description, note, date, payee, transfer_to_account_id, tag_ids, reference_id } = parsed.data;
 
       // Transfer handling
       if (type === 'transfer') {
@@ -102,7 +102,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       // Regular income/expense
       const transaction = txRepo.create(req.user.id, {
         account_id, category_id: resolvedCategoryId, type, amount,
-        currency: currency || req.user.defaultCurrency, description, note, date, payee, tag_ids
+        currency: currency || req.user.defaultCurrency, description, note, date, payee, tag_ids, reference_id
       });
 
       // Update account balance

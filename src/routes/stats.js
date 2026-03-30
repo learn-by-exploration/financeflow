@@ -51,6 +51,35 @@ module.exports = function createStatsRoutes({ db }) {
   router.get('/trends', (req, res, next) => {
     try {
       const months = parseInt(req.query.months || '12', 10);
+      const { fy } = req.query;
+
+      // Check if user has FY preference or fy query param is provided
+      let fyStart = null;
+      if (fy) {
+        // Read financial_year_start from user preferences
+        const setting = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'financial_year_start'").get(req.user.id);
+        fyStart = setting ? Number(setting.value) : 1;
+      }
+
+      if (fyStart && fyStart > 1 && fy) {
+        // FY mode: e.g. fy=2025 with start=4 means April 2025 to March 2026
+        const fyYear = parseInt(fy, 10);
+        const fromDate = `${fyYear}-${String(fyStart).padStart(2, '0')}-01`;
+        const toYear = fyStart === 1 ? fyYear : fyYear + 1;
+        const toMonth = fyStart === 1 ? 12 : fyStart - 1;
+        // Last day of the to month
+        const toDate = `${toYear}-${String(toMonth).padStart(2, '0')}-31`;
+
+        const trends = db.prepare(`
+          SELECT strftime('%Y-%m', date) as month,
+            SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
+            SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
+          FROM transactions WHERE user_id = ? AND date >= ? AND date <= ?
+          GROUP BY month ORDER BY month ASC
+        `).all(req.user.id, fromDate, toDate);
+        return res.json({ trends });
+      }
+
       const trends = db.prepare(`
         SELECT strftime('%Y-%m', date) as month,
           SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,

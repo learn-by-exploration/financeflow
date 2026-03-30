@@ -24,9 +24,9 @@ module.exports = function createSearchRoutes({ db }) {
          FROM transactions t
          LEFT JOIN categories c ON t.category_id = c.id
          LEFT JOIN accounts a ON t.account_id = a.id
-         WHERE t.user_id = ? AND (t.description LIKE ? OR t.payee LIKE ? OR t.note LIKE ?)
+         WHERE t.user_id = ? AND (t.description LIKE ? OR t.payee LIKE ? OR t.note LIKE ? OR t.reference_id LIKE ?)
          ORDER BY t.date DESC LIMIT ?`
-      ).all(userId, like, like, like, MAX_RESULTS);
+      ).all(userId, like, like, like, like, MAX_RESULTS);
 
       const accounts = db.prepare(
         'SELECT * FROM accounts WHERE user_id = ? AND name LIKE ? LIMIT ?'

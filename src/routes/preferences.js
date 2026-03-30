@@ -14,7 +14,7 @@ module.exports = function createPreferencesRoutes({ db }) {
 
       const preferences = { ...PREFERENCE_DEFAULTS };
       for (const row of rows) {
-        preferences[row.key] = row.key === 'items_per_page' ? Number(row.value) : row.value;
+        preferences[row.key] = (row.key === 'items_per_page' || row.key === 'financial_year_start') ? Number(row.value) : row.value;
       }
       res.json({ preferences });
     } catch (err) { next(err); }
@@ -52,7 +52,7 @@ module.exports = function createPreferencesRoutes({ db }) {
 
       const preferences = { ...PREFERENCE_DEFAULTS };
       for (const row of rows) {
-        preferences[row.key] = row.key === 'items_per_page' ? Number(row.value) : row.value;
+        preferences[row.key] = (row.key === 'items_per_page' || row.key === 'financial_year_start') ? Number(row.value) : row.value;
       }
       res.json({ preferences });
     } catch (err) { next(err); }

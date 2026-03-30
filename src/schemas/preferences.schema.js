@@ -7,9 +7,10 @@ const preferencesSchema = z.object({
   theme: z.enum(['light', 'dark', 'system']).optional(),
   language: z.enum(['en', 'hi', 'ta', 'te', 'kn', 'ml', 'mr', 'bn', 'gu', 'pa']).optional(),
   items_per_page: z.number().int().min(5).max(100).optional(),
+  financial_year_start: z.number().int().min(1).max(12).optional(),
 });
 
-const PREFERENCE_KEYS = ['date_format', 'number_format', 'timezone', 'theme', 'language', 'items_per_page'];
+const PREFERENCE_KEYS = ['date_format', 'number_format', 'timezone', 'theme', 'language', 'items_per_page', 'financial_year_start'];
 
 const PREFERENCE_DEFAULTS = {
   date_format: 'YYYY-MM-DD',
@@ -18,6 +19,7 @@ const PREFERENCE_DEFAULTS = {
   theme: 'system',
   language: 'en',
   items_per_page: 25,
+  financial_year_start: 1,
 };
 
 module.exports = { preferencesSchema, PREFERENCE_KEYS, PREFERENCE_DEFAULTS };

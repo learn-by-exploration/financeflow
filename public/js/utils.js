@@ -27,8 +27,24 @@ export const Api = {
 };
 
 // ─── Currency formatter ───
-export function fmt(amount, currency = 'INR') {
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount || 0);
+export function fmt(amount, currency = 'INR', locale = 'en-IN') {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount || 0);
+}
+
+// ─── Date formatter ───
+export function formatDate(dateStr, format = 'YYYY-MM-DD') {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  switch (format) {
+    case 'DD/MM/YYYY': return `${dd}/${mm}/${yyyy}`;
+    case 'MM/DD/YYYY': return `${mm}/${dd}/${yyyy}`;
+    case 'DD-MM-YYYY': return `${dd}-${mm}-${yyyy}`;
+    case 'DD.MM.YYYY': return `${dd}.${mm}.${yyyy}`;
+    default: return `${yyyy}-${mm}-${dd}`;
+  }
 }
 
 // ─── Toast notifications ───

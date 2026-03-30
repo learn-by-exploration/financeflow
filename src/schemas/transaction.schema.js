@@ -14,6 +14,7 @@ const createTransactionSchema = z.object({
   payee: z.string().max(200).optional().nullable(),
   transfer_to_account_id: z.number().int().positive().optional().nullable(),
   tag_ids: z.array(z.number().int().positive()).optional(),
+  reference_id: z.string().max(50).optional().nullable(),
 });
 
 const updateTransactionSchema = z.object({
@@ -23,6 +24,7 @@ const updateTransactionSchema = z.object({
   note: z.string().max(1000).optional().nullable(),
   date: z.string().optional(),
   payee: z.string().max(200).optional().nullable(),
+  reference_id: z.string().max(50).optional().nullable(),
 });
 
 const bulkIdsArray = z.array(z.number().int().positive()).min(1).max(100);

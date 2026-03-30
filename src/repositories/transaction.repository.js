@@ -21,22 +21,22 @@ module.exports = function createTransactionRepository({ db }) {
   }
 
   function create(userId, data) {
-    const { account_id, category_id, type, amount, currency, description, note, date, payee, tag_ids } = data;
+    const { account_id, category_id, type, amount, currency, description, note, date, payee, tag_ids, reference_id } = data;
     const result = db.prepare(`
-      INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, note, date, payee, tags)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(userId, account_id, category_id || null, type, amount, currency, description, note || null, date, payee || null, JSON.stringify(tag_ids || []));
+      INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, note, date, payee, tags, reference_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, account_id, category_id || null, type, amount, currency, description, note || null, date, payee || null, JSON.stringify(tag_ids || []), reference_id || null);
     return db.prepare('SELECT * FROM transactions WHERE id = ?').get(result.lastInsertRowid);
   }
 
   function update(id, userId, data) {
-    const { category_id, description, note, date, payee, tags, amount } = data;
+    const { category_id, description, note, date, payee, tags, amount, reference_id } = data;
     db.prepare(`
       UPDATE transactions SET category_id = COALESCE(?, category_id), description = COALESCE(?, description),
       note = COALESCE(?, note), date = COALESCE(?, date), payee = COALESCE(?, payee),
-      tags = COALESCE(?, tags), amount = COALESCE(?, amount), updated_at = datetime('now')
+      tags = COALESCE(?, tags), amount = COALESCE(?, amount), reference_id = COALESCE(?, reference_id), updated_at = datetime('now')
       WHERE id = ? AND user_id = ?
-    `).run(category_id, description, note, date, payee, tags ? JSON.stringify(tags) : null, amount, id, userId);
+    `).run(category_id, description, note, date, payee, tags ? JSON.stringify(tags) : null, amount, reference_id !== undefined ? reference_id : null, id, userId);
     return db.prepare('SELECT * FROM transactions WHERE id = ?').get(id);
   }
 

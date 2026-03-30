@@ -35,7 +35,7 @@ module.exports = function createExportRoutes({ db }) {
       const dateFrom = from || start_date;
       const dateTo = to || end_date;
 
-      let sql = `SELECT t.id, t.date, t.type, t.amount, t.currency, t.description, t.note, t.payee,
+      let sql = `SELECT t.id, t.date, t.type, t.amount, t.currency, t.description, t.note, t.payee, t.reference_id,
                         c.name AS category_name, a.name AS account_name
                  FROM transactions t
                  LEFT JOIN categories c ON t.category_id = c.id
