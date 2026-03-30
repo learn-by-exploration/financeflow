@@ -77,6 +77,17 @@ module.exports = function createChartRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/charts/spending-trend?from=DATE&to=DATE&interval=daily|weekly
+  router.get('/spending-trend', (req, res, next) => {
+    try {
+      const range = validateDateRange(req, res);
+      if (!range) return;
+      const interval = (req.query.interval === 'weekly') ? 'weekly' : 'daily';
+      const data = chartRepo.getSpendingTrend(req.user.id, range.from, range.to, interval);
+      res.json(data);
+    } catch (err) { next(err); }
+  });
+
   // GET /api/charts/budget-utilization?budget_id=X
   router.get('/budget-utilization', (req, res, next) => {
     try {

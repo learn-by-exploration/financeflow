@@ -1,7 +1,9 @@
 // PersonalFi — Dashboard View
 import { Api, fmt, el, getUser } from '../utils.js';
+import { initDashboardCharts, destroyCharts } from '../charts.js';
 
 export async function renderDashboard(container) {
+  destroyCharts();
   const data = await Api.get('/stats/overview');
   const user = getUser();
 
@@ -23,6 +25,14 @@ export async function renderDashboard(container) {
   ]);
   container.appendChild(stats);
 
+  // Charts grid
+  const chartsGrid = el('div', { className: 'charts-grid' }, [
+    chartCard('Spending by Category', 'chart-spending'),
+    chartCard('Income vs Expense', 'chart-income-expense'),
+    chartCard('Spending Trend (30 days)', 'chart-trend'),
+  ]);
+  container.appendChild(chartsGrid);
+
   // Dashboard grid
   const grid = el('div', { className: 'dashboard-grid' }, [
     buildCategoriesCard(data.top_categories),
@@ -38,6 +48,17 @@ export async function renderDashboard(container) {
     ]);
     container.appendChild(banner);
   }
+
+  // Initialize charts after DOM is ready
+  initDashboardCharts(container);
+}
+
+function chartCard(title, canvasId) {
+  const canvas = el('canvas', { id: canvasId });
+  return el('div', { className: 'card chart-card' }, [
+    el('h3', { textContent: title }),
+    el('div', { className: 'chart-wrapper' }, [canvas]),
+  ]);
 }
 
 function statCard(label, value, color) {

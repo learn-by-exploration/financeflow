@@ -259,6 +259,26 @@ module.exports = function createChartRepository({ db }) {
     };
   }
 
+  function getSpendingTrend(userId, from, to, interval = 'daily') {
+    const fmt = DATE_FORMAT[interval] || DATE_FORMAT.daily;
+    const rows = db.prepare(`
+      SELECT
+        strftime('${fmt}', date) AS period,
+        ROUND(COALESCE(SUM(amount), 0), 2) AS total
+      FROM transactions
+      WHERE user_id = ? AND type = 'expense' AND date >= ? AND date <= ?
+      GROUP BY period
+      ORDER BY period
+    `).all(userId, from, to);
+
+    return {
+      labels: rows.map(r => r.period),
+      datasets: [
+        { name: 'Spending', data: rows.map(r => r.total) },
+      ],
+    };
+  }
+
   return {
     getCashFlow,
     getBalanceHistory,
@@ -266,5 +286,6 @@ module.exports = function createChartRepository({ db }) {
     getIncomeExpense,
     getNetWorthTrend,
     getBudgetUtilization,
+    getSpendingTrend,
   };
 };

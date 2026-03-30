@@ -151,6 +151,40 @@ body {
   margin-bottom: 1rem;
 }
 
+/* ─── Charts grid ─── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.chart-card {
+  min-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 220px;
+}
+
+.chart-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.chart-no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 220px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
 /* ─── Cards ─── */
 .card {
   background: var(--bg-secondary);
@@ -887,6 +921,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
   .top-bar { padding-top: 0; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .dashboard-grid { grid-template-columns: 1fr; }
+  .charts-grid { grid-template-columns: 1fr; }
   .accounts-grid { grid-template-columns: 1fr; }
   .fab { bottom: 1.5rem; right: 1.5rem; }
   .notif-panel { width: calc(100vw - 2rem); right: -0.5rem; }
