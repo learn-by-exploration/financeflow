@@ -88,6 +88,7 @@ const createHealthRoutes = require('./routes/health');
 const createReportRoutes = require('./routes/reports');
 const createInsightRoutes = require('./routes/insights');
 const createExchangeRateRoutes = require('./routes/exchange-rates');
+const createApiTokenRoutes = require('./routes/api-tokens');
 
 // Public routes
 app.use('/api/auth', createAuthRoutes(deps));
@@ -115,6 +116,7 @@ app.use('/api/reminders', requireAuth, createReminderRoutes(deps));
 app.use('/api/reports', requireAuth, createReportRoutes(deps));
 app.use('/api/insights', requireAuth, createInsightRoutes(deps));
 app.use('/api/exchange-rates', requireAuth, createExchangeRateRoutes(deps));
+app.use('/api/tokens', requireAuth, createApiTokenRoutes(deps));
 
 // GET /api/upcoming — shortcut for upcoming bills
 app.get('/api/upcoming', requireAuth, (req, res, next) => {
