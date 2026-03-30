@@ -55,13 +55,42 @@ module.exports = function createBudgetRoutes({ db, audit }) {
 
       const categories = items.map(item => {
         const spent = spendingMap[item.category_id] || 0;
+
+        // Rollover calculation: find previous budget with same category
+        let rollover_amount = 0;
+        if (item.rollover) {
+          const prevBudget = db.prepare(`
+            SELECT b.id, b.start_date, b.end_date FROM budgets b
+            WHERE b.user_id = ? AND b.id != ? AND b.end_date < ?
+            ORDER BY b.end_date DESC LIMIT 1
+          `).get(req.user.id, budget.id, budget.start_date);
+
+          if (prevBudget) {
+            const prevItem = db.prepare(`
+              SELECT bi.amount FROM budget_items bi
+              WHERE bi.budget_id = ? AND bi.category_id = ?
+            `).get(prevBudget.id, item.category_id);
+
+            if (prevItem) {
+              const prevSpent = db.prepare(`
+                SELECT COALESCE(SUM(amount), 0) as total FROM transactions
+                WHERE user_id = ? AND type = 'expense' AND category_id = ?
+                AND date >= ? AND date <= ?
+              `).get(req.user.id, item.category_id, prevBudget.start_date, prevBudget.end_date);
+              rollover_amount = prevItem.amount - (prevSpent.total || 0);
+            }
+          }
+        }
+
         return {
           category_id: item.category_id,
           category_name: item.category_name,
           category_icon: item.category_icon,
           allocated: item.amount,
+          rollover_amount,
+          effective_allocated: item.amount + rollover_amount,
           spent,
-          remaining: item.amount - spent
+          remaining: item.amount + rollover_amount - spent
         };
       });
 
@@ -116,6 +145,28 @@ module.exports = function createBudgetRoutes({ db, audit }) {
       `).run(name, period, start_date, end_date, is_active, req.params.id, req.user.id);
       const budget = db.prepare('SELECT * FROM budgets WHERE id = ?').get(req.params.id);
       res.json({ budget });
+    } catch (err) { next(err); }
+  });
+
+  // PUT /api/budgets/:id/items/:itemId — update budget item (rollover toggle, amount)
+  router.put('/:id/items/:itemId', (req, res, next) => {
+    try {
+      const budget = db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      if (!budget) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget not found' } });
+
+      const item = db.prepare('SELECT * FROM budget_items WHERE id = ? AND budget_id = ?').get(req.params.itemId, budget.id);
+      if (!item) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget item not found' } });
+
+      const updates = [];
+      const values = [];
+      if (req.body.rollover !== undefined) { updates.push('rollover = ?'); values.push(req.body.rollover); }
+      if (req.body.amount !== undefined) { updates.push('amount = ?'); values.push(req.body.amount); }
+      if (updates.length > 0) {
+        values.push(item.id);
+        db.prepare(`UPDATE budget_items SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+      }
+      const updated = db.prepare('SELECT * FROM budget_items WHERE id = ?').get(item.id);
+      res.json({ item: updated });
     } catch (err) { next(err); }
   });
 
