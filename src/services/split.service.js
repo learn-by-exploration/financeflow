@@ -72,5 +72,32 @@ module.exports = function createSplitService({ db }) {
     return Object.values(balances);
   }
 
-  return { calculateEqualSplit, simplifyDebts, calculateBalances };
+  /**
+   * Calculate percentage-based split amounts.
+   * Each member's amount = floor(total * percentage / 100, 2 decimals).
+   * Remainder assigned to last member to guarantee sum === amount.
+   */
+  function calculatePercentageSplit(amount, percentages) {
+    const amounts = percentages.map(p => Math.floor(amount * p / 100 * 100) / 100);
+    const sum = amounts.reduce((s, a) => s + a, 0);
+    const remainder = Math.round((amount - sum) * 100) / 100;
+    amounts[amounts.length - 1] = Math.round((amounts[amounts.length - 1] + remainder) * 100) / 100;
+    return amounts;
+  }
+
+  /**
+   * Calculate shares-based split amounts.
+   * Each member's amount = floor(total * myShares / totalShares, 2 decimals).
+   * Remainder assigned to last member to guarantee sum === amount.
+   */
+  function calculateSharesSplit(amount, shares) {
+    const totalShares = shares.reduce((s, sh) => s + sh, 0);
+    const amounts = shares.map(sh => Math.floor(amount * sh / totalShares * 100) / 100);
+    const sum = amounts.reduce((s, a) => s + a, 0);
+    const remainder = Math.round((amount - sum) * 100) / 100;
+    amounts[amounts.length - 1] = Math.round((amounts[amounts.length - 1] + remainder) * 100) / 100;
+    return amounts;
+  }
+
+  return { calculateEqualSplit, calculatePercentageSplit, calculateSharesSplit, simplifyDebts, calculateBalances };
 };

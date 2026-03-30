@@ -34,12 +34,54 @@ module.exports = function createSplitRoutes({ db, audit }) {
         }
       }
 
+      // Validate percentage splits
+      if (split_method === 'percentage') {
+        if (!splits || !splits.length) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Percentage split requires splits array with percentage field' } });
+        }
+        if (splits.some(s => typeof s.percentage !== 'number' || s.percentage <= 0)) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'All percentages must be positive numbers' } });
+        }
+        const pctSum = Math.round(splits.reduce((s, sp) => s + sp.percentage, 0) * 100) / 100;
+        if (pctSum !== 100) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Percentages must sum to 100 (got ${pctSum})` } });
+        }
+      }
+
+      // Validate shares splits
+      if (split_method === 'shares') {
+        if (!splits || !splits.length) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Shares split requires splits array with shares field' } });
+        }
+        if (splits.some(s => typeof s.shares !== 'number' || s.shares <= 0)) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'All shares must be positive numbers' } });
+        }
+      }
+
       const result = db.prepare(`
         INSERT INTO shared_expenses (group_id, paid_by, amount, currency, description, category_id, date, note, split_method)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(req.params.groupId, paid_by, amount, currency || req.user.defaultCurrency, description, category_id || null, date, note || null, split_method || 'equal');
 
-      if (splits && splits.length) {
+      if (split_method === 'percentage' && splits && splits.length) {
+        // Calculate amounts from percentages
+        const percentages = splits.map(s => s.percentage);
+        const amounts = splitService.calculatePercentageSplit(amount, percentages);
+        const insert = db.prepare('INSERT INTO expense_splits (expense_id, member_id, amount) VALUES (?, ?, ?)');
+        const tx = db.transaction(() => {
+          splits.forEach((s, i) => insert.run(result.lastInsertRowid, s.member_id, amounts[i]));
+        });
+        tx();
+      } else if (split_method === 'shares' && splits && splits.length) {
+        // Calculate amounts from shares
+        const sharesArr = splits.map(s => s.shares);
+        const amounts = splitService.calculateSharesSplit(amount, sharesArr);
+        const insert = db.prepare('INSERT INTO expense_splits (expense_id, member_id, amount) VALUES (?, ?, ?)');
+        const tx = db.transaction(() => {
+          splits.forEach((s, i) => insert.run(result.lastInsertRowid, s.member_id, amounts[i]));
+        });
+        tx();
+      } else if (splits && splits.length) {
         const insert = db.prepare('INSERT INTO expense_splits (expense_id, member_id, amount) VALUES (?, ?, ?)');
         const tx = db.transaction(() => {
           splits.forEach(s => insert.run(result.lastInsertRowid, s.member_id, s.amount));
