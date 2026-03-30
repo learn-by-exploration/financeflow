@@ -4,7 +4,7 @@ const createApiTokenRepository = require('../repositories/api-token.repository')
 
 function createAuthMiddleware(db) {
   const getSession = db.prepare(`
-    SELECT s.*, u.id as uid, u.username, u.display_name, u.default_currency
+    SELECT s.*, u.id as uid, u.username, u.display_name, u.default_currency, u.role
     FROM sessions s JOIN users u ON s.user_id = u.id
     WHERE s.token = ? AND s.expires_at > datetime('now')
   `);
@@ -38,6 +38,7 @@ function createAuthMiddleware(db) {
           username: session.username,
           displayName: session.display_name,
           defaultCurrency: session.default_currency,
+          role: session.role || 'user',
         };
         req.sessionId = session.id;
         return next();
@@ -60,6 +61,7 @@ function createAuthMiddleware(db) {
         username: apiToken.username,
         displayName: apiToken.display_name,
         defaultCurrency: apiToken.default_currency,
+        role: apiToken.role || 'user',
       };
       req.apiToken = { id: apiToken.id, scope: apiToken.scope };
       return next();
@@ -79,6 +81,7 @@ function createAuthMiddleware(db) {
           username: session.username,
           displayName: session.display_name,
           defaultCurrency: session.default_currency,
+          role: session.role || 'user',
         };
         return next();
       }
@@ -92,13 +95,21 @@ function createAuthMiddleware(db) {
         username: apiToken.username,
         displayName: apiToken.display_name,
         defaultCurrency: apiToken.default_currency,
+        role: apiToken.role || 'user',
       };
       req.apiToken = { id: apiToken.id, scope: apiToken.scope };
     }
     next();
   }
 
-  return { requireAuth, optionalAuth };
+  function requireAdmin(req, res, next) {
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Admin access required' } });
+    }
+    next();
+  }
+
+  return { requireAuth, optionalAuth, requireAdmin };
 }
 
 module.exports = createAuthMiddleware;

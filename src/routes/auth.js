@@ -1,6 +1,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
+const OTPAuth = require('otpauth');
 const router = express.Router();
 const { registerSchema, loginSchema, passwordChangeSchema, accountDeleteSchema } = require('../schemas/auth.schema');
 
@@ -55,7 +56,7 @@ module.exports = function createAuthRoutes({ db, audit }) {
       if (!parsed.success) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
-      const { username, password } = parsed.data;
+      const { username, password, totp_code } = parsed.data;
       const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
       const userAgent = req.headers['user-agent'] || null;
       const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
@@ -84,6 +85,26 @@ module.exports = function createAuthRoutes({ db, audit }) {
 
       // Successful login — reset lockout state
       db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(user.id);
+
+      // TOTP 2FA check
+      if (user.totp_enabled) {
+        if (!totp_code) {
+          return res.status(403).json({ requires_2fa: true, message: 'TOTP code required' });
+        }
+        const totp = new OTPAuth.TOTP({
+          issuer: 'PersonalFi',
+          label: user.username,
+          algorithm: 'SHA1',
+          digits: 6,
+          period: 30,
+          secret: OTPAuth.Secret.fromBase32(user.totp_secret),
+        });
+        const delta = totp.validate({ token: totp_code, window: 1 });
+        if (delta === null) {
+          audit.log(user.id, 'user.login_failed', 'user', user.id, { username, reason: 'invalid_totp' }, { ip, userAgent });
+          return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid TOTP code' } });
+        }
+      }
 
       const token = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
@@ -131,6 +152,89 @@ module.exports = function createAuthRoutes({ db, audit }) {
     `).get(tokenHash);
     return session || null;
   }
+
+  // ─── TOTP 2FA ───
+
+  // POST /api/auth/totp/setup — Generate TOTP secret
+  router.post('/totp/setup', (req, res, next) => {
+    try {
+      const session = getUserFromToken(req);
+      if (!session) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+      }
+      const user = db.prepare('SELECT id, username, totp_enabled FROM users WHERE id = ?').get(session.user_id);
+      if (user.totp_enabled) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'TOTP is already enabled' } });
+      }
+      const secret = new OTPAuth.Secret({ size: 20 });
+      const totp = new OTPAuth.TOTP({
+        issuer: 'PersonalFi',
+        label: user.username,
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+        secret,
+      });
+      const uri = totp.toString();
+      // Store secret temporarily (not enabled until verified)
+      db.prepare('UPDATE users SET totp_secret = ? WHERE id = ?').run(secret.base32, user.id);
+      res.json({ secret: secret.base32, uri });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/auth/totp/verify — Verify TOTP code and enable 2FA
+  router.post('/totp/verify', (req, res, next) => {
+    try {
+      const session = getUserFromToken(req);
+      if (!session) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+      }
+      const user = db.prepare('SELECT id, username, totp_secret, totp_enabled FROM users WHERE id = ?').get(session.user_id);
+      if (user.totp_enabled) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'TOTP is already enabled' } });
+      }
+      if (!user.totp_secret) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Run TOTP setup first' } });
+      }
+      const { code } = req.body || {};
+      if (!code) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'TOTP code is required' } });
+      }
+      const totp = new OTPAuth.TOTP({
+        issuer: 'PersonalFi',
+        label: user.username,
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(user.totp_secret),
+      });
+      const delta = totp.validate({ token: code, window: 1 });
+      if (delta === null) {
+        return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Invalid TOTP code' } });
+      }
+      db.prepare('UPDATE users SET totp_enabled = 1 WHERE id = ?').run(user.id);
+      res.json({ ok: true, message: 'TOTP 2FA enabled' });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/auth/totp/disable — Disable 2FA (requires password)
+  router.post('/totp/disable', (req, res, next) => {
+    try {
+      const session = getUserFromToken(req);
+      if (!session) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+      }
+      const { password } = req.body || {};
+      if (!password) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password is required' } });
+      }
+      if (!bcrypt.compareSync(password, session.password_hash)) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Password is incorrect' } });
+      }
+      db.prepare('UPDATE users SET totp_enabled = 0, totp_secret = NULL WHERE id = ?').run(session.user_id);
+      res.json({ ok: true, message: 'TOTP 2FA disabled' });
+    } catch (err) { next(err); }
+  });
 
   // PUT /api/auth/password — change password (requires current password)
   router.put('/password', (req, res, next) => {

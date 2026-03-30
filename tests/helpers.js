@@ -26,11 +26,11 @@ function _ensureTestAuth() {
   if (!user) {
     const hash = bcrypt.hashSync('testpassword', 4);
     _db.prepare(
-      'INSERT INTO users (username, password_hash, display_name, default_currency) VALUES (?, ?, ?, ?)'
-    ).run('testuser', hash, 'Test User', 'INR');
+      'INSERT INTO users (username, password_hash, display_name, default_currency, role) VALUES (?, ?, ?, ?, ?)'
+    ).run('testuser', hash, 'Test User', 'INR', 'admin');
   } else {
     const hash = bcrypt.hashSync('testpassword', 4);
-    _db.prepare('UPDATE users SET password_hash = ? WHERE id = 1').run(hash);
+    _db.prepare('UPDATE users SET password_hash = ?, role = ? WHERE id = 1').run(hash, 'admin');
   }
   _testSessionToken = 'test-session-' + crypto.randomUUID();
   const tokenHash = crypto.createHash('sha256').update(_testSessionToken).digest('hex');

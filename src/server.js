@@ -32,7 +32,7 @@ const { db } = initDatabase(config.dbDir);
 const audit = createAuditLogger(db);
 const deps = { db, audit };
 
-const { requireAuth, optionalAuth } = createAuthMiddleware(db);
+const { requireAuth, optionalAuth, requireAdmin } = createAuthMiddleware(db);
 
 // ─── Security headers ───
 app.use(helmet({
@@ -145,7 +145,7 @@ app.use('/api/notifications', requireAuth, createNotificationRoutes(deps));
 app.use('/api/export', requireAuth, createExportRoutes(deps));
 app.use('/api/preferences', requireAuth, createPreferencesRoutes(deps));
 app.use('/api/calendar', requireAuth, createCalendarRoutes(deps));
-app.use('/api/admin', requireAuth, createAdminRoutes(deps));
+app.use('/api/admin', requireAuth, requireAdmin, createAdminRoutes(deps));
 
 // GET /api/upcoming — shortcut for upcoming bills
 app.get('/api/upcoming', requireAuth, (req, res, next) => {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const path = require('path');
+const bcrypt = require('bcryptjs');
 const config = require('../config');
 const { createBackup, listBackups, deleteBackup, rotateBackups, resolveBackupPath } = require('../services/backup');
 const { backupFilenameSchema } = require('../schemas/admin.schema');
@@ -9,6 +10,29 @@ const createAuditRetention = require('../services/audit-retention');
 module.exports = function createAdminRoutes({ db }) {
   const backupDir = path.join(config.dbDir, 'backups');
   const auditRetention = createAuditRetention(db);
+
+  // POST /api/admin/users/:id/reset-password — admin reset a user's password
+  router.post('/users/:id/reset-password', (req, res, next) => {
+    try {
+      const userId = parseInt(req.params.id, 10);
+      if (!userId || isNaN(userId)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid user ID' } });
+      }
+      const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+      if (!user) {
+        return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
+      }
+      const { newPassword } = req.body || {};
+      if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'newPassword must be at least 8 characters' } });
+      }
+      const hash = bcrypt.hashSync(newPassword, config.auth.saltRounds);
+      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, userId);
+      // Invalidate all sessions for the target user
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+      res.json({ ok: true, message: 'Password reset successfully' });
+    } catch (err) { next(err); }
+  });
 
   // POST /api/admin/backup — create a new backup
   router.post('/backup', async (req, res, next) => {
