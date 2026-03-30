@@ -10,7 +10,7 @@ describe('Auth', () => {
   describe('POST /api/auth/register', () => {
     it('creates user and returns token + user object (201)', async () => {
       const res = await rawAgent().post('/api/auth/register')
-        .send({ username: 'newuser', password: 'password123' })
+        .send({ username: 'newuser', password: 'Password123!' })
         .expect(201);
       assert.ok(res.body.token);
       assert.ok(res.body.user);
@@ -20,16 +20,16 @@ describe('Auth', () => {
 
     it('rejects duplicate username (409)', async () => {
       await rawAgent().post('/api/auth/register')
-        .send({ username: 'dupuser', password: 'password123' })
+        .send({ username: 'dupuser', password: 'Password123!' })
         .expect(201);
       await rawAgent().post('/api/auth/register')
-        .send({ username: 'dupuser', password: 'password456' })
+        .send({ username: 'dupuser', password: 'Password456!' })
         .expect(409);
     });
 
     it('rejects missing username (400)', async () => {
       await rawAgent().post('/api/auth/register')
-        .send({ password: 'password123' })
+        .send({ password: 'Password123!' })
         .expect(400);
     });
 
@@ -47,7 +47,7 @@ describe('Auth', () => {
 
     it('seeds 21 default categories for new user', async () => {
       const res = await rawAgent().post('/api/auth/register')
-        .send({ username: 'catuser', password: 'password123' })
+        .send({ username: 'catuser', password: 'Password123!' })
         .expect(201);
 
       const { db } = setup();
@@ -59,10 +59,10 @@ describe('Auth', () => {
   describe('POST /api/auth/login', () => {
     it('returns token for valid credentials (200)', async () => {
       await rawAgent().post('/api/auth/register')
-        .send({ username: 'loginuser', password: 'password123' });
+        .send({ username: 'loginuser', password: 'Password123!' });
 
       const res = await rawAgent().post('/api/auth/login')
-        .send({ username: 'loginuser', password: 'password123' })
+        .send({ username: 'loginuser', password: 'Password123!' })
         .expect(200);
       assert.ok(res.body.token);
       assert.equal(res.body.user.username, 'loginuser');
@@ -70,7 +70,7 @@ describe('Auth', () => {
 
     it('rejects wrong password (401)', async () => {
       await rawAgent().post('/api/auth/register')
-        .send({ username: 'wrongpw', password: 'password123' });
+        .send({ username: 'wrongpw', password: 'Password123!' });
 
       await rawAgent().post('/api/auth/login')
         .send({ username: 'wrongpw', password: 'wrongpassword' })
@@ -79,7 +79,7 @@ describe('Auth', () => {
 
     it('rejects non-existent user (401)', async () => {
       await rawAgent().post('/api/auth/login')
-        .send({ username: 'nosuchuser', password: 'password123' })
+        .send({ username: 'nosuchuser', password: 'Password123!' })
         .expect(401);
     });
   });
@@ -87,7 +87,7 @@ describe('Auth', () => {
   describe('POST /api/auth/logout', () => {
     it('invalidates session', async () => {
       const reg = await rawAgent().post('/api/auth/register')
-        .send({ username: 'logoutuser', password: 'password123' })
+        .send({ username: 'logoutuser', password: 'Password123!' })
         .expect(201);
 
       await rawAgent().post('/api/auth/logout')
@@ -104,7 +104,7 @@ describe('Auth', () => {
   describe('GET /api/auth/me', () => {
     it('returns user for valid session', async () => {
       const reg = await rawAgent().post('/api/auth/register')
-        .send({ username: 'meuser', password: 'password123' });
+        .send({ username: 'meuser', password: 'Password123!' });
 
       const res = await rawAgent().get('/api/auth/me')
         .set('X-Session-Token', reg.body.token)
@@ -120,7 +120,7 @@ describe('Auth', () => {
 
     it('returns 401 for expired session', async () => {
       const reg = await rawAgent().post('/api/auth/register')
-        .send({ username: 'expireduser', password: 'password123' });
+        .send({ username: 'expireduser', password: 'Password123!' });
 
       // Manually expire the session
       const { db } = setup();
@@ -158,7 +158,7 @@ describe('Auth', () => {
     it('seeds system auto-categorization rules on registration', async () => {
       const { db } = setup();
       const reg = await rawAgent().post('/api/auth/register')
-        .send({ username: 'ruleuser', password: 'password123' })
+        .send({ username: 'ruleuser', password: 'Password123!' })
         .expect(201);
 
       const rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ? AND is_system = 1').all(reg.body.user.id);

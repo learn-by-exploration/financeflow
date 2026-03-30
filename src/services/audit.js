@@ -1,10 +1,11 @@
 function createAuditLogger(db) {
-  const insert = db.prepare('INSERT INTO audit_log (user_id, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?)');
+  const insert = db.prepare('INSERT INTO audit_log (user_id, action, entity_type, entity_id, details, ip, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?)');
 
   return {
-    log(userId, action, entityType, entityId, details) {
+    log(userId, action, entityType, entityId, details, meta) {
       try {
-        insert.run(userId, action, entityType || null, entityId || null, JSON.stringify(details || {}));
+        const { ip, userAgent } = meta || {};
+        insert.run(userId, action, entityType || null, entityId || null, JSON.stringify(details || {}), ip || null, userAgent || null);
       } catch { /* audit should never crash the app */ }
     },
     purge(daysOld = 90) {

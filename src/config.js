@@ -28,6 +28,8 @@ const config = Object.freeze({
     saltRounds: parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 12,
     authLimitWindowMs: parseInt(process.env.AUTH_LIMIT_WINDOW_MS, 10) || 15 * 60 * 1000,
     authLimitMax: parseInt(process.env.AUTH_LIMIT_MAX, 10) || 20,
+    lockoutThreshold: parseInt(process.env.LOCKOUT_THRESHOLD, 10) || 5,
+    lockoutDurationMs: parseInt(process.env.LOCKOUT_DURATION_MS, 10) || 15 * 60 * 1000,
   },
   log: {
     level: process.env.LOG_LEVEL || 'info',
@@ -36,6 +38,7 @@ const config = Object.freeze({
     retainCount: parseInt(process.env.BACKUP_RETAIN_COUNT, 10) || 7,
     intervalHours: parseInt(process.env.BACKUP_INTERVAL_HOURS, 10) || 24,
   },
+  corsOrigin: process.env.CORS_ORIGIN || '',
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS, 10) || 10000,
   trustProxy: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
 });

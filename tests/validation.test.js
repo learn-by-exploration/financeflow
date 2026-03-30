@@ -9,7 +9,7 @@ describe('Zod Input Validation — v0.3.1', () => {
 
   describe('Auth validation', () => {
     it('rejects register with empty username', async () => {
-      const res = await rawAgent().post('/api/auth/register').send({ username: '', password: 'password123' });
+      const res = await rawAgent().post('/api/auth/register').send({ username: '', password: 'Password123!' });
       assert.equal(res.status, 400);
       assert.equal(res.body.error.code, 'VALIDATION_ERROR');
     });
@@ -21,7 +21,7 @@ describe('Zod Input Validation — v0.3.1', () => {
     });
 
     it('rejects register with invalid email format', async () => {
-      const res = await rawAgent().post('/api/auth/register').send({ username: 'newuser', password: 'password123', email: 'not-email' });
+      const res = await rawAgent().post('/api/auth/register').send({ username: 'newuser', password: 'Password123!', email: 'not-email' });
       assert.equal(res.status, 400);
     });
   });

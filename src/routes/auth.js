@@ -53,15 +53,40 @@ module.exports = function createAuthRoutes({ db, audit }) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
       const { username, password } = parsed.data;
+      const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+      const userAgent = req.headers['user-agent'] || null;
       const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+
+      // Check account lockout
+      const nowUtc = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      if (user && user.locked_until && user.locked_until > nowUtc) {
+        audit.log(user.id, 'user.login_failed', 'user', user.id, { username, reason: 'account_locked' }, { ip, userAgent });
+        return res.status(423).json({ error: { code: 'ACCOUNT_LOCKED', message: 'Account is locked due to too many failed login attempts. Try again later.' } });
+      }
+
       if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+        // Increment failed attempts
+        if (user) {
+          const newAttempts = (user.failed_login_attempts || 0) + 1;
+          if (newAttempts >= config.auth.lockoutThreshold) {
+            const lockedUntil = new Date(Date.now() + config.auth.lockoutDurationMs).toISOString().slice(0, 19).replace('T', ' ');
+            db.prepare('UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?').run(newAttempts, lockedUntil, user.id);
+          } else {
+            db.prepare('UPDATE users SET failed_login_attempts = ? WHERE id = ?').run(newAttempts, user.id);
+          }
+        }
+        audit.log(user?.id || null, 'user.login_failed', 'user', user?.id || null, { username, reason: 'invalid_credentials' }, { ip, userAgent });
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
       }
+
+      // Successful login — reset lockout state
+      db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(user.id);
+
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
       db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(user.id, token, expiresAt);
 
-      audit.log(user.id, 'user.login', 'user', user.id);
+      audit.log(user.id, 'user.login', 'user', user.id, null, { ip, userAgent });
       res.json({ token, user: { id: user.id, username: user.username, display_name: user.display_name } });
     } catch (err) { next(err); }
   });

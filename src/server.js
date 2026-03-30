@@ -11,6 +11,7 @@ const createCsrfMiddleware = require('./middleware/csrf');
 const createAuditLogger = require('./services/audit');
 const createRequestLogger = require('./middleware/request-logger');
 const createRequestIdMiddleware = require('./middleware/request-id');
+const requireJsonContentType = require('./middleware/content-type');
 const createScheduler = require('./scheduler');
 const logger = require('./logger');
 
@@ -48,7 +49,11 @@ app.use(helmet({
 
 // ─── Middleware ───
 app.use(express.json({ limit: '1mb' }));
-app.use(cors());
+const corsOrigins = config.corsOrigin
+  ? config.corsOrigin.split(',').map(s => s.trim())
+  : false;
+app.use(cors({ origin: corsOrigins }));
+app.use('/api', requireJsonContentType);
 app.use(createRequestIdMiddleware());
 if (!config.isTest) {
   app.use(rateLimit({ windowMs: config.rateLimit.windowMs, max: config.rateLimit.max }));
