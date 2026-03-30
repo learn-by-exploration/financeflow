@@ -69,6 +69,7 @@ function cleanDb() {
   try { db.exec('DELETE FROM category_rules'); } catch {}
   try { db.exec('DELETE FROM api_tokens'); } catch {}
   try { db.exec('DELETE FROM attachments'); } catch {}
+  try { db.exec('DELETE FROM notifications'); } catch {}
 }
 
 function teardown() {

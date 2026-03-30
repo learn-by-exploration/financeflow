@@ -8,6 +8,7 @@ const createAccountRepository = require('../repositories/account.repository');
 const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
 const { convert, buildRateMap } = require('../utils/currency-converter');
 const { ValidationError, NotFoundError } = require('../errors');
+const createNotificationService = require('../services/notification.service');
 
 module.exports = function createTransactionRoutes({ db, audit }) {
 
@@ -15,6 +16,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   const txRepo = createTransactionRepository({ db });
   const accountRepo = createAccountRepository({ db });
   const rateRepo = createExchangeRateRepository({ db });
+  const notifService = createNotificationService({ db });
 
   // GET /api/transactions
   router.get('/', (req, res, next) => {
@@ -104,6 +106,14 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       transaction.tags = txRepo.getTagsForTransaction(transaction.id);
 
       audit.log(req.user.id, 'transaction.create', 'transaction', transaction.id);
+
+      // Auto-notification: large transaction
+      try {
+        const setting = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'large_transaction_threshold'").get(req.user.id);
+        const threshold = setting ? Number(setting.value) : 10000;
+        notifService.checkLargeTransaction(req.user.id, transaction.id, amount, threshold);
+      } catch (_) { /* notification failure should not break transaction */ }
+
       res.status(201).json({ transaction });
     } catch (err) { next(err); }
   });

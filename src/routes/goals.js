@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { createGoalSchema } = require('../schemas/goal.schema');
 const createGoalRepository = require('../repositories/goal.repository');
+const createNotificationService = require('../services/notification.service');
 
 module.exports = function createGoalRoutes({ db, audit }) {
   const goalRepo = createGoalRepository({ db });
+  const notifService = createNotificationService({ db });
 
   // GET /api/goals
   router.get('/', (req, res, next) => {
@@ -37,6 +39,12 @@ module.exports = function createGoalRoutes({ db, audit }) {
       const existing = goalRepo.findById(req.params.id, req.user.id);
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Goal not found' } });
       const goal = goalRepo.update(req.params.id, req.user.id, req.body);
+
+      // Auto-notification: goal completed
+      if (!existing.is_completed && goal.is_completed) {
+        try { notifService.checkGoalCompleted(req.user.id, goal.id, goal.name); } catch (_) {}
+      }
+
       res.json({ goal });
     } catch (err) { next(err); }
   });
