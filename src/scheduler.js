@@ -67,8 +67,8 @@ module.exports = function createScheduler(db, logger) {
 
           // Update account balance
           const balanceChange = rule.type === 'income' ? rule.amount : -rule.amount;
-          db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
-            .run(balanceChange, rule.account_id, rule.user_id);
+          db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
+            .run(Math.round((balanceChange + Number.EPSILON) * 100) / 100, rule.account_id, rule.user_id);
 
           // Advance next_date
           const nextDate = advanceDate(rule.next_date, rule.frequency);

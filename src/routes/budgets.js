@@ -83,10 +83,10 @@ module.exports = function createBudgetRoutes({ db, audit }) {
           category_name: item.category_name,
           category_icon: item.category_icon,
           allocated: item.amount,
-          rollover_amount,
-          effective_allocated: item.amount + rollover_amount,
+          rollover_amount: Math.round((rollover_amount + Number.EPSILON) * 100) / 100,
+          effective_allocated: Math.round((item.amount + rollover_amount + Number.EPSILON) * 100) / 100,
           spent,
-          remaining: item.amount + rollover_amount - spent
+          remaining: Math.round((item.amount + rollover_amount - spent + Number.EPSILON) * 100) / 100
         };
       });
 

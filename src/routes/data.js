@@ -305,7 +305,7 @@ module.exports = function createDataRoutes({ db }) {
 
       const userId = req.user.id;
       const txInsert = db.prepare('INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, date, tags) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'[]\')');
-      const balanceUpdate = db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?');
+      const balanceUpdate = db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?');
 
       const importTx = db.transaction(() => {
         for (let i = 1; i < lines.length; i++) {
@@ -338,7 +338,7 @@ module.exports = function createDataRoutes({ db }) {
 
           txInsert.run(userId, accountId, categoryId, type, amount, accountCurrency, description, date);
           const balanceChange = type === 'income' ? amount : -amount;
-          balanceUpdate.run(balanceChange, accountId, userId);
+          balanceUpdate.run(Math.round((balanceChange + Number.EPSILON) * 100) / 100, accountId, userId);
           imported++;
         }
       });

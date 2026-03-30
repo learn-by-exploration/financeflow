@@ -1,3 +1,5 @@
+const { roundCurrency } = require('../utils/currency');
+
 module.exports = function createAccountRepository({ db }) {
 
   function findAllByUser(userId, options = {}) {
@@ -51,8 +53,8 @@ module.exports = function createAccountRepository({ db }) {
   }
 
   function updateBalance(id, userId, delta) {
-    return db.prepare("UPDATE accounts SET balance = balance + ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
-      .run(delta, id, userId);
+    return db.prepare("UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime('now') WHERE id = ? AND user_id = ?")
+      .run(roundCurrency(delta), id, userId);
   }
 
   return { findAllByUser, findById, create, update, delete: deleteById, updateBalance, countByUser };

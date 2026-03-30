@@ -1,3 +1,5 @@
+const { roundCurrency } = require('../utils/currency');
+
 module.exports = function createTransactionService({ db }) {
 
   function createTransfer({ userId, accountId, transferToAccountId, categoryId, amount, currency, description, note, date, payee, tags }) {
@@ -15,10 +17,10 @@ module.exports = function createTransactionService({ db }) {
       db.prepare('UPDATE transactions SET transfer_transaction_id = ? WHERE id = ?').run(dstResult.lastInsertRowid, srcResult.lastInsertRowid);
       db.prepare('UPDATE transactions SET transfer_transaction_id = ? WHERE id = ?').run(srcResult.lastInsertRowid, dstResult.lastInsertRowid);
 
-      db.prepare('UPDATE accounts SET balance = balance - ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
-        .run(amount, accountId, userId);
-      db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
-        .run(amount, transferToAccountId, userId);
+      db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
+        .run(roundCurrency(amount), accountId, userId);
+      db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
+        .run(roundCurrency(amount), transferToAccountId, userId);
 
       return db.prepare('SELECT * FROM transactions WHERE id = ?').get(srcResult.lastInsertRowid);
     });
@@ -29,18 +31,18 @@ module.exports = function createTransactionService({ db }) {
     if (newAmount === undefined || newAmount === oldTx.amount) return;
     const delta = newAmount - oldTx.amount;
     if (oldTx.type === 'expense') {
-      db.prepare('UPDATE accounts SET balance = balance - ?, updated_at = datetime(\'now\') WHERE id = ?').run(delta, oldTx.account_id);
+      db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(roundCurrency(delta), oldTx.account_id);
     } else if (oldTx.type === 'income') {
-      db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ?').run(delta, oldTx.account_id);
+      db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(roundCurrency(delta), oldTx.account_id);
     }
   }
 
   function deleteTransfer(tx) {
     const paired = db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.transfer_transaction_id);
     const doDelete = db.transaction(() => {
-      db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ?').run(tx.amount, tx.account_id);
+      db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(roundCurrency(tx.amount), tx.account_id);
       if (paired) {
-        db.prepare('UPDATE accounts SET balance = balance - ?, updated_at = datetime(\'now\') WHERE id = ?').run(paired.amount, paired.account_id);
+        db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(roundCurrency(paired.amount), paired.account_id);
         db.prepare('DELETE FROM transactions WHERE id = ?').run(paired.id);
       }
       db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);

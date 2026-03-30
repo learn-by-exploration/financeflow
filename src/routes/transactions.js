@@ -76,7 +76,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
 
       // Update account balance
       const balanceChange = type === 'income' ? amount : -amount;
-      accountRepo.updateBalance(account_id, req.user.id, balanceChange);
+      accountRepo.updateBalance(account_id, req.user.id, balanceChange);  // roundCurrency applied inside updateBalance
 
       // Link tags if provided
       if (Array.isArray(tag_ids) && tag_ids.length > 0) {
@@ -172,7 +172,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       } else {
         // Regular: reverse balance change
         const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
-        db.prepare('UPDATE accounts SET balance = balance + ?, updated_at = datetime(\'now\') WHERE id = ?').run(balanceChange, tx.account_id);
+        db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(Math.round((balanceChange + Number.EPSILON) * 100) / 100, tx.account_id);
         txRepo.delete(tx.id, req.user.id);
       }
 
