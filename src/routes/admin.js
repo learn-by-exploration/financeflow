@@ -3,7 +3,7 @@ const router = express.Router();
 const path = require('path');
 const bcrypt = require('bcryptjs');
 const config = require('../config');
-const { createBackup, listBackups, deleteBackup, rotateBackups, resolveBackupPath } = require('../services/backup');
+const { createBackup, listBackups, deleteBackup, rotateBackups, resolveBackupPath, isEncryptedBackup, decryptBuffer, getEncryptionKey } = require('../services/backup');
 const { backupFilenameSchema } = require('../schemas/admin.schema');
 const createAuditRetention = require('../services/audit-retention');
 
@@ -60,6 +60,32 @@ module.exports = function createAdminRoutes({ db }) {
       }
       const filepath = resolveBackupPath(backupDir, parsed.data.filename);
       if (!filepath) return res.status(404).json({ error: 'Backup not found' });
+      res.download(filepath);
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/admin/backups/:filename/download — download backup (decrypted if encrypted)
+  router.get('/backups/:filename/download', (req, res, next) => {
+    try {
+      const parsed = backupFilenameSchema.safeParse(req.params);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      }
+      const filepath = resolveBackupPath(backupDir, parsed.data.filename);
+      if (!filepath) return res.status(404).json({ error: 'Backup not found' });
+
+      if (isEncryptedBackup(filepath)) {
+        const key = getEncryptionKey();
+        if (!key) {
+          return res.status(500).json({ error: { code: 'ENCRYPTION_ERROR', message: 'Backup is encrypted but no encryption key is configured' } });
+        }
+        const encrypted = require('fs').readFileSync(filepath);
+        const decrypted = decryptBuffer(encrypted, key);
+        res.setHeader('Content-Type', 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${parsed.data.filename}"`);
+        return res.send(decrypted);
+      }
+
       res.download(filepath);
     } catch (err) { next(err); }
   });

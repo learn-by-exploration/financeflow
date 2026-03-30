@@ -8,6 +8,7 @@ const initDatabase = require('./db');
 const createAuthMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errors');
 const createCsrfMiddleware = require('./middleware/csrf');
+const createCustomCorsMiddleware = require('./middleware/cors');
 const createAuditLogger = require('./services/audit');
 const createRequestLogger = require('./middleware/request-logger');
 const createRequestIdMiddleware = require('./middleware/request-id');
@@ -54,6 +55,7 @@ app.use(helmet({
 
 // ─── Middleware ───
 app.use(metricsMiddleware);
+app.use(createCustomCorsMiddleware());
 app.use(timeoutMiddleware());
 app.use(express.json({ limit: '1mb' }));
 const corsOrigins = config.corsOrigin

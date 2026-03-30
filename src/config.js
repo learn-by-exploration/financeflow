@@ -41,6 +41,15 @@ const config = Object.freeze({
     autoBackupOnStart: process.env.BACKUP_AUTO_ON_START === 'true' || process.env.BACKUP_AUTO_ON_START === '1',
   },
   corsOrigin: process.env.CORS_ORIGIN || '',
+  cors: {
+    origins: process.env.CORS_ORIGINS || '*',
+    methods: process.env.CORS_METHODS || 'GET,POST,PUT,DELETE,PATCH',
+    headers: process.env.CORS_HEADERS || 'Content-Type,X-Session-Token,Authorization',
+    credentials: process.env.CORS_CREDENTIALS !== 'false',
+  },
+  backupEncryption: {
+    key: process.env.BACKUP_ENCRYPTION_KEY || '',
+  },
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS, 10) || 10000,
   trustProxy: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
   demoMode: process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1',
