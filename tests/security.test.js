@@ -49,6 +49,8 @@ describe('Security', () => {
       ['POST', '/api/data/import'],
       ['GET', '/api/data/csv-template'],
       ['POST', '/api/data/csv-import'],
+      ['PUT', '/api/auth/password'],
+      ['DELETE', '/api/auth/account'],
     ];
 
     for (const [method, path] of protectedRoutes) {

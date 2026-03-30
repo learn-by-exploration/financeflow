@@ -83,6 +83,93 @@ module.exports = function createAuthRoutes({ db, audit }) {
     res.json({ user: session });
   });
 
+  // ─── Helper: resolve user from session token ───
+  function getUserFromToken(req) {
+    const token = req.headers['x-session-token'];
+    if (!token) return null;
+    const session = db.prepare(`
+      SELECT s.user_id, u.password_hash
+      FROM sessions s JOIN users u ON s.user_id = u.id
+      WHERE s.token = ? AND s.expires_at > datetime('now')
+    `).get(token);
+    return session || null;
+  }
+
+  // PUT /api/auth/password — change password (requires current password)
+  router.put('/password', (req, res, next) => {
+    try {
+      const session = getUserFromToken(req);
+      if (!session) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+      }
+
+      const { current_password, new_password } = req.body;
+      if (!current_password || !new_password) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Current password and new password required' } });
+      }
+      if (new_password.length < 8) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'New password must be at least 8 characters' } });
+      }
+
+      if (!bcrypt.compareSync(current_password, session.password_hash)) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Current password is incorrect' } });
+      }
+
+      const hash = bcrypt.hashSync(new_password, config.auth.saltRounds);
+
+      // Atomic: update password + rotate sessions
+      const changePwTx = db.transaction(() => {
+        db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, session.user_id);
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(session.user_id);
+        const token = crypto.randomBytes(32).toString('hex');
+        const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
+        db.prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)').run(session.user_id, token, expiresAt);
+        return token;
+      });
+
+      const newToken = changePwTx();
+      audit.log(session.user_id, 'user.password_change', 'user', session.user_id);
+      res.json({ ok: true, token: newToken });
+    } catch (err) { next(err); }
+  });
+
+  // DELETE /api/auth/account — delete account and all data (requires password)
+  router.delete('/account', (req, res, next) => {
+    try {
+      const session = getUserFromToken(req);
+      if (!session) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
+      }
+
+      const { password } = req.body || {};
+      if (!password) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password required for account deletion' } });
+      }
+
+      if (!bcrypt.compareSync(password, session.password_hash)) {
+        return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Password is incorrect' } });
+      }
+
+      const userId = session.user_id;
+
+      // Cascade delete — FK constraints handle child tables.
+      // Explicitly delete non-cascaded tables first, then the user.
+      const deleteTx = db.transaction(() => {
+        // Tables without direct user FK cascade
+        db.prepare('DELETE FROM audit_log WHERE user_id = ?').run(userId);
+        try { db.prepare('DELETE FROM category_rules WHERE user_id = ?').run(userId); } catch {}
+        // Delete user — cascades to accounts, transactions, categories, sessions,
+        // settings, budgets, goals, subscriptions, recurring_rules, tags,
+        // groups (via created_by), group_members (via user_id),
+        // and all their FK-cascaded children
+        db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+      });
+
+      deleteTx();
+      res.json({ ok: true });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };
 
