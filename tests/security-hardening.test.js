@@ -187,11 +187,11 @@ describe('v0.3.2 Security Hardening', () => {
   // ─── CORS ───
 
   describe('CORS', () => {
-    it('includes Access-Control-Allow-Origin header by default', async () => {
+    it('does not include Access-Control-Allow-Origin for unknown origins by default', async () => {
       const res = await rawAgent().get('/api/health')
         .set('Origin', 'http://evil.com');
-      // Default CORS_ORIGINS is '*', so all origins are allowed
-      assert.equal(res.headers['access-control-allow-origin'], '*');
+      // Default CORS_ORIGINS is '' (empty), so unknown origins are rejected
+      assert.equal(res.headers['access-control-allow-origin'], undefined);
     });
 
     it('preflight returns CORS headers', async () => {

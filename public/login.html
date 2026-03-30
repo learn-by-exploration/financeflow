@@ -4,24 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PersonalFi — Login</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <style>
-    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: var(--bg-primary); }
-    .auth-card { background: var(--bg-secondary); border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 400px; box-shadow: 0 4px 24px rgba(0,0,0,0.12); }
-    .auth-card h1 { text-align: center; margin-bottom: 0.5rem; font-size: 1.75rem; }
-    .auth-card p { text-align: center; color: var(--text-secondary); margin-bottom: 2rem; }
-    .form-group { margin-bottom: 1rem; }
-    .form-group label { display: block; font-weight: 500; margin-bottom: 0.25rem; font-size: 0.875rem; }
-    .form-group input { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 1rem; background: var(--bg-primary); color: var(--text-primary); box-sizing: border-box; }
-    .btn-primary { width: 100%; padding: 0.75rem; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem; }
-    .btn-primary:hover { opacity: 0.9; }
-    .toggle { text-align: center; margin-top: 1rem; font-size: 0.875rem; }
-    .toggle a { color: var(--accent); cursor: pointer; text-decoration: none; }
-    .error-msg { color: var(--danger); text-align: center; font-size: 0.875rem; min-height: 1.25rem; }
-  </style>
+  <link rel="stylesheet" href="css/login.css">
 </head>
 <body>
   <div class="auth-card">
@@ -40,6 +24,16 @@
       <div class="form-group">
         <label for="password">Password</label>
         <input type="password" id="password" name="password" required autocomplete="current-password">
+        <div id="password-requirements" class="password-requirements" style="display:none">
+          Password must have:
+          <ul>
+            <li>At least 8 characters</li>
+            <li>An uppercase letter</li>
+            <li>A lowercase letter</li>
+            <li>A number</li>
+            <li>A special character</li>
+          </ul>
+        </div>
       </div>
       <button type="submit" class="btn-primary" id="auth-btn">Sign In</button>
     </form>
@@ -48,54 +42,6 @@
       <a id="toggle-link" href="#">Register</a>
     </div>
   </div>
-  <script>
-    let isLogin = true;
-    const form = document.getElementById('auth-form');
-    const btn = document.getElementById('auth-btn');
-    const subtitle = document.getElementById('auth-subtitle');
-    const toggleText = document.getElementById('toggle-text');
-    const toggleLink = document.getElementById('toggle-link');
-    const groupDisplay = document.getElementById('group-display');
-    const errorMsg = document.getElementById('error-msg');
-
-    toggleLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      isLogin = !isLogin;
-      btn.textContent = isLogin ? 'Sign In' : 'Register';
-      subtitle.textContent = isLogin ? 'Sign in to manage your finances' : 'Create your account';
-      toggleText.textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
-      toggleLink.textContent = isLogin ? 'Register' : 'Sign In';
-      groupDisplay.style.display = isLogin ? 'none' : 'block';
-      errorMsg.textContent = '';
-    });
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      errorMsg.textContent = '';
-      const body = {
-        username: document.getElementById('username').value,
-        password: document.getElementById('password').value,
-      };
-      if (!isLogin) body.display_name = document.getElementById('display_name').value;
-
-      try {
-        const res = await fetch(`/api/auth/${isLogin ? 'login' : 'register'}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-        const data = await res.json();
-        if (!res.ok) { errorMsg.textContent = data.error?.message || 'Error'; return; }
-        localStorage.setItem('pfi_token', data.token);
-        localStorage.setItem('pfi_user', JSON.stringify(data.user));
-        window.location.href = '/';
-      } catch (err) {
-        errorMsg.textContent = 'Network error';
-      }
-    });
-
-    // Redirect if already logged in
-    if (localStorage.getItem('pfi_token')) window.location.href = '/';
-  </script>
+  <script src="js/login.js"></script>
 </body>
 </html>

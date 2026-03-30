@@ -24,6 +24,10 @@ const createPerUserRateLimit = require('./middleware/per-user-rate-limit');
 const app = express();
 const PORT = config.port;
 
+if (config.cors.origins === '*' && config.isProd) {
+  logger.warn('CORS_ORIGINS is set to "*" in production — restrict to specific origins for security');
+}
+
 // ─── Trust proxy when behind reverse proxy ───
 if (config.trustProxy) {
   app.set('trust proxy', 1);
@@ -40,11 +44,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"]
     }

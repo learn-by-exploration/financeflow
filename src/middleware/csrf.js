@@ -53,5 +53,3 @@ function parseCsrfCookie(header) {
 }
 
 module.exports = createCsrfMiddleware;
-
-module.exports = createCsrfMiddleware;

@@ -157,10 +157,10 @@ describe('Backup API endpoints', () => {
 describe('CORS Middleware', () => {
   before(() => setup());
 
-  it('responses include Access-Control-Allow-Origin header', async () => {
+  it('responses do not include Access-Control-Allow-Origin when CORS_ORIGINS is empty', async () => {
     const res = await agent().get('/api/health');
-    // Default config is '*'
-    assert.ok(res.headers['access-control-allow-origin'] !== undefined);
+    // Default config is '' (no cross-origin), so no ACAO header
+    assert.equal(res.headers['access-control-allow-origin'], undefined);
   });
 
   it('OPTIONS preflight returns 204 with proper headers', async () => {

@@ -42,7 +42,7 @@ const config = Object.freeze({
   },
   corsOrigin: process.env.CORS_ORIGIN || '',
   cors: {
-    origins: process.env.CORS_ORIGINS || '*',
+    origins: process.env.CORS_ORIGINS || '',
     methods: process.env.CORS_METHODS || 'GET,POST,PUT,DELETE,PATCH',
     headers: process.env.CORS_HEADERS || 'Content-Type,X-Session-Token,Authorization',
     credentials: process.env.CORS_CREDENTIALS !== 'false',
