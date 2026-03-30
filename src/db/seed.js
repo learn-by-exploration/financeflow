@@ -236,6 +236,43 @@ function seedDemoData(db) {
   insertRecurring.run(userId, creditCardId, subsCat.id, 'expense', 649, 'INR', 'Netflix subscription', 'Netflix', 'monthly', daysAgo(-20));
   insertRecurring.run(userId, savingsId, salaryCat.id, 'income', 75000, 'INR', 'Monthly salary', 'TechCorp India', 'monthly', daysAgo(-1));
 
+  // ─── Additional Savings Goal ───
+  insertGoal.run(userId, 'New Laptop', 80000, 22000, 'INR', '💻', '#7c3aed', daysAgo(-120), 2);
+
+  // ─── Groups ───
+  const insertGroup = db.prepare(
+    'INSERT INTO groups (name, icon, color, created_by) VALUES (?, ?, ?, ?)'
+  );
+  const insertGroupMember = db.prepare(
+    'INSERT INTO group_members (group_id, user_id, display_name, role) VALUES (?, ?, ?, ?)'
+  );
+
+  const g1 = insertGroup.run('Flatmates', '🏠', '#f59e0b', userId);
+  insertGroupMember.run(g1.lastInsertRowid, userId, 'Demo User', 'owner');
+  insertGroupMember.run(g1.lastInsertRowid, null, 'Rahul', 'member');
+  insertGroupMember.run(g1.lastInsertRowid, null, 'Priya', 'member');
+
+  const g2 = insertGroup.run('Weekend Trip', '✈️', '#0ea5e9', userId);
+  insertGroupMember.run(g2.lastInsertRowid, userId, 'Demo User', 'owner');
+  insertGroupMember.run(g2.lastInsertRowid, null, 'Amit', 'member');
+
+  // ─── Notifications ───
+  const insertNotification = db.prepare(
+    'INSERT INTO notifications (user_id, type, title, message, is_read) VALUES (?, ?, ?, ?, ?)'
+  );
+  insertNotification.run(userId, 'budget_overspend', 'Budget Alert', 'You have exceeded your Food & Dining budget this month.', 0);
+  insertNotification.run(userId, 'goal_completed', 'Goal Milestone', 'You are 50% towards your Vacation goal!', 0);
+  insertNotification.run(userId, 'system', 'Welcome to FinanceFlow', 'Start by adding your accounts and setting up budgets.', 1);
+
+  // ─── Transaction Templates ───
+  const insertTemplate = db.prepare(
+    'INSERT INTO transaction_templates (user_id, name, description, amount, type, category_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  );
+  insertTemplate.run(userId, 'Coffee', 'Morning coffee', 150, 'expense', foodCat.id, cashId);
+  insertTemplate.run(userId, 'Lunch', 'Lunch at office', 250, 'expense', foodCat.id, checkingId);
+  insertTemplate.run(userId, 'Grocery Run', 'Weekly groceries', 2000, 'expense', groceriesCat.id, checkingId);
+  insertTemplate.run(userId, 'Salary', 'Monthly salary credit', 75000, 'income', salaryCat.id, savingsId);
+
   return { userId, accounts, categories };
 }
 

@@ -85,7 +85,7 @@ app.use(createRequestLogger());
 // CSRF middleware disabled — app uses X-Session-Token header auth,
 // which inherently prevents CSRF (browsers don't auto-attach custom headers).
 // The middleware exists at middleware/csrf.js for future cookie-auth use.
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), { dotfiles: 'allow' }));
 
 // ─── Routes ───
 const createAuthRoutes = require('./routes/auth');

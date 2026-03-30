@@ -96,11 +96,11 @@ describe('Demo Mode & Seed', () => {
       assert.equal(budgets.cnt, 3);
     });
 
-    it('creates 2 savings goals', () => {
+    it('creates 3 savings goals', () => {
       db.transaction(() => { seedDemoData(db); })();
       const user = db.prepare('SELECT id FROM users WHERE username = ?').get('demo');
       const goals = db.prepare('SELECT COUNT(*) as cnt FROM savings_goals WHERE user_id = ?').get(user.id);
-      assert.equal(goals.cnt, 2);
+      assert.equal(goals.cnt, 3);
     });
 
     it('creates 3 recurring rules', () => {
