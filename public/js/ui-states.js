@@ -66,7 +66,7 @@ export function showEmpty(container, { icon = '📭', title = 'Nothing here yet'
  * @param {HTMLElement} container
  * @param {{ message?: string, retryHandler?: Function }} opts
  */
-export function showError(container, { message = 'Something went wrong. Please try again.', retryHandler = null } = {}) {
+export function showError(container, { message = 'Something went wrong. Please try again.', retryHandler = null, dashboardHandler = null } = {}) {
   hideStates(container);
   const children = [
     el('span', { className: 'material-icons-round ui-error-icon', textContent: 'error_outline' }),
@@ -74,6 +74,9 @@ export function showError(container, { message = 'Something went wrong. Please t
   ];
   if (retryHandler) {
     children.push(el('button', { className: 'btn btn-secondary ui-error-retry', textContent: 'Retry', onClick: retryHandler }));
+  }
+  if (dashboardHandler) {
+    children.push(el('button', { className: 'btn btn-secondary', textContent: 'Go to Dashboard', onClick: dashboardHandler }));
   }
   const errorDiv = el('div', { className: 'ui-error' }, children);
   container.appendChild(errorDiv);
@@ -84,4 +87,17 @@ export function showError(container, { message = 'Something went wrong. Please t
  */
 export function hideStates(container) {
   container.querySelectorAll('.ui-loading, .ui-empty, .ui-error').forEach(el => el.remove());
+}
+
+/**
+ * Show table-style skeleton loader rows.
+ */
+export function showTableSkeleton(container, rowCount = 8) {
+  hideStates(container);
+  const rows = [];
+  for (let i = 0; i < rowCount; i++) {
+    rows.push(el('div', { className: 'skeleton-row' }));
+  }
+  const skeleton = el('div', { className: 'ui-loading' }, rows);
+  container.appendChild(skeleton);
 }

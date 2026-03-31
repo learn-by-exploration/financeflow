@@ -1,0 +1,53 @@
+/* FinanceFlow — Landing Page Styles */
+body { background: var(--bg-primary); color: var(--text-primary); font-family: var(--font); overflow-x: hidden; }
+
+/* ─── Navigation ─── */
+.landing-nav { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 2rem; max-width: 1200px; margin: 0 auto; }
+.landing-logo { font-size: 1.5rem; font-weight: 700; text-decoration: none; color: var(--text-primary); }
+.landing-nav-links { display: flex; gap: 1rem; align-items: center; }
+.landing-nav-links a { text-decoration: none; color: var(--text-secondary); font-size: 0.9rem; font-weight: 500; transition: color 0.15s; }
+.landing-nav-links a:hover { color: var(--text-primary); }
+.nav-btn { background: var(--accent); color: #fff !important; padding: 0.5rem 1.25rem; border-radius: 8px; font-weight: 600; }
+.nav-btn:hover { opacity: 0.9; }
+
+/* ─── Hero ─── */
+.hero { text-align: center; padding: 6rem 2rem 4rem; max-width: 800px; margin: 0 auto; }
+.hero h1 { font-size: 3.5rem; font-weight: 800; line-height: 1.1; margin-bottom: 1.5rem; letter-spacing: -0.02em; }
+.hero h1 span { background: linear-gradient(135deg, var(--accent), var(--accent-light), var(--green)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.hero p { font-size: 1.25rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 2.5rem; max-width: 600px; margin-left: auto; margin-right: auto; }
+.hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+.btn-hero { padding: 0.875rem 2rem; border-radius: 10px; font-size: 1.05rem; font-weight: 600; text-decoration: none; transition: all 0.15s; border: none; cursor: pointer; }
+.btn-hero-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25); }
+.btn-hero-primary:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4); }
+.btn-hero-secondary { background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border); }
+.btn-hero-secondary:hover { border-color: var(--accent); }
+
+/* ─── Features ─── */
+.features { max-width: 1100px; margin: 0 auto; padding: 4rem 2rem; }
+.features-header { text-align: center; margin-bottom: 3rem; }
+.features-header h2 { font-size: 2rem; font-weight: 700; margin-bottom: 0.75rem; }
+.features-header p { color: var(--text-secondary); font-size: 1.1rem; }
+.features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+.feature-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 2rem; transition: border-color 0.15s, transform 0.15s; }
+.feature-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.feature-icon { font-size: 2rem; margin-bottom: 1rem; }
+.feature-card h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem; }
+.feature-card p { color: var(--text-secondary); font-size: 0.9rem; line-height: 1.6; }
+
+/* ─── Self-hosted callout ─── */
+.callout { max-width: 900px; margin: 2rem auto 4rem; padding: 0 2rem; }
+.callout-card { background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: var(--radius); padding: 3rem; text-align: center; }
+.callout-card h2 { font-size: 1.75rem; font-weight: 700; margin-bottom: 1rem; }
+.callout-card p { color: var(--text-secondary); font-size: 1.05rem; line-height: 1.7; max-width: 650px; margin: 0 auto 2rem; }
+
+/* ─── Footer ─── */
+.landing-footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.8rem; }
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+  .hero h1 { font-size: 2.25rem; }
+  .hero p { font-size: 1.05rem; }
+  .hero { padding: 3rem 1.5rem 2rem; }
+  .features-grid { grid-template-columns: 1fr; }
+  .callout-card { padding: 2rem 1.5rem; }
+}

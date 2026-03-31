@@ -7,12 +7,44 @@ const DATE_FORMATS = ['YYYY-MM-DD', 'DD/MM/YYYY', 'MM/DD/YYYY', 'DD-MM-YYYY'];
 export async function renderSettings(container) {
   container.innerHTML = '';
   const { settings } = await Api.get('/settings');
-  const user = JSON.parse(localStorage.getItem('pfi_user') || '{}');
+  const user = JSON.parse(localStorage.getItem('pfi_user') || sessionStorage.getItem('pfi_user') || '{}');
 
   const header = el('div', { className: 'view-header' }, [
     el('h2', { textContent: 'Settings' }),
   ]);
   container.appendChild(header);
+
+  // Theme card (P16)
+  const themes = [
+    { id: 'dark', label: 'Midnight', color: '#0f172a' },
+    { id: 'light', label: 'Light', color: '#f8fafc' },
+    { id: 'forest', label: 'Forest', color: '#1a2f1a' },
+    { id: 'ocean', label: 'Ocean', color: '#0d1b2a' },
+    { id: 'rose', label: 'Rose', color: '#2a1520' },
+    { id: 'nord', label: 'Nord', color: '#2e3440' },
+  ];
+  const currentTheme = localStorage.getItem('pfi_theme') || 'dark';
+  const themeSwatches = themes.map(t => {
+    const swatch = el('button', {
+      className: `color-swatch${currentTheme === t.id ? ' selected' : ''}`,
+      style: `background: ${t.color}`,
+      title: t.label,
+      'aria-label': `${t.label} theme`,
+      onClick: () => {
+        document.documentElement.setAttribute('data-theme', t.id);
+        localStorage.setItem('pfi_theme', t.id);
+        container.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+        swatch.classList.add('selected');
+        toast(`Theme set to ${t.label}`, 'success');
+      },
+    });
+    return swatch;
+  });
+  const themeCard = el('div', { className: 'card settings-section' }, [
+    el('h3', { textContent: 'Theme' }),
+    el('div', { className: 'color-picker' }, themeSwatches),
+  ]);
+  container.appendChild(themeCard);
 
   // User info card
   const userCard = el('div', { className: 'card settings-section' }, [
@@ -35,6 +67,62 @@ export async function renderSettings(container) {
     settingRow('Date Format', 'date_format', settings.date_format, DATE_FORMATS),
   ]);
   container.appendChild(prefsCard);
+
+  // Quick Setup Presets (P17)
+  const presets = [
+    { label: '🇮🇳 India', currency: 'INR', date_format: 'DD/MM/YYYY' },
+    { label: '🇺🇸 US', currency: 'USD', date_format: 'MM/DD/YYYY' },
+    { label: '🇪🇺 EU', currency: 'EUR', date_format: 'DD.MM.YYYY' },
+  ];
+  const presetsCard = el('div', { className: 'card settings-section' }, [
+    el('h3', { textContent: 'Quick Setup' }),
+    el('div', { style: 'display:flex;gap:0.5rem;flex-wrap:wrap' }, presets.map(p =>
+      el('button', { className: 'btn btn-secondary', textContent: p.label, onClick: async () => {
+        try {
+          await Api.put('/settings', { key: 'default_currency', value: p.currency });
+          await Api.put('/settings', { key: 'date_format', value: p.date_format });
+          toast(`Settings updated to ${p.label}`, 'success');
+        } catch (err) { toast(err.message, 'error'); }
+      }})
+    )),
+  ]);
+  container.appendChild(presetsCard);
+
+  // Keyboard Shortcuts (P26)
+  const defaultShortcuts = { dashboard: 'd', transactions: 't', budgets: 'b', groups: 'g', quickAdd: 'n' };
+  const savedShortcuts = JSON.parse(localStorage.getItem('pfi_shortcuts') || 'null') || defaultShortcuts;
+  const shortcutsCard = el('div', { className: 'card settings-section' }, [
+    el('h3', { textContent: 'Keyboard Shortcuts' }),
+    ...Object.entries(savedShortcuts).map(([action, key]) => {
+      const keyDisplay = el('span', { className: 'settings-value', textContent: key.toUpperCase(), style: 'font-family:monospace;background:var(--bg-tertiary);padding:0.125rem 0.375rem;border-radius:4px' });
+      return el('div', { className: 'settings-row' }, [
+        el('span', { className: 'settings-label', textContent: action }),
+        keyDisplay,
+      ]);
+    }),
+    el('button', { className: 'btn btn-secondary', textContent: 'Reset to Defaults', style: 'margin-top:0.5rem', onClick: () => {
+      localStorage.removeItem('pfi_shortcuts');
+      toast('Shortcuts reset to defaults', 'success');
+    }}),
+  ]);
+  container.appendChild(shortcutsCard);
+
+  // Vim Mode Toggle (P27)
+  const vimEnabled = localStorage.getItem('pfi_vim') === '1';
+  const vimToggle = el('input', { type: 'checkbox', id: 'vim-toggle' });
+  if (vimEnabled) vimToggle.checked = true;
+  vimToggle.addEventListener('change', () => {
+    localStorage.setItem('pfi_vim', vimToggle.checked ? '1' : '0');
+    toast(vimToggle.checked ? 'Vim navigation enabled' : 'Vim navigation disabled', 'success');
+  });
+  const vimCard = el('div', { className: 'card settings-section' }, [
+    el('h3', { textContent: 'Vim Navigation' }),
+    el('div', { className: 'settings-row' }, [
+      el('span', { className: 'settings-label', textContent: 'Enable J/K navigation' }),
+      el('label', { className: 'remember-label' }, [vimToggle, 'Enabled']),
+    ]),
+  ]);
+  container.appendChild(vimCard);
 
   // Data card
   const dataCard = el('div', { className: 'card settings-section' }, [

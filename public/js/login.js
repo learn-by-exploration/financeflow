@@ -2,30 +2,32 @@ let isLogin = true;
 const form = document.getElementById('auth-form');
 const btn = document.getElementById('auth-btn');
 const subtitle = document.getElementById('auth-subtitle');
-const toggleText = document.getElementById('toggle-text');
-const toggleLink = document.getElementById('toggle-link');
 const groupDisplay = document.getElementById('group-display');
 const errorMsg = document.getElementById('error-msg');
 
-toggleLink.addEventListener('click', (e) => {
-  e.preventDefault();
-  isLogin = !isLogin;
-  btn.textContent = isLogin ? 'Sign In' : 'Register';
-  subtitle.textContent = isLogin ? 'Your money. Your server. Your rules.' : 'Create your account';
-  toggleText.textContent = isLogin ? "Don't have an account?" : 'Already have an account?';
-  toggleLink.textContent = isLogin ? 'Register' : 'Sign In';
-  groupDisplay.style.display = isLogin ? 'none' : 'block';
-  errorMsg.textContent = '';
-  // Show/hide password requirements
-  const reqBox = document.getElementById('password-requirements');
-  if (reqBox) {
-    reqBox.style.display = isLogin ? 'none' : 'block';
-    // Reset requirement marks when toggling to register
-    if (!isLogin) reqBox.querySelectorAll('li').forEach(li => li.classList.remove('met'));
-  }
-  // Update autocomplete
-  const pwInput = document.getElementById('password');
-  pwInput.setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
+// ─── Tab-based auth switching ───
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const mode = tab.dataset.mode;
+    isLogin = mode === 'login';
+    document.querySelectorAll('.auth-tab').forEach(t => {
+      t.classList.remove('active');
+      t.setAttribute('aria-selected', 'false');
+    });
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected', 'true');
+    btn.textContent = isLogin ? 'Sign In' : 'Register';
+    subtitle.textContent = isLogin ? 'Your money. Your server. Your rules.' : 'Create your account';
+    groupDisplay.style.display = isLogin ? 'none' : 'block';
+    errorMsg.textContent = '';
+    const reqBox = document.getElementById('password-requirements');
+    if (reqBox) {
+      reqBox.style.display = isLogin ? 'none' : 'block';
+      if (!isLogin) reqBox.querySelectorAll('li').forEach(li => li.classList.remove('met'));
+    }
+    const pwInput = document.getElementById('password');
+    pwInput.setAttribute('autocomplete', isLogin ? 'current-password' : 'new-password');
+  });
 });
 
 // ─── Password visibility toggle ───
@@ -81,20 +83,31 @@ form.addEventListener('submit', async (e) => {
     });
     const data = await res.json();
     if (!res.ok) { errorMsg.textContent = data.error?.message || 'Error'; return; }
-    localStorage.setItem('pfi_token', data.token);
-    localStorage.setItem('pfi_user', JSON.stringify(data.user));
-    window.location.href = '/';
+    const remember = document.getElementById('remember-me');
+    const storage = (remember && remember.checked) ? localStorage : sessionStorage;
+    storage.setItem('pfi_token', data.token);
+    storage.setItem('pfi_user', JSON.stringify(data.user));
+    window.location.href = '/app';
   } catch (err) {
     errorMsg.textContent = 'Network error';
   }
 });
 
 // Redirect if already logged in
-if (localStorage.getItem('pfi_token')) window.location.href = '/';
+if (localStorage.getItem('pfi_token')) window.location.href = '/app';
 
 // Show session expiry message
 if (sessionStorage.getItem('pfi_session_expired')) {
   sessionStorage.removeItem('pfi_session_expired');
   errorMsg.textContent = 'Your session expired. Please sign in again.';
   errorMsg.style.color = 'var(--yellow, #f59e0b)';
+}
+
+// ─── Demo quick-fill ───
+const demoBtn = document.getElementById('demo-btn');
+if (demoBtn) {
+  demoBtn.addEventListener('click', () => {
+    document.getElementById('username').value = 'demo';
+    document.getElementById('password').value = 'demo1234';
+  });
 }

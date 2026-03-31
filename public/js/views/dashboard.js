@@ -77,19 +77,32 @@ function chartCard(title, canvasId, ariaLabel) {
 }
 
 function statCard(label, value, color, onClick) {
-  const attrs = { className: `stat-card ${color}` };
-  if (onClick) {
-    attrs.className += ' clickable';
-    attrs.onClick = onClick;
-    attrs.onKeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } };
-    attrs.tabindex = '0';
-    attrs.role = 'button';
-    attrs['aria-label'] = `${label}: ${value}`;
-  }
-  return el('div', attrs, [
+  const viewMap = { 'accounts': 'accounts', 'transactions': 'transactions', 'budgets': 'budgets' };
+  const targetView = onClick ? Object.keys(viewMap).find(v => onClick.toString().includes(v)) || '' : '';
+  const card = el('div', {
+    className: `stat-card ${color} clickable`,
+    tabindex: '0',
+    role: 'button',
+    'aria-expanded': 'false',
+    'aria-label': `${label}: ${value}`,
+    onClick: () => {
+      const isExpanded = card.getAttribute('aria-expanded') === 'true';
+      // Collapse all other cards (accordion)
+      card.parentElement.querySelectorAll('.stat-card.expanded').forEach(c => {
+        if (c !== card) { c.classList.remove('expanded'); c.setAttribute('aria-expanded', 'false'); }
+      });
+      card.classList.toggle('expanded');
+      card.setAttribute('aria-expanded', String(!isExpanded));
+    },
+    onKeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } },
+  }, [
     el('div', { className: 'stat-label', textContent: label }),
     el('div', { className: 'stat-value', textContent: value }),
+    el('div', { className: 'stat-detail' }, [
+      el('a', { className: 'stat-detail-link', textContent: 'View all →', href: targetView ? `/#/${targetView}` : '#' }),
+    ]),
   ]);
+  return card;
 }
 
 function buildCategoriesCard(categories) {

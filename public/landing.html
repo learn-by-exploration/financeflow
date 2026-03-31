@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinanceFlow — Personal Finance, Self-Hosted</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="css/landing.css">
+  <link rel="preload" href="/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+</head>
+<body>
+  <nav class="landing-nav">
+    <a href="/" class="landing-logo">💰 FinanceFlow</a>
+    <div class="landing-nav-links">
+      <a href="#features">Features</a>
+      <a href="login.html">Sign In</a>
+      <a href="login.html" class="nav-btn">Get Started</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h1>Your money.<br><span>Your server. Your rules.</span></h1>
+    <p>A beautiful, self-hosted personal finance tracker. Track accounts, budgets, goals, and spending — all on your own infrastructure. No cloud. No subscriptions. No data harvesting.</p>
+    <div class="hero-actions">
+      <a href="login.html" class="btn-hero btn-hero-primary">Get Started Free</a>
+      <a href="#features" class="btn-hero btn-hero-secondary">See Features</a>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="features-header">
+      <h2>Everything you need to manage your money</h2>
+      <p>Built for people who care about privacy and ownership.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🏦</div>
+        <h3>Multi-Account Tracking</h3>
+        <p>Bank accounts, credit cards, cash, loans — track every account in one place with real-time net worth calculations.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Visual Dashboard</h3>
+        <p>Spending trends, category breakdowns, income vs expenses — interactive charts that make your finances crystal clear.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💰</div>
+        <h3>Budgets & Goals</h3>
+        <p>Set monthly budgets by category and track savings goals with progress bars. Stay on target effortlessly.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Self-Hosted & Private</h3>
+        <p>Your data never leaves your server. Deploy with Docker in minutes. No third-party cloud, no tracking, no ads.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <h3>Smart Notifications</h3>
+        <p>Budget overspend alerts, bill reminders, and financial health insights — delivered right in the app.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h3>Works Everywhere</h3>
+        <p>Responsive design with PWA support. Works on desktop, tablet, and mobile — even offline.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="callout">
+    <div class="callout-card">
+      <h2>Own your financial data</h2>
+      <p>FinanceFlow runs on your hardware. One Docker command, and you have a full-featured finance tracker with SQLite storage, session-based auth, and zero dependencies on external services.</p>
+      <a href="login.html" class="btn-hero btn-hero-primary">Start Tracking Now</a>
+    </div>
+  </section>
+
+  <footer class="landing-footer">
+    <p>&copy; 2026 FinanceFlow. Self-hosted personal finance.</p>
+  </footer>
+
+  <script>
+    // If already logged in, go straight to app
+    if (localStorage.getItem('pfi_token')) window.location.href = '/app';
+  </script>
+</body>
+</html>

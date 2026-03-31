@@ -1,32 +1,37 @@
 // PersonalFi — Dashboard Chart Rendering (ES module)
 import { Api } from './utils.js';
 
-const COLORS = {
-  accent: '#6366f1',
-  accentLight: '#818cf8',
-  green: '#10b981',
-  red: '#ef4444',
-  yellow: '#f59e0b',
-  cyan: '#06b6d4',
-  pink: '#ec4899',
-  orange: '#f97316',
-  purple: '#a855f7',
-  lime: '#84cc16',
-  teal: '#14b8a6',
-  rose: '#f43f5e',
-};
+function getCSSColor(prop, fallback) {
+  const style = getComputedStyle(document.documentElement);
+  return style.getPropertyValue(prop).trim() || fallback;
+}
 
-const PIE_COLORS = [
-  COLORS.accent, COLORS.green, COLORS.red, COLORS.yellow,
-  COLORS.cyan, COLORS.pink, COLORS.orange, COLORS.purple,
-  COLORS.lime, COLORS.teal, COLORS.rose, COLORS.accentLight,
-];
+function getThemeColors() {
+  return {
+    accent: getCSSColor('--accent', '#6366f1'),
+    accentLight: getCSSColor('--accent-light', '#818cf8'),
+    green: getCSSColor('--green', '#10b981'),
+    red: getCSSColor('--red', '#ef4444'),
+    yellow: getCSSColor('--yellow', '#f59e0b'),
+    cyan: '#06b6d4',
+    pink: '#ec4899',
+    orange: '#f97316',
+    purple: '#a855f7',
+    lime: '#84cc16',
+    teal: '#14b8a6',
+    rose: '#f43f5e',
+  };
+}
 
-const CHART_DEFAULTS = {
-  color: '#94a3b8',
-  borderColor: '#334155',
-  backgroundColor: 'transparent',
-};
+function getChartDefaults() {
+  return {
+    color: getCSSColor('--text-secondary', '#94a3b8'),
+    borderColor: getCSSColor('--border', '#334155'),
+    backgroundColor: 'transparent',
+  };
+}
+
+const reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let spendingChart = null;
 let incomeExpenseChart = null;
@@ -82,8 +87,9 @@ export async function initDashboardCharts(container) {
 
   destroyCharts();
 
-  Chart.defaults.color = CHART_DEFAULTS.color;
-  Chart.defaults.borderColor = CHART_DEFAULTS.borderColor;
+  const defaults = getChartDefaults();
+  Chart.defaults.color = defaults.color;
+  Chart.defaults.borderColor = defaults.borderColor;
 
   const grid = container.querySelector('.charts-grid');
   if (!grid) return;
@@ -108,6 +114,13 @@ async function renderSpendingByCategory(canvas) {
     }
     clearNoData(canvas);
 
+    const COLORS = getThemeColors();
+    const PIE_COLORS = [
+      COLORS.accent, COLORS.green, COLORS.red, COLORS.yellow,
+      COLORS.cyan, COLORS.pink, COLORS.orange, COLORS.purple,
+      COLORS.lime, COLORS.teal, COLORS.rose, COLORS.accentLight,
+    ];
+
     spendingChart = new Chart(canvas, {
       type: 'doughnut',
       data: {
@@ -115,13 +128,14 @@ async function renderSpendingByCategory(canvas) {
         datasets: [{
           data: data.datasets[0].data,
           backgroundColor: PIE_COLORS.slice(0, data.labels.length),
-          borderColor: '#1e293b',
+          borderColor: getCSSColor('--bg-secondary', '#1e293b'),
           borderWidth: 2,
         }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: !reducedMotion,
         cutout: '60%',
         plugins: {
           legend: {
@@ -157,6 +171,7 @@ async function renderIncomeVsExpense(canvas) {
     }
     clearNoData(canvas);
 
+    const COLORS = getThemeColors();
     incomeExpenseChart = new Chart(canvas, {
       type: 'bar',
       data: {
@@ -183,6 +198,7 @@ async function renderIncomeVsExpense(canvas) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: !reducedMotion,
         scales: {
           x: { grid: { display: false } },
           y: {
@@ -216,6 +232,7 @@ async function renderSpendingTrend(canvas) {
     }
     clearNoData(canvas);
 
+    const COLORS = getThemeColors();
     trendChart = new Chart(canvas, {
       type: 'line',
       data: {
@@ -235,6 +252,7 @@ async function renderSpendingTrend(canvas) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: !reducedMotion,
         scales: {
           x: {
             grid: { display: false },

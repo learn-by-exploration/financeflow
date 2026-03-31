@@ -80,7 +80,10 @@ function renderNotifications(notifications) {
       item.appendChild(dot);
     }
 
-    item.addEventListener('click', () => markRead(n.id, item));
+    item.addEventListener('click', () => {
+      markRead(n.id, item);
+      navigateToView(n.type);
+    });
     listEl.appendChild(item);
   });
 }
@@ -94,6 +97,22 @@ function getNotifIcon(type) {
     system: 'info',
   };
   return icons[type] || 'notifications';
+}
+
+const NOTIF_VIEW_MAP = {
+  budget_exceeded: 'budgets',
+  goal_completed: 'goals',
+  large_transaction: 'transactions',
+  bill_reminder: 'subscriptions',
+};
+
+function navigateToView(type) {
+  const view = NOTIF_VIEW_MAP[type];
+  if (view) {
+    closePanel();
+    // Use hash navigation
+    window.location.hash = `#/${view}`;
+  }
 }
 
 // ─── Fetch and render all notifications ───

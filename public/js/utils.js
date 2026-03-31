@@ -1,7 +1,8 @@
 // PersonalFi — Shared utilities (ES module)
 
-const token = () => localStorage.getItem('pfi_token');
-const user = () => JSON.parse(localStorage.getItem('pfi_user') || '{}');
+let _token = localStorage.getItem('pfi_token') || sessionStorage.getItem('pfi_token');
+const token = () => _token;
+const user = () => JSON.parse(localStorage.getItem('pfi_user') || sessionStorage.getItem('pfi_user') || '{}');
 
 // ─── API helper ───
 export async function api(path, options = {}) {
@@ -50,11 +51,21 @@ export function formatDate(dateStr, format = 'YYYY-MM-DD') {
 }
 
 // ─── Toast notifications ───
-export function toast(message, type = 'info') {
+export function toast(message, type = 'info', options = {}) {
   const container = document.getElementById('toast-container');
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;
   t.textContent = message;
+  if (options.undo) {
+    const undoBtn = document.createElement('button');
+    undoBtn.className = 'toast-undo-btn';
+    undoBtn.textContent = 'Undo';
+    undoBtn.addEventListener('click', () => {
+      options.undo();
+      t.remove();
+    });
+    t.appendChild(undoBtn);
+  }
   container.appendChild(t);
   const duration = type === 'error' ? 8000 : 5000;
   setTimeout(() => t.remove(), duration);
@@ -62,7 +73,8 @@ export function toast(message, type = 'info') {
   const announce = document.getElementById('a11y-announce');
   if (announce) {
     announce.textContent = '';
-    setTimeout(() => { announce.textContent = message; }, 100);
+    const msg = options.undo ? `${message}. Undo available` : message;
+    setTimeout(() => { announce.textContent = msg; }, 100);
   }
 }
 
@@ -149,6 +161,29 @@ export function confirm(message) {
 
 export function getUser() { return user(); }
 export function getToken() { return token(); }
+
+// ─── Color swatch picker ───
+const PRESET_COLORS = ['#6366f1', '#10b981', '#ef4444', '#f59e0b', '#06b6d4', '#ec4899', '#f97316', '#a855f7', '#84cc16', '#14b8a6'];
+export function renderColorPicker(selectedColor, onChange) {
+  const picker = el('div', { className: 'color-picker', role: 'radiogroup', 'aria-label': 'Color picker' });
+  PRESET_COLORS.forEach(color => {
+    const swatch = el('button', {
+      className: `color-swatch${selectedColor === color ? ' selected' : ''}`,
+      style: `background: ${color}`,
+      role: 'radio',
+      'aria-checked': String(selectedColor === color),
+      'aria-label': color,
+      onClick: () => {
+        picker.querySelectorAll('.color-swatch').forEach(s => { s.classList.remove('selected'); s.setAttribute('aria-checked', 'false'); });
+        swatch.classList.add('selected');
+        swatch.setAttribute('aria-checked', 'true');
+        if (onChange) onChange(color);
+      },
+    });
+    picker.appendChild(swatch);
+  });
+  return picker;
+}
 
 // ─── Button loading state (prevent double-submit) ───
 export async function withLoading(button, asyncFn) {

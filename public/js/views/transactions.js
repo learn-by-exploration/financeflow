@@ -9,6 +9,8 @@ let state = { transactions: [], total: 0, page: 0, filters: {} };
 let accounts = [];
 let categories = [];
 let onRefresh = null;
+let multiSelectMode = false;
+let selectedIds = new Set();
 
 export async function renderTransactions(container) {
   container.innerHTML = '';
@@ -36,9 +38,28 @@ export async function renderTransactions(container) {
   // Filter bar
   container.appendChild(buildFilterBar());
 
+  // Bulk action bar (P24)
+  const bulkBar = el('div', { className: 'bulk-action-bar', style: 'display:none' }, [
+    el('span', { className: 'bulk-count', textContent: '0 selected' }),
+    el('button', { className: 'btn btn-danger', textContent: 'Delete Selected', onClick: () => bulkDelete() }),
+    el('button', { className: 'btn btn-secondary', textContent: 'Cancel', onClick: () => exitMultiSelect() }),
+  ]);
+  container.appendChild(bulkBar);
+
   // Table container
   const tableWrap = el('div', { id: 'txn-table-wrap' });
   container.appendChild(tableWrap);
+
+  // Multi-select event (P24) — use AbortController to prevent leaks
+  if (window._multiSelectAbort) window._multiSelectAbort.abort();
+  window._multiSelectAbort = new AbortController();
+  document.addEventListener('toggle-multi-select', () => {
+    multiSelectMode = !multiSelectMode;
+    selectedIds.clear();
+    renderTable();
+    bulkBar.style.display = multiSelectMode ? 'flex' : 'none';
+    if (!multiSelectMode) updateBulkCount();
+  }, { signal: window._multiSelectAbort.signal });
 
   // Pagination
   const pagWrap = el('div', { id: 'txn-pagination', className: 'pagination' });
@@ -187,6 +208,9 @@ function renderTable() {
   // Header
   const thead = el('thead', {}, [
     el('tr', {}, [
+      ...(multiSelectMode ? [el('th', { scope: 'col' }, [
+        el('input', { type: 'checkbox', 'aria-label': 'Select all', onChange: (e) => { state.transactions.forEach(t => { if (e.target.checked) selectedIds.add(t.id); else selectedIds.delete(t.id); }); renderTable(); updateBulkCount(); } }),
+      ])] : []),
       el('th', { textContent: 'Date', scope: 'col' }),
       el('th', { textContent: 'Description', scope: 'col' }),
       el('th', { textContent: 'Category', scope: 'col' }),
@@ -206,6 +230,9 @@ function renderTable() {
     const prefix = t.type === 'income' ? '+' : t.type === 'transfer' ? '\u2192' : '\u2212';
 
     const row = el('tr', {}, [
+      ...(multiSelectMode ? [el('td', {}, [
+        el('input', { type: 'checkbox', className: 'multi-select-check', 'aria-label': `Select ${t.description}`, checked: selectedIds.has(t.id), onChange: (e) => { if (e.target.checked) selectedIds.add(t.id); else selectedIds.delete(t.id); updateBulkCount(); } }),
+      ])] : []),
       el('td', { textContent: t.date, 'data-label': 'Date' }),
       el('td', { className: 'txn-desc-cell', 'data-label': 'Description' }, [
         el('span', { textContent: t.description }),
@@ -215,7 +242,7 @@ function renderTable() {
       el('td', { textContent: t.account_name || '—', 'data-label': 'Account' }),
       el('td', { 'data-label': 'Type' }, [el('span', { className: `badge ${typeClass}`, textContent: t.type })]),
       el('td', { className: `text-right txn-amount ${amtClass}`, textContent: `${prefix}${fmt(t.amount)}`, 'data-label': 'Amount' }),
-      el('td', { className: 'row-actions' }, [
+      el('td', { className: 'row-actions hover-actions' }, [
         el('button', { className: 'btn-icon', title: 'Edit', 'aria-label': `Edit ${t.description}`, onClick: () => showTxnForm(t) }, [
           el('span', { className: 'material-icons-round', textContent: 'edit' }),
         ]),
@@ -381,6 +408,35 @@ async function deleteTxn(txn) {
   try {
     await Api.del(`/transactions/${txn.id}`);
     toast('Transaction deleted', 'success');
+    if (onRefresh) onRefresh();
+  } catch (err) {
+    toast(err.message, 'error');
+  }
+}
+
+function updateBulkCount() {
+  const el = document.querySelector('.bulk-count');
+  if (el) el.textContent = `${selectedIds.size} selected`;
+}
+
+function exitMultiSelect() {
+  multiSelectMode = false;
+  selectedIds.clear();
+  renderTable();
+  const bar = document.querySelector('.bulk-action-bar');
+  if (bar) bar.style.display = 'none';
+}
+
+async function bulkDelete() {
+  if (selectedIds.size === 0) return;
+  const yes = await confirm(`Delete ${selectedIds.size} transaction(s)?`);
+  if (!yes) return;
+  try {
+    for (const id of selectedIds) {
+      await Api.del(`/transactions/${id}`);
+    }
+    toast(`${selectedIds.size} transactions deleted`, 'success');
+    exitMultiSelect();
     if (onRefresh) onRefresh();
   } catch (err) {
     toast(err.message, 'error');

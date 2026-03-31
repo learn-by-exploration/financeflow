@@ -6,14 +6,18 @@
   <title>FinanceFlow — Login</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="css/login.css">
-  <link rel="preload" href="fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="fonts/MaterialIconsRound.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/material-icons/material-icons-round.woff2" as="font" type="font/woff2" crossorigin>
 </head>
 <body>
   <div class="auth-card">
     <h1>💰 FinanceFlow</h1>
     <p id="auth-subtitle">Your money. Your server. Your rules.</p>
     <div id="error-msg" class="error-msg"></div>
+    <div class="auth-tabs" role="tablist">
+      <button class="auth-tab active" role="tab" aria-selected="true" data-mode="login">Sign In</button>
+      <button class="auth-tab" role="tab" aria-selected="false" data-mode="register">Register</button>
+    </div>
     <form id="auth-form">
       <div class="form-group" id="group-display" style="display:none">
         <label for="display_name">Display Name</label>
@@ -44,10 +48,10 @@
       </div>
       <button type="submit" class="btn-primary" id="auth-btn">Sign In</button>
     </form>
-    <div class="toggle">
-      <span id="toggle-text">Don't have an account?</span>
-      <a id="toggle-link" href="#">Register</a>
+    <div class="remember-row">
+      <label class="remember-label"><input type="checkbox" id="remember-me" checked> Remember me</label>
     </div>
+    <button type="button" class="demo-btn" id="demo-btn">Try Demo</button>
   </div>
   <script src="js/login.js"></script>
 </body>

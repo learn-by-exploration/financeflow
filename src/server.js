@@ -91,7 +91,7 @@ app.use(createRequestLogger());
 // CSRF middleware disabled — app uses X-Session-Token header auth,
 // which inherently prevents CSRF (browsers don't auto-attach custom headers).
 // The middleware exists at middleware/csrf.js for future cookie-auth use.
-app.use(express.static(path.join(__dirname, '..', 'public'), { dotfiles: 'allow' }));
+app.use(express.static(path.join(__dirname, '..', 'public'), { dotfiles: 'allow', index: false }));
 
 // ─── Routes ───
 const createAuthRoutes = require('./routes/auth');
@@ -239,6 +239,16 @@ app.get('/api/upcoming', requireAuth, (req, res, next) => {
     const upcoming = reminderRepo.getUpcoming(req.user.id, days);
     res.json({ upcoming, days });
   } catch (err) { next(err); }
+});
+
+// Landing page
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'landing.html'));
+});
+
+// SPA entry point
+app.get('/app', (_req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 // SPA fallback (Express 5 wildcard syntax)

@@ -133,6 +133,14 @@
         </div>
       </div>
       <div class="sidebar-footer">
+        <button id="sidebar-collapse" class="nav-item" aria-label="Collapse sidebar" aria-expanded="true">
+          <span class="material-icons-round">chevron_left</span>
+          <span class="nav-label">Collapse</span>
+        </button>
+        <button id="theme-toggle" class="nav-item theme-toggle-btn" aria-label="Toggle theme">
+          <span class="material-icons-round">light_mode</span>
+          <span class="nav-label">Light Mode</span>
+        </button>
         <button id="btn-settings" class="nav-item" data-view="settings">
           <span class="material-icons-round">settings</span>
           <span class="nav-label">Settings</span>
@@ -184,6 +192,10 @@
       </div>
       <div id="notif-backdrop" class="notif-backdrop hidden"></div>
 
+      <nav aria-label="Breadcrumb" class="breadcrumb" id="breadcrumb">
+        <ol><li><a href="/#/dashboard">Home</a></li><li><span aria-current="page">Dashboard</span></li></ol>
+      </nav>
+
       <div id="view-container"></div>
       <div id="a11y-announce" class="sr-only" aria-live="polite" aria-atomic="true"></div>
     </main>
@@ -194,6 +206,12 @@
     <span class="material-icons-round">add</span>
   </button>
 
+  <!-- Privacy banner -->
+  <div id="privacy-banner" class="privacy-banner" style="display:none">
+    <span>Your data stays on your server. No cookies. No tracking.</span>
+    <button class="btn btn-sm btn-secondary" id="privacy-dismiss">Got it</button>
+  </div>
+
   <!-- Modal overlay -->
   <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
     <div id="modal-content" class="modal-content"></div>
@@ -201,6 +219,21 @@
 
   <!-- Toast container -->
   <div id="toast-container" class="toast-container" role="status" aria-live="polite"></div>
+
+  <!-- Mobile bottom navigation -->
+  <nav class="bottom-nav" aria-label="Mobile navigation">
+    <button class="bottom-nav-item" data-view="dashboard"><span class="material-icons-round">dashboard</span><span>Dashboard</span></button>
+    <button class="bottom-nav-item" data-view="transactions"><span class="material-icons-round">receipt_long</span><span>Transactions</span></button>
+    <button class="bottom-nav-item" data-view="accounts"><span class="material-icons-round">account_balance</span><span>Accounts</span></button>
+    <button class="bottom-nav-item" data-view="budgets"><span class="material-icons-round">pie_chart</span><span>Budgets</span></button>
+    <button class="bottom-nav-item" data-view="more"><span class="material-icons-round">more_horiz</span><span>More</span></button>
+  </nav>
+
+  <!-- Bottom sheet for More menu -->
+  <div class="bottom-sheet-overlay" id="bottom-sheet-overlay"></div>
+  <div class="bottom-sheet" id="bottom-sheet">
+    <div class="bottom-sheet-grid" id="bottom-sheet-grid"></div>
+  </div>
 
   <script src="js/form-validator.js" type="module"></script>
   <script src="js/pagination.js" type="module"></script>

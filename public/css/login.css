@@ -9,7 +9,7 @@ body { display: flex; justify-content: center; align-items: center; min-height: 
 .btn-primary:hover { opacity: 0.9; }
 .toggle { text-align: center; margin-top: 1rem; font-size: 0.875rem; }
 .toggle a { color: var(--accent); cursor: pointer; text-decoration: none; }
-.error-msg { color: var(--danger); text-align: center; font-size: 0.875rem; min-height: 1.25rem; }
+.error-msg { color: var(--red, #ef4444); text-align: center; font-size: 0.875rem; min-height: 1.25rem; }
 .password-requirements { background: var(--bg-tertiary); border-radius: 8px; padding: 0.75rem 1rem; margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); }
 .password-requirements ul { margin: 0.25rem 0 0 0; padding: 0; list-style: none; }
 .password-requirements li { margin-bottom: 0.15rem; padding-left: 1.5rem; position: relative; }
@@ -20,3 +20,18 @@ body { display: flex; justify-content: center; align-items: center; min-height: 
 .password-wrapper input { padding-right: 2.5rem; }
 .password-toggle { position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted, #a5b0c2); cursor: pointer; padding: 0.25rem; display: flex; align-items: center; }
 .password-toggle:hover { color: var(--text-primary, #f1f5f9); }
+
+/* ─── Auth tabs ─── */
+.auth-tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border, #334155); }
+.auth-tab { flex: 1; padding: 0.625rem 0; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; color: var(--text-secondary, #a0b0c4); font-size: 0.9375rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: color 0.15s, border-color 0.15s; }
+.auth-tab:hover { color: var(--text-primary, #f1f5f9); }
+.auth-tab.active { color: var(--accent, #6366f1); border-bottom-color: var(--accent, #6366f1); }
+
+/* ─── Remember me ─── */
+.remember-row { display: flex; align-items: center; margin-top: 0.75rem; }
+.remember-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8125rem; color: var(--text-secondary, #a0b0c4); cursor: pointer; }
+.remember-label input[type="checkbox"] { accent-color: var(--accent, #6366f1); }
+
+/* ─── Demo button ─── */
+.demo-btn { display: block; width: 100%; padding: 0.625rem; margin-top: 0.75rem; background: var(--bg-tertiary, #334155); color: var(--text-secondary, #a0b0c4); border: 1px solid var(--border, #334155); border-radius: 8px; font-size: 0.875rem; cursor: pointer; font-family: inherit; }
+.demo-btn:hover { background: var(--bg-primary, #0f172a); color: var(--text-primary, #f1f5f9); }

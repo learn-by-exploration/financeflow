@@ -9,6 +9,32 @@ export async function renderSearch(container, query) {
   ]);
   container.appendChild(header);
 
+  // P22: Filter chips
+  let activeFilter = 'all';
+  let applyFilter = () => {};
+  const chipBar = el('div', { className: 'search-filter-bar', role: 'toolbar', 'aria-label': 'Filter results' });
+  const chips = ['All', 'Transactions', 'Accounts', 'Categories'].map(label => {
+    const key = label.toLowerCase();
+    const chip = el('button', {
+      className: `search-filter-chip${key === 'all' ? ' active' : ''}`,
+      textContent: label,
+      'aria-pressed': key === 'all' ? 'true' : 'false',
+      onClick: () => {
+        activeFilter = key;
+        chipBar.querySelectorAll('.search-filter-chip').forEach(c => {
+          c.classList.remove('active');
+          c.setAttribute('aria-pressed', 'false');
+        });
+        chip.classList.add('active');
+        chip.setAttribute('aria-pressed', 'true');
+        applyFilter();
+      },
+    });
+    return chip;
+  });
+  chips.forEach(c => chipBar.appendChild(c));
+  container.appendChild(chipBar);
+
   if (!query || !query.trim()) {
     container.appendChild(el('div', { className: 'empty-state' }, [
       el('span', { className: 'empty-icon', textContent: '🔍' }),
@@ -23,6 +49,7 @@ export async function renderSearch(container, query) {
     const data = await Api.get(`/search?q=${encodeURIComponent(query.trim())}`);
     container.innerHTML = '';
     container.appendChild(header);
+    container.appendChild(chipBar);
 
     const totalResults = (data.transactions?.length || 0) + (data.accounts?.length || 0) +
       (data.categories?.length || 0) + (data.subscriptions?.length || 0) + (data.tags?.length || 0);
@@ -38,21 +65,36 @@ export async function renderSearch(container, query) {
     const summary = el('p', { className: 'search-summary', textContent: `Found ${totalResults} result${totalResults !== 1 ? 's' : ''} for "${query}"` });
     container.appendChild(summary);
 
+    const resultsWrap = el('div', { className: 'search-results-wrap' });
+
     if (data.transactions?.length) {
-      container.appendChild(buildSection('Transactions', 'receipt_long', data.transactions.map(t => transactionCard(t, query))));
+      resultsWrap.appendChild(buildSection('Transactions', 'receipt_long', data.transactions.map(t => transactionCard(t, query))));
     }
     if (data.accounts?.length) {
-      container.appendChild(buildSection('Accounts', 'account_balance', data.accounts.map(a => accountCard(a, query))));
+      resultsWrap.appendChild(buildSection('Accounts', 'account_balance', data.accounts.map(a => accountCard(a, query))));
     }
     if (data.categories?.length) {
-      container.appendChild(buildSection('Categories', 'category', data.categories.map(c => categoryCard(c, query))));
+      resultsWrap.appendChild(buildSection('Categories', 'category', data.categories.map(c => categoryCard(c, query))));
     }
     if (data.subscriptions?.length) {
-      container.appendChild(buildSection('Subscriptions', 'autorenew', data.subscriptions.map(s => subscriptionCard(s, query))));
+      resultsWrap.appendChild(buildSection('Subscriptions', 'autorenew', data.subscriptions.map(s => subscriptionCard(s, query))));
     }
     if (data.tags?.length) {
-      container.appendChild(buildSection('Tags', 'label', data.tags.map(t => tagCard(t, query))));
+      resultsWrap.appendChild(buildSection('Tags', 'label', data.tags.map(t => tagCard(t, query))));
     }
+    container.appendChild(resultsWrap);
+
+    // Apply filter function for P22
+    applyFilter = () => {
+      resultsWrap.querySelectorAll('.search-section').forEach(section => {
+        const title = section.querySelector('h3')?.textContent?.toLowerCase() || '';
+        if (activeFilter === 'all') {
+          section.style.display = '';
+        } else {
+          section.style.display = title.startsWith(activeFilter) ? '' : 'none';
+        }
+      });
+    };
   } catch (err) {
     container.innerHTML = '';
     container.appendChild(header);
