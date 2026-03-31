@@ -101,7 +101,26 @@ With Docker Compose:
 docker compose up -d
 ```
 
-Data is persisted in the `personalfi-data` volume at `/app/data/personalfi.db`.
+Data is persisted in the `personalfi-data` Docker named volume at `/app/data/personalfi.db`.
+
+### Data Persistence
+
+Your database **survives** all of these:
+- Container stop/start/restart
+- Container removal (`docker rm`)
+- Image rebuilds (`docker build`)
+- System reboots
+
+Your database is **only deleted** if you explicitly remove the volume:
+```bash
+docker volume rm personalfi-data        # ← deletes all data
+docker system prune --volumes           # ← deletes ALL unused volumes
+```
+
+To back up your data:
+```bash
+docker cp financeflow:/app/data/personalfi.db ./personalfi-backup.db
+```
 
 ## Configuration
 
