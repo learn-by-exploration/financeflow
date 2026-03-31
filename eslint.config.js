@@ -96,10 +96,31 @@ module.exports = [
         Chart: 'readonly',
         ClipboardItem: 'readonly',
         ImageData: 'readonly',
+        matchMedia: 'readonly',
+        sessionStorage: 'readonly',
+        indexedDB: 'readonly',
       },
     },
     rules: {
       'no-unused-vars': 'off',
+    },
+  },
+  {
+    // Service worker gets SW-specific globals
+    files: ['public/sw.js'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: {
+        self: 'readonly',
+        caches: 'readonly',
+        fetch: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        Headers: 'readonly',
+        URL: 'readonly',
+        indexedDB: 'readonly',
+        clients: 'readonly',
+      },
     },
   },
   {

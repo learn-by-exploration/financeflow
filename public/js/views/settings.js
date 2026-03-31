@@ -1,5 +1,5 @@
 // PersonalFi — Settings View
-import { Api, el, toast } from '../utils.js';
+import { Api, el, toast, openModal, closeModal } from '../utils.js';
 
 const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'JPY', 'SGD', 'AED'];
 const DATE_FORMATS = ['YYYY-MM-DD', 'DD/MM/YYYY', 'MM/DD/YYYY', 'DD-MM-YYYY'];

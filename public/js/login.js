@@ -96,6 +96,16 @@ form.addEventListener('submit', async (e) => {
 // Redirect if already logged in
 if (localStorage.getItem('pfi_token')) window.location.href = '/app';
 
+// ─── Ensure correct initial state (handles stale SW cache) ───
+groupDisplay.style.display = 'none';
+const reqBoxInit = document.getElementById('password-requirements');
+if (reqBoxInit) reqBoxInit.style.display = 'none';
+btn.textContent = 'Sign In';
+document.querySelectorAll('.auth-tab').forEach(t => {
+  t.classList.toggle('active', t.dataset.mode === 'login');
+  t.setAttribute('aria-selected', t.dataset.mode === 'login' ? 'true' : 'false');
+});
+
 // Show session expiry message
 if (sessionStorage.getItem('pfi_session_expired')) {
   sessionStorage.removeItem('pfi_session_expired');
