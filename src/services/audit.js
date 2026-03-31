@@ -9,6 +9,7 @@ function createAuditLogger(db) {
       } catch { /* audit should never crash the app */ }
     },
     purge(daysOld = 90) {
+      if (!Number.isInteger(daysOld) || daysOld < 1) return;
       try {
         db.prepare(`DELETE FROM audit_log WHERE created_at < datetime('now', '-' || ? || ' days')`).run(daysOld);
       } catch { /* silent */ }

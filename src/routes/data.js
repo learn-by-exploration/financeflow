@@ -187,11 +187,14 @@ module.exports = function createDataRoutes({ db }) {
           }
         }
 
-        // Import settings
+        // Import settings (filtered by allowed keys)
         if (Array.isArray(data.settings)) {
+          const ALLOWED_SETTING_KEYS = ['default_currency', 'date_format', 'dashboard_layout'];
           const settInsert = db.prepare('INSERT OR REPLACE INTO settings (user_id, key, value) VALUES (?, ?, ?)');
           for (const s of data.settings) {
-            settInsert.run(userId, s.key, s.value);
+            if (ALLOWED_SETTING_KEYS.includes(s.key)) {
+              settInsert.run(userId, s.key, s.value);
+            }
           }
         }
 
@@ -343,6 +346,8 @@ module.exports = function createDataRoutes({ db }) {
           const type = cols[typeIdx];
 
           if (!date || !description || isNaN(amount) || !type) continue;
+          if (!['income', 'expense', 'transfer'].includes(type)) continue;
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
 
           // Resolve category
           let categoryId = null;

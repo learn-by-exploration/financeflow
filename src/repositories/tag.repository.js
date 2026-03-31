@@ -29,14 +29,14 @@ module.exports = function createTagRepository({ db }) {
     if (data.name !== undefined) { updates.push('name = ?'); values.push(data.name.trim()); }
     if (data.color !== undefined) { updates.push('color = ?'); values.push(data.color); }
     if (updates.length > 0) {
-      values.push(id);
-      db.prepare(`UPDATE tags SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+      values.push(id, userId);
+      db.prepare(`UPDATE tags SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...values);
     }
-    return db.prepare('SELECT * FROM tags WHERE id = ?').get(id);
+    return db.prepare('SELECT * FROM tags WHERE id = ? AND user_id = ?').get(id, userId);
   }
 
   function deleteById(id, userId) {
-    return db.prepare('DELETE FROM tags WHERE id = ?').run(id);
+    return db.prepare('DELETE FROM tags WHERE id = ? AND user_id = ?').run(id, userId);
   }
 
   function getTransactionTags(transactionId) {

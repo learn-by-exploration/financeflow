@@ -58,7 +58,7 @@ module.exports = function createRecurringRepository({ db }) {
   }
 
   function deleteById(id, userId) {
-    return db.prepare('DELETE FROM recurring_rules WHERE id = ?').run(id);
+    return db.prepare('DELETE FROM recurring_rules WHERE id = ? AND user_id = ?').run(id, userId);
   }
 
   function advanceNextDate(id, userId) {

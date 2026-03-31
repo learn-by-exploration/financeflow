@@ -116,8 +116,8 @@ describe('Recurring Transactions & Scheduler', () => {
       const scheduler = getScheduler();
       scheduler.spawnDueRecurring();
       const updated = db.prepare('SELECT next_date FROM recurring_rules WHERE id = ?').get(rule.id);
-      const expected = new Date();
-      expected.setMonth(expected.getMonth() + 1);
+      const expected = new Date(today() + 'T00:00:00Z');
+      expected.setUTCMonth(expected.getUTCMonth() + 1);
       assert.equal(updated.next_date, expected.toISOString().slice(0, 10));
     });
 
@@ -128,8 +128,8 @@ describe('Recurring Transactions & Scheduler', () => {
       const scheduler = getScheduler();
       scheduler.spawnDueRecurring();
       const updated = db.prepare('SELECT next_date FROM recurring_rules WHERE id = ?').get(rule.id);
-      const expected = new Date();
-      expected.setMonth(expected.getMonth() + 3);
+      const expected = new Date(today() + 'T00:00:00Z');
+      expected.setUTCMonth(expected.getUTCMonth() + 3);
       assert.equal(updated.next_date, expected.toISOString().slice(0, 10));
     });
 
@@ -140,8 +140,8 @@ describe('Recurring Transactions & Scheduler', () => {
       const scheduler = getScheduler();
       scheduler.spawnDueRecurring();
       const updated = db.prepare('SELECT next_date FROM recurring_rules WHERE id = ?').get(rule.id);
-      const expected = new Date();
-      expected.setFullYear(expected.getFullYear() + 1);
+      const expected = new Date(today() + 'T00:00:00Z');
+      expected.setUTCFullYear(expected.getUTCFullYear() + 1);
       assert.equal(updated.next_date, expected.toISOString().slice(0, 10));
     });
 

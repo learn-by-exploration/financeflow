@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createAccountSchema } = require('../schemas/account.schema');
+const { createAccountSchema, updateAccountSchema } = require('../schemas/account.schema');
 const createAccountRepository = require('../repositories/account.repository');
 const createTransactionRepository = require('../repositories/transaction.repository');
 const { ValidationError, NotFoundError } = require('../errors');
@@ -44,7 +44,11 @@ module.exports = function createAccountRoutes({ db, audit }) {
   // PUT /api/accounts/:id
   router.put('/:id', (req, res, next) => {
     try {
-      const account = accountRepo.update(req.params.id, req.user.id, req.body);
+      const parsed = updateAccountSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
+      }
+      const account = accountRepo.update(req.params.id, req.user.id, parsed.data);
       if (!account) {
         throw new NotFoundError('Account');
       }

@@ -21,9 +21,17 @@ module.exports = function createGroupInviteRoutes({ db, audit }) {
       const token = crypto.randomBytes(24).toString('hex');
       const { expires_at, max_uses } = req.body || {};
 
+      // Validate optional fields
+      if (expires_at !== undefined && expires_at !== null) {
+        if (typeof expires_at !== 'string' || isNaN(Date.parse(expires_at))) {
+          return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'expires_at must be a valid ISO date string' } });
+        }
+      }
+      const sanitizedMaxUses = max_uses != null ? Math.max(0, Math.floor(Number(max_uses) || 0)) : 0;
+
       const result = db.prepare(
         'INSERT INTO group_invites (group_id, token, created_by, expires_at, max_uses) VALUES (?, ?, ?, ?, ?)'
-      ).run(group.id, token, req.user.id, expires_at || null, max_uses || 0);
+      ).run(group.id, token, req.user.id, expires_at || null, sanitizedMaxUses);
 
       const invite = db.prepare('SELECT * FROM group_invites WHERE id = ?').get(result.lastInsertRowid);
 

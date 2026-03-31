@@ -1,7 +1,7 @@
 // PersonalFi — Shared utilities (ES module)
 
 let _token = localStorage.getItem('pfi_token') || sessionStorage.getItem('pfi_token');
-const token = () => _token;
+const token = () => localStorage.getItem('pfi_token') || sessionStorage.getItem('pfi_token') || _token;
 const user = () => JSON.parse(localStorage.getItem('pfi_user') || sessionStorage.getItem('pfi_user') || '{}');
 
 // ─── API helper ───
@@ -11,7 +11,8 @@ export async function api(path, options = {}) {
   if (t) headers['X-Session-Token'] = t;
   const res = await fetch(`/api${path}`, { ...options, headers });
   if (res.status === 401) {
-    localStorage.clear();
+    localStorage.removeItem('pfi_token');
+    localStorage.removeItem('pfi_user');
     // Store message for login page
     sessionStorage.setItem('pfi_session_expired', '1');
     window.location.href = '/login.html';

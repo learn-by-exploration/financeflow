@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createSubscriptionSchema } = require('../schemas/subscription.schema');
+const { createSubscriptionSchema, updateSubscriptionSchema } = require('../schemas/subscription.schema');
 const createSubscriptionRepository = require('../repositories/subscription.repository');
 
 module.exports = function createSubscriptionRoutes({ db, audit }) {
@@ -40,7 +40,9 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
     try {
       const existing = subRepo.findById(req.params.id, req.user.id);
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Subscription not found' } });
-      const subscription = subRepo.update(req.params.id, req.user.id, req.body);
+      const parsed = updateSubscriptionSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      const subscription = subRepo.update(req.params.id, req.user.id, parsed.data);
       res.json({ subscription });
     } catch (err) { next(err); }
   });

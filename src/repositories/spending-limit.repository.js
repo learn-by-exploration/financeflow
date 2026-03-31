@@ -102,15 +102,15 @@ module.exports = function createSpendingLimitRepository({ db }) {
         startDate = now.toISOString().slice(0, 10);
         break;
       case 'weekly': {
-        const day = now.getDay();
-        const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday start
+        const day = now.getUTCDay();
+        const diff = now.getUTCDate() - day + (day === 0 ? -6 : 1); // Monday start
         const monday = new Date(now);
-        monday.setDate(diff);
+        monday.setUTCDate(diff);
         startDate = monday.toISOString().slice(0, 10);
         break;
       }
       case 'monthly':
-        startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+        startDate = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
         break;
       default:
         startDate = now.toISOString().slice(0, 10);

@@ -9,9 +9,11 @@ const createBudgetSchema = z.object({
   end_date: z.string().optional().nullable(),
   items: z.array(z.object({
     category_id: z.number().int().positive(),
-    amount: z.number().positive(),
+    amount: z.number().positive().max(1e15),
     rollover: z.number().int().min(0).max(1).optional().default(0),
   })).optional().default([]),
 });
 
-module.exports = { createBudgetSchema };
+module.exports = { createBudgetSchema, updateBudgetSchema: createBudgetSchema.partial().omit({ items: true }).extend({
+  is_active: z.number().int().min(0).max(1).optional(),
+}) };

@@ -13,7 +13,7 @@ module.exports = function createRecurringSuggestionRoutes({ db, audit }) {
 
       // Fetch all user transactions
       const transactions = db.prepare(
-        'SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC'
+        'SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC LIMIT 5000'
       ).all(userId);
 
       // Fetch dismissed pattern hashes
@@ -37,6 +37,14 @@ module.exports = function createRecurringSuggestionRoutes({ db, audit }) {
       if (!pattern_hash || !description || !amount || !account_id || !frequency || !type || !next_date) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Missing required fields' } });
       }
+
+      // Validate type and frequency
+      const VALID_TYPES = ['income', 'expense'];
+      const VALID_FREQS = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
+      if (!VALID_TYPES.includes(type)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid type' } });
+      if (!VALID_FREQS.includes(frequency)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid frequency' } });
+      if (typeof amount !== 'number' || amount <= 0) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Amount must be positive' } });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(next_date)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'next_date must be YYYY-MM-DD' } });
 
       // Verify account belongs to user
       const acct = db.prepare('SELECT id FROM accounts WHERE id = ? AND user_id = ?').get(account_id, userId);

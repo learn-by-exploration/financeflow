@@ -27,6 +27,9 @@ module.exports = function createSettingsRoutes({ db }) {
       if (!key || !ALLOWED_KEYS.includes(key)) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Key must be one of: ${ALLOWED_KEYS.join(', ')}` } });
       }
+      if (value === undefined || value === null || (typeof value === 'string' && !value.trim()) || typeof value !== 'string' || value.length > 1000) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Value must be a non-empty string (max 1000 chars)' } });
+      }
       db.prepare('INSERT INTO settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = ?')
         .run(req.user.id, key, value, value);
       res.json({ ok: true });

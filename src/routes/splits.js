@@ -25,6 +25,9 @@ module.exports = function createSplitRoutes({ db, audit }) {
   // POST /api/groups/:groupId/expenses — add shared expense
   router.post('/:groupId/expenses', (req, res, next) => {
     try {
+      const membership = splitRepo.getMembership(req.params.groupId, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member of this group' } });
+
       const parsed = createExpenseSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
@@ -93,6 +96,9 @@ module.exports = function createSplitRoutes({ db, audit }) {
   // DELETE /api/groups/:groupId/expenses/:id
   router.delete('/:groupId/expenses/:id', (req, res, next) => {
     try {
+      const membership = splitRepo.getMembership(req.params.groupId, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
       const expense = splitRepo.getExpense(req.params.id, req.params.groupId);
       if (!expense) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Expense not found' } });
       splitRepo.deleteExpense(req.params.id);
@@ -117,6 +123,9 @@ module.exports = function createSplitRoutes({ db, audit }) {
   // POST /api/groups/:groupId/settle — record a settlement
   router.post('/:groupId/settle', (req, res, next) => {
     try {
+      const membership = splitRepo.getMembership(req.params.groupId, req.user.id);
+      if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
+
       const parsed = createSettlementSchema.safeParse(req.body);
       if (!parsed.success) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });

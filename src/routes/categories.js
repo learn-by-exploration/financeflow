@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createCategorySchema } = require('../schemas/category.schema');
+const { createCategorySchema, updateCategorySchema } = require('../schemas/category.schema');
 const createCategoryRepository = require('../repositories/category.repository');
 const { ValidationError, NotFoundError } = require('../errors');
 const { safePatternTest } = require('../utils/safe-regex');
@@ -71,7 +71,9 @@ module.exports = function createCategoryRoutes({ db }) {
       if (existing.is_system) {
         return res.json({ category: existing });
       }
-      const category = categoryRepo.update(req.params.id, req.user.id, req.body);
+      const parsed = updateCategorySchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      const category = categoryRepo.update(req.params.id, req.user.id, parsed.data);
       res.json({ category });
     } catch (err) { next(err); }
   });

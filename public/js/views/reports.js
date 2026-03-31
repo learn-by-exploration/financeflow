@@ -193,7 +193,8 @@ export async function renderReports(container) {
         yirResult.appendChild(el('p', { textContent: `Most frequent: ${data.most_frequent_merchant.description} (${data.most_frequent_merchant.count} times)` }));
       }
     } catch (err) {
-      yirResult.innerHTML = `<p class="error">Failed to load: ${err.message}</p>`;
+      yirResult.textContent = '';
+      yirResult.appendChild(el('p', { className: 'error', textContent: `Failed to load: ${err.message}` }));
     }
   });
 

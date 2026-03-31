@@ -106,6 +106,9 @@ module.exports = function createAdminRoutes({ db }) {
   router.post('/audit/purge', (req, res, next) => {
     try {
       const retentionDays = parseInt(req.body.retentionDays, 10) || 90;
+      if (retentionDays < 7) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'retentionDays must be at least 7' } });
+      }
       const result = auditRetention.purgeOldLogs(retentionDays);
       res.json(result);
     } catch (err) { next(err); }

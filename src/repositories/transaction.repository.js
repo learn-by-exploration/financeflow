@@ -41,7 +41,7 @@ module.exports = function createTransactionRepository({ db }) {
   }
 
   function deleteById(id, userId) {
-    return db.prepare('DELETE FROM transactions WHERE id = ?').run(id);
+    return db.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').run(id, userId);
   }
 
   function countByUser(userId, filters = {}) {
@@ -87,7 +87,7 @@ module.exports = function createTransactionRepository({ db }) {
     const doDelete = db.transaction(() => {
       for (const tx of txns) {
         const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
-        db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(Math.round((balanceChange + Number.EPSILON) * 100) / 100, tx.account_id);
+        db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').run(Math.round((balanceChange + Number.EPSILON) * 100) / 100, tx.account_id, userId);
         db.prepare('DELETE FROM transaction_tags WHERE transaction_id = ?').run(tx.id);
         db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
       }

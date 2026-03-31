@@ -5,7 +5,9 @@ module.exports = function createExportRoutes({ db }) {
 
   function escapeCsv(value) {
     if (value == null) return '';
-    const str = String(value);
+    let str = String(value);
+    // Prevent CSV formula injection
+    if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;
     if (str.includes(',') || str.includes('"') || str.includes('\n')) {
       return '"' + str.replace(/"/g, '""') + '"';
     }
@@ -50,7 +52,7 @@ module.exports = function createExportRoutes({ db }) {
       if (dateTo) { sql += ' AND t.date <= ?'; params.push(dateTo); }
       if (tag_id) { sql += ' AND t.id IN (SELECT transaction_id FROM transaction_tags WHERE tag_id = ?)'; params.push(tag_id); }
 
-      sql += ' ORDER BY t.date DESC, t.id DESC';
+      sql += ' ORDER BY t.date DESC, t.id DESC LIMIT 100000';
 
       const rows = db.prepare(sql).all(...params);
 

@@ -113,7 +113,17 @@ const views = {
 
 function placeholder(title, desc) {
   return Promise.resolve((container) => {
-    container.innerHTML = `<div class="view-header"><h2>${title}</h2></div><p class="placeholder">${desc}</p>`;
+    container.textContent = '';
+    const header = document.createElement('div');
+    header.className = 'view-header';
+    const h2 = document.createElement('h2');
+    h2.textContent = title;
+    header.appendChild(h2);
+    const p = document.createElement('p');
+    p.className = 'placeholder';
+    p.textContent = desc;
+    container.appendChild(header);
+    container.appendChild(p);
   });
 }
 
@@ -281,7 +291,9 @@ function focusMainHeading() {
 }
 
 // ─── Render dispatcher ───
+let _renderGen = 0;
 async function render() {
+  const thisRender = ++_renderGen;
   const container = document.getElementById('view-container');
   container.innerHTML = '';
   showLoading(container);
@@ -295,6 +307,7 @@ async function render() {
     // Onboarding check: if on dashboard and no accounts, show welcome
     if (currentView === 'dashboard') {
       const { accounts } = await Api.get('/accounts');
+      if (thisRender !== _renderGen) return; // stale render
       if (accounts.length === 0) {
         container.innerHTML = '';
         renderOnboarding(container);
@@ -305,6 +318,7 @@ async function render() {
     const loader = views[currentView];
     if (!loader) { container.innerHTML = '<p>View not found</p>'; return; }
     const renderFn = await loader();
+    if (thisRender !== _renderGen) return; // stale render
     container.innerHTML = '';
     // Re-trigger fade-in animation on view switch (skip if reduced motion)
     if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {

@@ -4,7 +4,7 @@ const VALID_FREQUENCIES = ['weekly', 'monthly', 'quarterly', 'yearly'];
 
 const createSubscriptionSchema = z.object({
   name: z.string().min(1, 'Subscription name is required').max(100),
-  amount: z.number().positive('Amount must be positive'),
+  amount: z.number().positive('Amount must be positive').max(1e15, 'Amount too large'),
   currency: z.string().length(3).optional(),
   frequency: z.enum(VALID_FREQUENCIES),
   category_id: z.number().int().positive().optional().nullable(),
@@ -13,4 +13,8 @@ const createSubscriptionSchema = z.object({
   notes: z.string().max(500).optional().nullable(),
 });
 
-module.exports = { createSubscriptionSchema };
+const updateSubscriptionSchema = createSubscriptionSchema.partial().extend({
+  is_active: z.number().int().min(0).max(1).optional(),
+});
+
+module.exports = { createSubscriptionSchema, updateSubscriptionSchema };

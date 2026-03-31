@@ -31,21 +31,21 @@ module.exports = function createTransactionService({ db }) {
     if (newAmount === undefined || newAmount === oldTx.amount) return;
     const delta = newAmount - oldTx.amount;
     if (oldTx.type === 'expense') {
-      db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(roundCurrency(delta), oldTx.account_id);
+      db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').run(roundCurrency(delta), oldTx.account_id, oldTx.user_id);
     } else if (oldTx.type === 'income') {
-      db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(roundCurrency(delta), oldTx.account_id);
+      db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').run(roundCurrency(delta), oldTx.account_id, oldTx.user_id);
     }
   }
 
   function deleteTransfer(tx) {
-    const paired = db.prepare('SELECT * FROM transactions WHERE id = ?').get(tx.transfer_transaction_id);
+    const paired = db.prepare('SELECT * FROM transactions WHERE id = ? AND user_id = ?').get(tx.transfer_transaction_id, tx.user_id);
     const doDelete = db.transaction(() => {
-      db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(roundCurrency(tx.amount), tx.account_id);
+      db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').run(roundCurrency(tx.amount), tx.account_id, tx.user_id);
       if (paired) {
-        db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(roundCurrency(paired.amount), paired.account_id);
-        db.prepare('DELETE FROM transactions WHERE id = ?').run(paired.id);
+        db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').run(roundCurrency(paired.amount), paired.account_id, paired.user_id);
+        db.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').run(paired.id, paired.user_id);
       }
-      db.prepare('DELETE FROM transactions WHERE id = ?').run(tx.id);
+      db.prepare('DELETE FROM transactions WHERE id = ? AND user_id = ?').run(tx.id, tx.user_id);
     });
     doDelete();
   }

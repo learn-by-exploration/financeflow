@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createTagSchema } = require('../schemas/tag.schema');
+const { createTagSchema, updateTagSchema } = require('../schemas/tag.schema');
 const createTagRepository = require('../repositories/tag.repository');
 
 module.exports = function createTagRoutes({ db, audit }) {
@@ -39,8 +39,9 @@ module.exports = function createTagRoutes({ db, audit }) {
     try {
       const tag = tagRepo.findById(req.params.id, req.user.id);
       if (!tag) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Tag not found' } });
-
-      const updated = tagRepo.update(tag.id, req.user.id, req.body);
+      const parsed = updateTagSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      const updated = tagRepo.update(tag.id, req.user.id, parsed.data);
       res.json({ tag: updated });
     } catch (err) { next(err); }
   });

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const createTransactionService = require('../services/transaction.service');
 const { safePatternTest } = require('../utils/safe-regex');
-const { createTransactionSchema, bulkDeleteSchema, bulkCategorizeSchema, bulkTagSchema, bulkUntagSchema } = require('../schemas/transaction.schema');
+const { createTransactionSchema, updateTransactionSchema, bulkDeleteSchema, bulkCategorizeSchema, bulkTagSchema, bulkUntagSchema } = require('../schemas/transaction.schema');
 const createTransactionRepository = require('../repositories/transaction.repository');
 const createAccountRepository = require('../repositories/account.repository');
 const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
@@ -75,6 +75,12 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         }
         if (transfer_to_account_id === account_id) {
           throw new ValidationError('Cannot transfer to the same account');
+        }
+
+        // Verify destination account belongs to user
+        const destAcct = db.prepare('SELECT id FROM accounts WHERE id = ? AND user_id = ?').get(transfer_to_account_id, req.user.id);
+        if (!destAcct) {
+          throw new ValidationError('Destination account not found');
         }
 
         const transaction = txService.createTransfer({
@@ -312,13 +318,17 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   // PUT /api/transactions/:id
   router.put('/:id', (req, res, next) => {
     try {
+      const parsed = updateTransactionSchema.safeParse(req.body);
+      if (!parsed.success) {
+        throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
+      }
       const old = txRepo.findById(req.params.id, req.user.id);
       if (!old) throw new NotFoundError('Transaction');
 
       // Handle amount update with delta-based balance recalculation
-      txService.applyAmountDelta(old, req.body.amount);
+      txService.applyAmountDelta(old, parsed.data.amount);
 
-      const transaction = txRepo.update(req.params.id, req.user.id, req.body);
+      const transaction = txRepo.update(req.params.id, req.user.id, parsed.data);
       invalidateCache(req.user.id, CACHE_PATTERNS);
       res.json({ transaction });
     } catch (err) { next(err); }
@@ -335,7 +345,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       } else {
         // Regular: reverse balance change
         const balanceChange = tx.type === 'income' ? -tx.amount : tx.amount;
-        db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ?').run(Math.round((balanceChange + Number.EPSILON) * 100) / 100, tx.account_id);
+        db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').run(Math.round((balanceChange + Number.EPSILON) * 100) / 100, tx.account_id, req.user.id);
         txRepo.delete(tx.id, req.user.id);
       }
 

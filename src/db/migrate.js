@@ -23,8 +23,10 @@ function runMigrations(db, logger) {
 
     const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
     try {
-      db.exec(sql);
-      db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
+      db.transaction(() => {
+        db.exec(sql);
+        db.prepare('INSERT INTO _migrations (name) VALUES (?)').run(file);
+      })();
       if (logger) logger.info({ migration: file }, 'Applied migration');
     } catch (err) {
       if (logger) logger.error({ err, migration: file }, 'Migration failed');

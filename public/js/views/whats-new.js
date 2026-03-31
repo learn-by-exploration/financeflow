@@ -19,17 +19,19 @@ export async function renderWhatsNew(container) {
       return;
     }
 
-    list.innerHTML = data.entries.map(entry => `
-      <div class="whats-new-entry card">
-        <div class="whats-new-header">
-          <span class="whats-new-version">v${entry.version}</span>
-          <span class="whats-new-date text-muted">${entry.date}</span>
-        </div>
-        <ul class="whats-new-changes">
-          ${entry.changes.map(c => `<li>${c}</li>`).join('')}
-        </ul>
-      </div>
-    `).join('');
+    list.innerHTML = '';
+    data.entries.forEach(entry => {
+      const entryDiv = el('div', { className: 'whats-new-entry card' });
+      const header = el('div', { className: 'whats-new-header' }, [
+        el('span', { className: 'whats-new-version', textContent: `v${entry.version}` }),
+        el('span', { className: 'whats-new-date text-muted', textContent: entry.date }),
+      ]);
+      const ul = el('ul', { className: 'whats-new-changes' });
+      (entry.changes || []).forEach(c => ul.appendChild(el('li', { textContent: c })));
+      entryDiv.appendChild(header);
+      entryDiv.appendChild(ul);
+      list.appendChild(entryDiv);
+    });
   } catch (err) {
     const list = document.getElementById('whats-new-list');
     list.innerHTML = `<p class="text-muted">Failed to load changelog.</p>`;

@@ -19,18 +19,11 @@ describe('Health Check Enhancements & Monitoring — v0.3.24', () => {
       assert.equal(res.body.db, 'ok');
     });
 
-    it('returns memory usage info', async () => {
+    it('does not expose internal metrics publicly', async () => {
       const res = await rawAgent().get('/api/health').expect(200);
-      assert.ok(res.body.memory);
-      assert.equal(typeof res.body.memory.rss, 'number');
-      assert.equal(typeof res.body.memory.heapUsed, 'number');
-      assert.equal(typeof res.body.memory.heapTotal, 'number');
-    });
-
-    it('returns activeSessions count', async () => {
-      const res = await rawAgent().get('/api/health').expect(200);
-      assert.equal(typeof res.body.activeSessions, 'number');
-      assert.ok(res.body.activeSessions >= 0);
+      assert.equal(res.body.memory, undefined);
+      assert.equal(res.body.activeSessions, undefined);
+      assert.equal(res.body.diskSpace, undefined);
     });
 
     it('does not require authentication', async () => {

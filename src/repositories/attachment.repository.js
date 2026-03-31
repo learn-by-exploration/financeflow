@@ -9,7 +9,10 @@ module.exports = function createAttachmentRepository({ db }) {
     return db.prepare('SELECT * FROM attachments WHERE id = ?').get(result.lastInsertRowid);
   }
 
-  function findById(id) {
+  function findById(id, userId) {
+    if (userId !== undefined) {
+      return db.prepare('SELECT * FROM attachments WHERE id = ? AND user_id = ?').get(id, userId);
+    }
     return db.prepare('SELECT * FROM attachments WHERE id = ?').get(id);
   }
 
@@ -19,7 +22,10 @@ module.exports = function createAttachmentRepository({ db }) {
     ).all(transactionId, userId);
   }
 
-  function deleteById(id) {
+  function deleteById(id, userId) {
+    if (userId !== undefined) {
+      return db.prepare('DELETE FROM attachments WHERE id = ? AND user_id = ?').run(id, userId);
+    }
     return db.prepare('DELETE FROM attachments WHERE id = ?').run(id);
   }
 

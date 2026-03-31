@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createGoalSchema } = require('../schemas/goal.schema');
+const { createGoalSchema, contributeSchema, updateGoalSchema } = require('../schemas/goal.schema');
 const createGoalRepository = require('../repositories/goal.repository');
 const createTransactionRepository = require('../repositories/transaction.repository');
 const createNotificationService = require('../services/notification.service');
@@ -40,7 +40,9 @@ module.exports = function createGoalRoutes({ db, audit }) {
     try {
       const existing = goalRepo.findById(req.params.id, req.user.id);
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Goal not found' } });
-      const goal = goalRepo.update(req.params.id, req.user.id, req.body);
+      const parsed = updateGoalSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      const goal = goalRepo.update(req.params.id, req.user.id, parsed.data);
 
       // Auto-notification: goal completed
       if (!existing.is_completed && goal.is_completed) {

@@ -83,10 +83,7 @@ module.exports = function createAuthRoutes({ db, audit }) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid credentials' } });
       }
 
-      // Successful login — reset lockout state
-      db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(user.id);
-
-      // TOTP 2FA check
+      // TOTP 2FA check (before resetting lockout)
       if (user.totp_enabled) {
         if (!totp_code) {
           return res.status(403).json({ requires_2fa: true, message: 'TOTP code required' });
@@ -101,10 +98,15 @@ module.exports = function createAuthRoutes({ db, audit }) {
         });
         const delta = totp.validate({ token: totp_code, window: 1 });
         if (delta === null) {
+          const newAttempts = (user.failed_login_attempts || 0) + 1;
+          db.prepare('UPDATE users SET failed_login_attempts = ? WHERE id = ?').run(newAttempts, user.id);
           audit.log(user.id, 'user.login_failed', 'user', user.id, { username, reason: 'invalid_totp' }, { ip, userAgent });
           return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid TOTP code' } });
         }
       }
+
+      // Successful login — reset lockout state
+      db.prepare('UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?').run(user.id);
 
       const token = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');

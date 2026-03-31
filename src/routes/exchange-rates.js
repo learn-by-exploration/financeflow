@@ -17,9 +17,12 @@ module.exports = function createExchangeRateRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
-  // POST /api/exchange-rates
+  // POST /api/exchange-rates (admin only)
   router.post('/', (req, res, next) => {
     try {
+      if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Admin access required' } });
+      }
       const parsed = createExchangeRateSchema.safeParse(req.body);
       if (!parsed.success) {
         throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
@@ -39,9 +42,12 @@ module.exports = function createExchangeRateRoutes({ db, audit }) {
     }
   });
 
-  // DELETE /api/exchange-rates/:id
+  // DELETE /api/exchange-rates/:id (admin only)
   router.delete('/:id', (req, res, next) => {
     try {
+      if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Admin access required' } });
+      }
       const id = Number(req.params.id);
       const existing = rateRepo.findById(id);
       if (!existing) throw new NotFoundError('Exchange rate not found');

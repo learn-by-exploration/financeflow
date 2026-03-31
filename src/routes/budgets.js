@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createBudgetSchema } = require('../schemas/budget.schema');
+const { createBudgetSchema, updateBudgetSchema } = require('../schemas/budget.schema');
 const createBudgetRepository = require('../repositories/budget.repository');
 const { invalidateCache } = require('../middleware/cache');
 
@@ -125,7 +125,9 @@ module.exports = function createBudgetRoutes({ db, audit }) {
     try {
       const existing = budgetRepo.findById(req.params.id, req.user.id);
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget not found' } });
-      const budget = budgetRepo.update(req.params.id, req.user.id, req.body);
+      const parsed = updateBudgetSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
+      const budget = budgetRepo.update(req.params.id, req.user.id, parsed.data);
       res.json({ budget });
     } catch (err) { next(err); }
   });
@@ -139,7 +141,17 @@ module.exports = function createBudgetRoutes({ db, audit }) {
       const item = budgetRepo.findItemById(req.params.itemId, budget.id);
       if (!item) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Budget item not found' } });
 
-      const updated = budgetRepo.updateItem(item.id, budget.id, req.body);
+      const { amount, rollover } = req.body;
+      const itemData = {};
+      if (amount !== undefined) {
+        if (typeof amount !== 'number' || amount < 0) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Amount must be a non-negative number' } });
+        itemData.amount = amount;
+      }
+      if (rollover !== undefined) {
+        if (![0, 1].includes(rollover)) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Rollover must be 0 or 1' } });
+        itemData.rollover = rollover;
+      }
+      const updated = budgetRepo.updateItem(item.id, budget.id, itemData);
       res.json({ item: updated });
     } catch (err) { next(err); }
   });

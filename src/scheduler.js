@@ -12,7 +12,7 @@ module.exports = function createScheduler(db, logger) {
 
   function start() {
     for (const job of jobs) {
-      job.fn();
+      try { job.fn(); } catch (err) { logger.error({ err, job: job.name }, 'Scheduler job failed on initial run'); }
       job.timer = setInterval(() => {
         try { job.fn(); } catch (err) { logger.error({ err, job: job.name }, 'Scheduler job failed'); }
       }, job.intervalMs);

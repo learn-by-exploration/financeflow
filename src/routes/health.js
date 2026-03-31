@@ -19,40 +19,6 @@ module.exports = function createHealthRoutes({ db }) {
   // ─── Enhanced health endpoint ───
   router.get('/', (_req, res) => {
     const dbStatus = checkDb();
-    const mem = process.memoryUsage();
-
-    // Disk space for data directory
-    let diskSpace = null;
-    try {
-      const dbFile = path.join(config.dbDir, 'personalfi.db');
-      const stats = fs.statSync(dbFile);
-      diskSpace = { dbFileSize: stats.size };
-    } catch {}
-
-    // Active session count
-    let activeSessions = 0;
-    try {
-      const row = db.prepare(
-        "SELECT COUNT(*) as cnt FROM sessions WHERE expires_at > datetime('now')"
-      ).get();
-      activeSessions = row.cnt;
-    } catch {}
-
-    // Last backup timestamp
-    let lastBackup = null;
-    try {
-      const backupDir = path.join(config.dbDir, 'backups');
-      if (fs.existsSync(backupDir)) {
-        const files = fs.readdirSync(backupDir)
-          .filter(f => f.endsWith('.db'))
-          .sort()
-          .reverse();
-        if (files.length > 0) {
-          const stat = fs.statSync(path.join(backupDir, files[0]));
-          lastBackup = stat.mtime.toISOString();
-        }
-      }
-    } catch {}
 
     res.json({
       status: dbStatus === 'ok' ? 'ok' : 'degraded',
@@ -60,14 +26,6 @@ module.exports = function createHealthRoutes({ db }) {
       version: config.version,
       uptime: process.uptime(),
       db: dbStatus,
-      memory: {
-        rss: mem.rss,
-        heapUsed: mem.heapUsed,
-        heapTotal: mem.heapTotal,
-      },
-      diskSpace,
-      activeSessions,
-      lastBackup,
     });
   });
 

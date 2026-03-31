@@ -5,4 +5,6 @@ const createTagSchema = z.object({
   color: z.string().max(20).optional(),
 });
 
-module.exports = { createTagSchema };
+const updateTagSchema = createTagSchema.partial();
+
+module.exports = { createTagSchema, updateTagSchema };

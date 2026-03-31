@@ -10,4 +10,6 @@ const createCategorySchema = z.object({
   parent_id: z.number().int().positive().optional().nullable(),
 });
 
-module.exports = { createCategorySchema };
+const updateCategorySchema = createCategorySchema.partial();
+
+module.exports = { createCategorySchema, updateCategorySchema };

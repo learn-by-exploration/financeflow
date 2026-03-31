@@ -87,9 +87,14 @@ module.exports = function createGroupRoutes({ db, audit }) {
       if (!parsed.success) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
-      const { username, display_name } = req.body;
+      const { username, display_name } = parsed.data;
       const group = groupRepo.findById(req.params.id);
       if (!group) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Group not found' } });
+
+      const membership = groupRepo.getMembership(group.id, req.user.id);
+      if (!membership) {
+        return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member of this group' } });
+      }
 
       let userId = null;
       let displayName = display_name || 'Guest';
@@ -160,11 +165,25 @@ module.exports = function createGroupRoutes({ db, audit }) {
       if (!membership) return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Not a member' } });
 
       const { name, period, items } = req.body;
-      if (!name || !period) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name and period are required' } });
+      if (!name || typeof name !== 'string' || !name.trim() || name.length > 200) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name is required (max 200 chars)' } });
+      }
+      const VALID_PERIODS = ['weekly', 'monthly', 'quarterly', 'yearly'];
+      if (!period || !VALID_PERIODS.includes(period)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Period must be one of: ${VALID_PERIODS.join(', ')}` } });
+      }
+      if (items !== undefined && !Array.isArray(items)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Items must be an array' } });
+      }
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (typeof item.amount !== 'number' || item.amount < 0) {
+            return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Each item must have a non-negative numeric amount' } });
+          }
+        }
       }
 
-      const { budget, items: insertedItems } = groupRepo.createSharedBudget(req.params.id, name, period, items);
+      const { budget, items: insertedItems } = groupRepo.createSharedBudget(req.params.id, name.trim(), period, items);
       audit.log(req.user.id, 'shared_budget.create', 'shared_budget', budget.id);
       res.status(201).json({ budget, items: insertedItems });
     } catch (err) { next(err); }
@@ -194,7 +213,17 @@ module.exports = function createGroupRoutes({ db, audit }) {
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Shared budget not found' } });
 
       const { name, period, is_active } = req.body;
-      const budget = groupRepo.updateSharedBudget(existing.id, { name, period, is_active });
+      if (name !== undefined && (typeof name !== 'string' || !name.trim() || name.length > 200)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Name must be a non-empty string (max 200 chars)' } });
+      }
+      const VALID_BUDGET_PERIODS = ['weekly', 'monthly', 'quarterly', 'yearly'];
+      if (period !== undefined && !VALID_BUDGET_PERIODS.includes(period)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Period must be one of: ${VALID_BUDGET_PERIODS.join(', ')}` } });
+      }
+      if (is_active !== undefined && ![0, 1, true, false].includes(is_active)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'is_active must be 0 or 1' } });
+      }
+      const budget = groupRepo.updateSharedBudget(existing.id, { name: name?.trim(), period, is_active: is_active !== undefined ? Number(!!is_active) : undefined });
       audit.log(req.user.id, 'shared_budget.update', 'shared_budget', existing.id);
       res.json({ budget });
     } catch (err) { next(err); }

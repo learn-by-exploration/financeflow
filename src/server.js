@@ -1,7 +1,6 @@
 const express = require('express');
 const path = require('path');
 const helmet = require('helmet');
-const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const initDatabase = require('./db');
@@ -62,10 +61,6 @@ app.use(metricsMiddleware);
 app.use(createCustomCorsMiddleware());
 app.use(timeoutMiddleware());
 app.use(express.json({ limit: '1mb' }));
-const corsOrigins = config.corsOrigin
-  ? config.corsOrigin.split(',').map(s => s.trim())
-  : false;
-app.use(cors({ origin: corsOrigins }));
 
 // ─── API v1 prefix alias ───
 app.use((req, _res, next) => {
@@ -91,7 +86,8 @@ app.use(createRequestLogger());
 // CSRF middleware disabled — app uses X-Session-Token header auth,
 // which inherently prevents CSRF (browsers don't auto-attach custom headers).
 // The middleware exists at middleware/csrf.js for future cookie-auth use.
-app.use(express.static(path.join(__dirname, '..', 'public'), { dotfiles: 'allow', index: false }));
+app.use('/.well-known', express.static(path.join(__dirname, '..', 'public', '.well-known')));
+app.use(express.static(path.join(__dirname, '..', 'public'), { dotfiles: 'deny', index: false }));
 
 // ─── Routes ───
 const createAuthRoutes = require('./routes/auth');

@@ -51,6 +51,17 @@ createPerUserRateLimit._resetAll = function () {
   userWindows.clear();
 };
 
+// Cleanup stale entries (call periodically)
+createPerUserRateLimit._cleanup = function (windowMs = DEFAULT_WINDOW_MS) {
+  const now = Date.now();
+  const cutoff = now - windowMs;
+  for (const [userId, timestamps] of userWindows) {
+    if (timestamps.length === 0 || timestamps[timestamps.length - 1] <= cutoff) {
+      userWindows.delete(userId);
+    }
+  }
+};
+
 // For testing: get internal map
 createPerUserRateLimit._getWindows = function () {
   return userWindows;

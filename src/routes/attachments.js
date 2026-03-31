@@ -93,7 +93,8 @@ module.exports = function createAttachmentRoutes({ db, audit }) {
       if (attachment.user_id !== req.user.id) throw new ForbiddenError();
       if (!fs.existsSync(attachment.file_path)) throw new NotFoundError('Attachment file');
       res.setHeader('Content-Type', attachment.mime_type);
-      res.setHeader('Content-Disposition', `inline; filename="${attachment.original_name}"`);
+      const safeName = attachment.original_name.replace(/["\\\n\r]/g, '_');
+      res.setHeader('Content-Disposition', `inline; filename="${safeName}"`);
       const stream = fs.createReadStream(attachment.file_path);
       stream.pipe(res);
     } catch (err) { next(err); }

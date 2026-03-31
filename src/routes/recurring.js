@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createRecurringSchema, VALID_FREQUENCIES } = require('../schemas/recurring.schema');
+const { createRecurringSchema, updateRecurringSchema, VALID_FREQUENCIES } = require('../schemas/recurring.schema');
 const createRecurringRepository = require('../repositories/recurring.repository');
 
 module.exports = function createRecurringRoutes({ db, audit }) {
@@ -42,11 +42,10 @@ module.exports = function createRecurringRoutes({ db, audit }) {
       const existing = recurringRepo.findById(req.params.id, req.user.id);
       if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurring rule not found' } });
 
-      if (req.body.frequency !== undefined && !VALID_FREQUENCIES.includes(req.body.frequency)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: `Invalid frequency` } });
-      }
+      const parsed = updateRecurringSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
 
-      const rule = recurringRepo.update(req.params.id, req.user.id, req.body);
+      const rule = recurringRepo.update(req.params.id, req.user.id, parsed.data);
       audit.log(req.user.id, 'recurring.update', 'recurring_rule', rule.id);
       res.json({ rule });
     } catch (err) { next(err); }
