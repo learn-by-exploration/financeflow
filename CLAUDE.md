@@ -199,3 +199,70 @@ docker compose up --build -d
 ```
 
 Container runs as non-root user, read-only filesystem, memory-limited. Data persisted via named volume.
+
+---
+
+## Core Project Directives
+
+### 1. TDD is Non-Negotiable
+- ALL feature development must begin with a test.
+- Writing production logic without first providing the unit/integration test that expects it is forbidden.
+- Follow **Red → Green → Refactor** strictly.
+
+### 2. Multi-Stakeholder Alignment
+Before suggesting major architectural changes or adding new libraries, run a silent check against core personas:
+- **PM:** Does this delay the launch?
+- **Banker:** Does this increase infrastructure costs?
+- **QA:** Does this make the system harder to test?
+
+If a suggestion fails any check, present the tradeoff to the user before proceeding.
+
+### 3. Code Quality & Standards
+- **Simplicity over cleverness:** Write readable, maintainable code.
+- **SOLID Principles:** Adhere to single responsibility and dependency inversion.
+- **Security First:** Always sanitize inputs and assume hostile user behavior.
+
+### 4. Output Formatting
+- Keep conversational filler to an absolute minimum.
+- When providing code, always provide the file path at the top of the code block.
+- When refactoring, explain *why* the refactor is necessary (e.g., performance, readability, DRY).
+
+### 5. State Management & Check-ins
+- If the context gets too long, summarize the current state of the application before writing the next test.
+- Always end your response by asking for confirmation to proceed to the next logical step.
+
+---
+
+## GAN-Based Development Protocol
+
+All implementation follows a strict Generative Adversarial Network (GAN) protocol with two stages.
+
+### STAGE 1: Architectural Alignment
+Before any new feature/system, analyze requirements and output a comprehensive plan:
+1. Core tech stack and architecture pattern.
+2. High-level data flow and component breakdown.
+3. Strict list of unit/integration testing tools to be used.
+
+**Do NOT proceed to Stage 2 until Stage 1 is explicitly approved by the user.**
+
+### STAGE 2: GAN-Based TDD Implementation Loop
+Build the system component by component. For EVERY component, execute the internal GAN-style loop:
+
+**Persona A — The Generator (Lead Developer)**
+- Follows strict TDD: writes the failing test first (Red), writes minimal production code to pass it (Green), and refactors (Refactor).
+
+**Persona B — The Discriminator (Adversarial Reviewer & QA Lead)**
+- Acts as a ruthless critic. Sole goal: find flaws, edge cases, security vulnerabilities, or SOLID violations in the Generator's code.
+
+**The Execution Loop (for each component):**
+
+1. **[GENERATOR — TEST]:** Generator writes the test suite for the current component.
+2. **[DISCRIMINATOR — REVIEW]:** Discriminator evaluates tests. Are they comprehensive? Do they cover edge cases, not just happy paths?
+   - `[REJECT]` → Generator rewrites tests.
+   - `[PASS]` → Proceed.
+3. **[GENERATOR — CODE]:** Generator writes production code to satisfy the tests.
+4. **[DISCRIMINATOR — REVIEW]:** Discriminator attacks the code for performance bottlenecks, tight coupling, and security flaws.
+   - `[REJECT]` with specific bullet points → Generator MUST rewrite.
+   - `[PASS]` → Component is complete.
+
+**Only when the Discriminator issues `[PASS]` for both Tests and Code is the component presented to the user for approval to proceed to the next component.**
