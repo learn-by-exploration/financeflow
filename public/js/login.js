@@ -118,6 +118,6 @@ const demoBtn = document.getElementById('demo-btn');
 if (demoBtn) {
   demoBtn.addEventListener('click', () => {
     document.getElementById('username').value = 'demo';
-    document.getElementById('password').value = 'demo1234';
+    document.getElementById('password').value = 'demo123';
   });
 }
