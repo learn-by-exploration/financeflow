@@ -1,51 +1,61 @@
 # CLAUDE.md — FinanceFlow Developer Context
 
+## ⚠️ Core Directives (Read First)
+
+### Development Protocol
+1. **TDD is non-negotiable.** Red → Green → Refactor. No production code without a failing test first.
+2. **GAN Loop for every component:** Generator writes tests → Discriminator reviews → Generator writes code → Discriminator attacks → only dual `[PASS]` advances. User approves before next component.
+3. **Architectural changes require Stage 1 approval.** Output a plan (tech stack, data flow, test tools) and wait for explicit user sign-off before writing any code.
+
+### Stakeholder Checks (Silent — Run Before Major Changes)
+- **PM:** Does this delay the launch?
+- **Banker:** Does this increase infrastructure costs?
+- **QA:** Does this make the system harder to test?
+- If any check fails → present the tradeoff before proceeding.
+
+### Hard Rules
+- Simplicity over cleverness. Readable, maintainable code.
+- SOLID principles. Single responsibility, dependency inversion.
+- Security first. Sanitize inputs, assume hostile users.
+- No new npm dependencies without explicit approval.
+- No `innerHTML` with user/dynamic data — use `textContent` or `el()` helper.
+- No CDN, no external resources, no analytics. Self-hosted everything.
+- File path at the top of every code block. Explain *why* for every refactor.
+- Minimize conversational filler. Ask to proceed at logical checkpoints.
+
+---
+
 ## What is this?
 
-FinanceFlow is a self-hosted personal finance manager. Zero cloud, zero telemetry, full data ownership. Built for privacy-conscious users who want budgeting, expense splitting, and financial health tracking on their own server.
+FinanceFlow is a self-hosted personal finance manager. Zero cloud, zero telemetry, full data ownership. Budgeting, expense splitting, and financial health tracking on your own server.
 
 ## Tech Stack
 
-- **Runtime**: Node.js 22+
-- **Backend**: Express 5, better-sqlite3 (WAL mode)
-- **Frontend**: Vanilla JS SPA (ES modules), no framework, no build step
-- **Auth**: bcryptjs, SHA-256 hashed session tokens (X-Session-Token header), optional TOTP 2FA
-- **Validation**: Zod v4 (uses `.issues` not `.errors`, `safeParse()`)
-- **Testing**: node:test + supertest + c8 (coverage), 1767+ tests across 94 files
-- **Logging**: Pino (structured JSON)
-- **Container**: Docker multi-stage (node:22-slim), read-only filesystem, non-root user
-- **CI/CD**: GitHub Actions (lint, test matrix, audit, coverage, Docker build)
+| Layer | Technology |
+|-------|-----------|
+| Runtime | Node.js 22+ |
+| Backend | Express 5, better-sqlite3 (WAL mode) |
+| Frontend | Vanilla JS SPA (ES modules), no framework, no build step |
+| Auth | bcryptjs, SHA-256 session tokens (X-Session-Token header), optional TOTP 2FA |
+| Validation | Zod v4 — use `.issues` not `.errors`, `safeParse()` |
+| Testing | node:test + supertest + c8 (coverage) |
+| Logging | Pino (structured JSON) |
+| Container | Docker multi-stage (node:22-slim), read-only FS, non-root user |
+| CI/CD | GitHub Actions (lint, test matrix, audit, coverage, Docker build) |
 
 ## Quick Commands
 
 ```bash
-# ─── Development ───
 npm start                     # Start server (port 3457)
 npm run dev                   # Dev mode with file watching + pino-pretty
-
-# ─── Testing ───
-npm run test:fast              # All 1767+ tests without coverage (~15s)
+npm run test:fast              # All tests without coverage
 npm test                       # All tests with c8 coverage report
-npm run test:auth              # Auth & session tests only
-npm run test:security          # Security-focused tests
-npm run test:perf              # Performance & stress tests
-npm run test:frontend          # Frontend file-content tests (UX)
-node --test tests/FILE.test.js # Single test file
-
-# ─── Code Quality ───
 npm run lint                   # ESLint on src/, tests/, public/
-npm run lint:fix               # Auto-fix lint issues
-npm run format                 # Prettier format all code
-npm run format:check           # Check formatting without changing
-
-# ─── Build & Deploy ───
+npm run format:check           # Check formatting
+npm run validate               # lint + format + test + audit (full gate)
 npm run build:docker           # Build production Docker image
-npm run docker:run             # Run container locally (port 3457)
-npm run docker:stop            # Stop and remove container
+npm run seed                   # Seed demo data (user: demo / pass: demo123)
 docker compose up --build -d   # Build and run via compose
-
-# ─── Data ───
-npm run seed                   # Seed demo data
 ```
 
 ## Project Structure
@@ -58,7 +68,7 @@ src/
 ├── logger.js              # Pino logger
 ├── db/
 │   ├── index.js           # SQLite schema + migration runner
-│   ├── seed.js            # Demo data seeder
+│   ├── seed.js            # Demo data seeder (demo/demo123)
 │   └── migrations/        # 25 versioned SQL migrations
 ├── routes/                # 41 route modules
 ├── middleware/             # 13 middleware modules
@@ -73,49 +83,48 @@ public/                    # Frontend SPA (served by Express)
 ├── landing.html           # Public landing page
 ├── styles.css             # All CSS (6 themes, responsive, dark-first)
 ├── sw.js                  # Service worker (PWA offline + mutation queue)
-├── manifest.json          # PWA manifest
 ├── js/
-│   ├── app.js             # SPA routing, keyboard shortcuts, themes, vim mode
-│   ├── utils.js           # Shared utilities (toast, fmt, API client, color picker)
-│   ├── login.js           # Login page logic (tabs, remember-me, demo)
-│   ├── charts.js          # Dashboard charts (dynamic theme colors, reduced motion)
-│   ├── notifications.js   # Notification panel with click-to-navigate
-│   ├── ui-states.js       # Loading, empty, error states, skeletons
-│   ├── form-validator.js  # Client-side form validation
-│   ├── pagination.js      # Reusable pagination component
-│   ├── vendor/chart.min.js # Self-hosted Chart.js
-│   └── views/             # 18 view modules
-├── css/
-│   ├── login.css          # Login page styles
-│   └── landing.css        # Landing page styles
+│   ├── app.js             # SPA routing, shortcuts, themes, vim mode
+│   ├── utils.js           # Shared utilities (toast, API client, el())
+│   ├── charts.js          # Dashboard charts (dynamic theme colors)
+│   ├── views/             # 18 view modules
+│   └── vendor/chart.min.js
+├── css/                   # login.css, landing.css
 └── fonts/                 # Self-hosted Inter + Material Icons
 
-tests/                     # 1767+ tests across 94 files
-├── helpers.js             # setup(), agent(), makeAccount(), etc.
-├── *-phase*.test.js       # Phased feature tests (12 phases)
-├── ux-phase*.test.js      # UX improvement tests (3 phases)
-└── *.test.js              # Domain-specific tests
+tests/                     # 94 test files
+├── helpers.js             # setup(), agent(), makeAccount()
+└── *.test.js              # Domain, phase, UX, security tests
 ```
 
-## Architecture Patterns
+## Architecture
 
 - **Layered**: routes → services → repositories → db
-- **Error handling**: Custom error classes (AppError, NotFoundError, ValidationError, ForbiddenError, ConflictError, UnauthorizedError) + global error middleware
-- **Auth**: X-Session-Token header, SHA-256 hashed tokens in sessions table, optional TOTP 2FA
-- **CSRF**: Disabled (token auth prevents CSRF inherently)
+- **Error classes**: AppError, NotFoundError, ValidationError, ForbiddenError, ConflictError, UnauthorizedError + global error middleware
+- **Auth**: X-Session-Token header, SHA-256 hashed in sessions table
 - **CSP**: Strict — no unsafe-inline, no CDN domains
-- **CORS**: Same-origin by default (configurable via CORS_ORIGINS env)
-- **Rate limiting**: Global 200/min on /api, per-user 100/min, auth 20/15min
-- **Cache**: In-memory LRU with configurable max size (200 default)
-- **Audit**: Security event logging with 90-day retention
+- **CORS**: Same-origin default (configurable via CORS_ORIGINS)
+- **Rate limiting**: Global 200/min, per-user 100/min, auth 20/15min
+- **Cache**: In-memory LRU (200 default)
 - **PWA**: Service worker with cache-first static, offline mutation queue (IndexedDB)
 
 ## Database
 
-- SQLite via better-sqlite3 (WAL mode, foreign keys ON)
-- 25 migrations in src/db/migrations/ (001-025)
-- Single file: `personalfi.db` (or `DB_DIR` env for custom location)
-- Key tables: users, sessions, accounts, transactions, categories, budgets, goals, groups, splits, recurring_rules, subscriptions, notifications, audit_log, transaction_templates, transactions_fts (FTS5)
+- SQLite — better-sqlite3, WAL mode, foreign keys ON
+- 25 migrations (additive only, never drop tables, named `NNN_description.sql`)
+- Single file: `personalfi.db` (location via `DB_DIR` env)
+- Key tables: users, sessions, accounts, transactions, categories, budgets, goals, groups, splits, recurring_rules, subscriptions, notifications, audit_log, transactions_fts (FTS5)
+
+## Key Conventions
+
+1. **Backend**: CommonJS (`require/module.exports`). **Frontend**: ES modules (`import/export`).
+2. **Zod v4**: `safeParse()` returns `{success, data, error}`. Use `result.issues` not `result.errors`.
+3. **Test helpers**: `setup()` → `{app, db}`, `agent(app)` → authenticated supertest agent. Each file gets fresh in-memory DB.
+4. **Error responses**: `{ error: { code: 'ERROR_CODE', message: '...' } }`
+5. **Frontend state**: All user prefs use `pfi_*` localStorage keys (e.g., `pfi_theme`, `pfi_sidebar`, `pfi_token`, `pfi_shortcuts`, `pfi_vim`, `pfi_onboarding_done`, `pfi_privacy_accepted`).
+6. **CSS**: All colors via custom properties across 6 themes (dark, light, forest, ocean, rose, nord). Transitions via `--transition-fast` / `--transition-medium` tokens.
+7. **Accessibility**: ARIA attributes on all interactive elements, keyboard navigation, `prefers-reduced-motion` support.
+8. **SW versioning**: Bump `CACHE_NAME` in `public/sw.js` on every release. Old caches auto-purge on activate.
 
 ## Environment Variables
 
@@ -133,58 +142,32 @@ All optional with sensible defaults:
 | BCRYPT_SALT_ROUNDS | 12 | Password hashing cost |
 | SESSION_MAX_AGE_DAYS | 30 | Session TTL |
 
-## Key Conventions
+## Testing
 
-1. **Backend**: CommonJS (`require/module.exports`), **Frontend**: ES modules (`import/export`)
-2. **Zod v4**: Use `result.issues` not `result.errors`; `safeParse()` returns `{success, data, error}`
-3. **Test helpers**: `setup()` returns `{app, db}`, `agent(app)` creates authenticated supertest agent
-4. **Error responses**: `{ error: { code: 'ERROR_CODE', message: '...' } }`
-5. **Migrations**: Additive only, never drop tables. Named `NNN_description.sql`
-6. **No build step**: Frontend JS served as-is from public/
-7. **Self-hosted everything**: No CDN, no external fonts, no analytics
-8. **CSS variables**: All colors via custom properties, 6 themes (dark, light, forest, ocean, rose, nord)
-9. **Accessibility**: ARIA attributes, keyboard navigation, reduced motion support
-10. **Security first**: No innerHTML with user data, textContent for dynamic content, token auth
-
-## Testing Strategy
-
-### Test Categories
 | Category | Command | Scope |
 |----------|---------|-------|
-| Full suite | `npm run test:fast` | All 1767+ tests |
-| With coverage | `npm test` | Full + c8 coverage report |
+| Full suite | `npm run test:fast` | All tests |
+| With coverage | `npm test` | Full + c8 report |
 | Auth | `npm run test:auth` | Auth, sessions, tokens |
-| Security | `npm run test:security` | CSRF, injection, hardening |
-| Performance | `npm run test:perf` | Load, stress, benchmarks |
-| Frontend UX | `npm run test:frontend` | UX phases 1-3 (100 tests) |
-| Single file | `node --test tests/FILE.test.js` | One test file |
+| Security | `npm run test:security` | Injection, hardening |
+| Performance | `npm run test:perf` | Load, stress |
+| Frontend | `npm run test:frontend` | UX phases 1-3 |
+| Single file | `node --test tests/FILE.test.js` | One file |
 
-### Test Patterns
-- **API tests**: supertest against Express app, in-memory SQLite
-- **Frontend tests**: File content assertions (string/regex matching against source files)
-- **Security tests**: Injection payloads, auth bypass attempts, rate limit verification
-- **Performance tests**: Response time assertions, concurrent request handling
-- Rate limiting disabled in test mode (`NODE_ENV=test`)
-- Each test file gets a fresh database via `setup()`
+**Patterns:** API tests use supertest + in-memory SQLite. Frontend tests use file-content assertions. Rate limiting disabled in test mode.
 
 ## Production Checklist
 
-- [ ] All tests pass: `npm run test:fast`
-- [ ] Lint clean: `npm run lint`
-- [ ] Format clean: `npm run format:check`
-- [ ] Security audit: `npm audit --audit-level=high`
+- [ ] `npm run validate` passes (lint + format + test + audit)
 - [ ] Docker builds: `npm run build:docker`
 - [ ] Health check responds: `GET /api/health/live`
-- [ ] Service worker version bumped in `public/sw.js`
-- [ ] No console.log in production code (use Pino logger)
+- [ ] SW `CACHE_NAME` version bumped in `public/sw.js`
+- [ ] Demo user seeded if needed: `docker exec <container> node src/db/seed.js`
 
 ## Docker
 
 ```bash
-# Build
-docker build -t financeflow:latest .
-
-# Run (production)
+# Production run
 docker run -d --name financeflow \
   -p 3457:3457 \
   -v financeflow-data:/app/data \
@@ -193,76 +176,29 @@ docker run -d --name financeflow \
   --tmpfs /tmp \
   --memory 512m \
   financeflow:latest
-
-# Compose
-docker compose up --build -d
 ```
 
-Container runs as non-root user, read-only filesystem, memory-limited. Data persisted via named volume.
+Data persisted via named volume. Container: non-root user, read-only FS, memory-limited.
+
+**Data is safe across:** container restarts, removal, rebuilds, system reboots.
+**Data is lost only with:** `docker volume rm financeflow-data` or `docker system prune --volumes`.
 
 ---
 
-## Core Project Directives
-
-### 1. TDD is Non-Negotiable
-- ALL feature development must begin with a test.
-- Writing production logic without first providing the unit/integration test that expects it is forbidden.
-- Follow **Red → Green → Refactor** strictly.
-
-### 2. Multi-Stakeholder Alignment
-Before suggesting major architectural changes or adding new libraries, run a silent check against core personas:
-- **PM:** Does this delay the launch?
-- **Banker:** Does this increase infrastructure costs?
-- **QA:** Does this make the system harder to test?
-
-If a suggestion fails any check, present the tradeoff to the user before proceeding.
-
-### 3. Code Quality & Standards
-- **Simplicity over cleverness:** Write readable, maintainable code.
-- **SOLID Principles:** Adhere to single responsibility and dependency inversion.
-- **Security First:** Always sanitize inputs and assume hostile user behavior.
-
-### 4. Output Formatting
-- Keep conversational filler to an absolute minimum.
-- When providing code, always provide the file path at the top of the code block.
-- When refactoring, explain *why* the refactor is necessary (e.g., performance, readability, DRY).
-
-### 5. State Management & Check-ins
-- If the context gets too long, summarize the current state of the application before writing the next test.
-- Always end your response by asking for confirmation to proceed to the next logical step.
-
----
-
-## GAN-Based Development Protocol
-
-All implementation follows a strict Generative Adversarial Network (GAN) protocol with two stages.
+## GAN Development Protocol — Detailed
 
 ### STAGE 1: Architectural Alignment
-Before any new feature/system, analyze requirements and output a comprehensive plan:
-1. Core tech stack and architecture pattern.
-2. High-level data flow and component breakdown.
-3. Strict list of unit/integration testing tools to be used.
+Before any new feature/system:
+1. Analyze requirements → output plan (tech stack, data flow, component breakdown, test tools).
+2. **Wait for explicit user approval** before proceeding to Stage 2.
 
-**Do NOT proceed to Stage 2 until Stage 1 is explicitly approved by the user.**
+### STAGE 2: GAN TDD Loop (Per Component)
 
-### STAGE 2: GAN-Based TDD Implementation Loop
-Build the system component by component. For EVERY component, execute the internal GAN-style loop:
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | **Generator** | Write failing test suite (Red) |
+| 2 | **Discriminator** | Review tests — comprehensive? Edge cases? → `[PASS]` or `[REJECT]` |
+| 3 | **Generator** | Write minimal production code (Green) |
+| 4 | **Discriminator** | Attack code — perf, coupling, security → `[PASS]` or `[REJECT]` with bullet points |
 
-**Persona A — The Generator (Lead Developer)**
-- Follows strict TDD: writes the failing test first (Red), writes minimal production code to pass it (Green), and refactors (Refactor).
-
-**Persona B — The Discriminator (Adversarial Reviewer & QA Lead)**
-- Acts as a ruthless critic. Sole goal: find flaws, edge cases, security vulnerabilities, or SOLID violations in the Generator's code.
-
-**The Execution Loop (for each component):**
-
-1. **[GENERATOR — TEST]:** Generator writes the test suite for the current component.
-2. **[DISCRIMINATOR — REVIEW]:** Discriminator evaluates tests. Are they comprehensive? Do they cover edge cases, not just happy paths?
-   - `[REJECT]` → Generator rewrites tests.
-   - `[PASS]` → Proceed.
-3. **[GENERATOR — CODE]:** Generator writes production code to satisfy the tests.
-4. **[DISCRIMINATOR — REVIEW]:** Discriminator attacks the code for performance bottlenecks, tight coupling, and security flaws.
-   - `[REJECT]` with specific bullet points → Generator MUST rewrite.
-   - `[PASS]` → Component is complete.
-
-**Only when the Discriminator issues `[PASS]` for both Tests and Code is the component presented to the user for approval to proceed to the next component.**
+`[REJECT]` → Generator rewrites. Only dual `[PASS]` → present to user → approval → next component.
