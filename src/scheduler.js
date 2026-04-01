@@ -86,23 +86,31 @@ module.exports = function createScheduler(db, logger) {
   }
 
   function runCleanup() {
-    // Session cleanup — delete expired sessions
-    const sessions = db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
-    if (sessions.changes > 0) {
-      logger.info({ deleted: sessions.changes }, 'Cleaned up expired sessions');
-    }
+    try {
+      // Session cleanup — delete expired sessions
+      const sessions = db.prepare("DELETE FROM sessions WHERE expires_at < datetime('now')").run();
+      if (sessions.changes > 0) {
+        logger.info({ deleted: sessions.changes }, 'Cleaned up expired sessions');
+      }
 
-    // Audit log cleanup — delete entries older than 90 days
-    const audit = db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run();
-    if (audit.changes > 0) {
-      logger.info({ deleted: audit.changes }, 'Cleaned up old audit log entries');
+      // Audit log cleanup — delete entries older than 90 days
+      const audit = db.prepare("DELETE FROM audit_log WHERE created_at < datetime('now', '-90 days')").run();
+      if (audit.changes > 0) {
+        logger.info({ deleted: audit.changes }, 'Cleaned up old audit log entries');
+      }
+    } catch (err) {
+      logger.error({ err }, 'Cleanup job failed');
     }
   }
 
   function runRateLimitCleanup() {
-    const createPerUserRateLimit = require('./middleware/per-user-rate-limit');
-    createPerUserRateLimit._cleanup();
-    logger.debug('Rate limit windows cleaned up');
+    try {
+      const createPerUserRateLimit = require('./middleware/per-user-rate-limit');
+      createPerUserRateLimit._cleanup();
+      logger.debug('Rate limit windows cleaned up');
+    } catch (err) {
+      logger.error({ err }, 'Rate limit cleanup failed');
+    }
   }
 
   function registerBuiltinJobs() {

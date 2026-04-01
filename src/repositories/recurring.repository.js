@@ -52,6 +52,7 @@ module.exports = function createRecurringRepository({ db }) {
     if (updates.length === 0) {
       return db.prepare('SELECT * FROM recurring_rules WHERE id = ? AND user_id = ?').get(id, userId);
     }
+    updates.push("updated_at = datetime('now')");
     values.push(id, userId);
     db.prepare(`UPDATE recurring_rules SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`).run(...values);
     return db.prepare('SELECT * FROM recurring_rules WHERE id = ?').get(id);

@@ -25,18 +25,14 @@ module.exports = function createStatsRoutes({ db }) {
       const subscriptionTotal = statsRepo.getSubscriptionMonthlyTotal(userId);
 
       // Groups balance: aggregate simplified debts across all groups
-      const userGroups = db.prepare(`
-        SELECT g.id FROM groups g
-        JOIN group_members gm ON g.id = gm.group_id
-        WHERE gm.user_id = ?
-      `).all(userId);
+      const userGroups = statsRepo.getUserGroups(userId);
 
       let totalOwed = 0;
       let totalOwing = 0;
       for (const g of userGroups) {
         const balances = splitService.calculateBalances(g.id);
         const debts = splitService.simplifyDebts(balances);
-        const userMember = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?').get(g.id, userId);
+        const userMember = statsRepo.getGroupMemberId(g.id, userId);
         if (userMember) {
           for (const d of debts) {
             if (d.to === userMember.id) totalOwed += d.amount;
@@ -75,7 +71,7 @@ module.exports = function createStatsRoutes({ db }) {
       let fyStart = null;
       if (fy) {
         // Read financial_year_start from user preferences
-        const setting = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'financial_year_start'").get(req.user.id);
+        const setting = statsRepo.getUserSetting(req.user.id, 'financial_year_start');
         fyStart = setting ? Number(setting.value) : 1;
       }
 
@@ -110,7 +106,7 @@ module.exports = function createStatsRoutes({ db }) {
       const userId = req.user.id;
 
       // Gating: check if user has >= 30 days of data
-      const earliest = db.prepare('SELECT MIN(date) as earliest FROM transactions WHERE user_id = ?').get(userId);
+      const earliest = statsRepo.getEarliestTransaction(userId);
       if (!earliest.earliest) {
         return res.json({ gated: true, message: 'Need at least 30 days of transaction data for health analysis' });
       }
@@ -119,14 +115,14 @@ module.exports = function createStatsRoutes({ db }) {
         return res.json({ gated: true, message: `Need at least 30 days of data. You have ${daysSinceFirst} days so far.` });
       }
 
-      const accounts = db.prepare('SELECT SUM(CASE WHEN type NOT IN (\'credit_card\', \'loan\') THEN balance ELSE 0 END) as assets, SUM(CASE WHEN type IN (\'credit_card\', \'loan\') THEN ABS(balance) ELSE 0 END) as liabilities FROM accounts WHERE user_id = ? AND is_active = 1').get(userId);
+      const accounts = statsRepo.getAccountSummary(userId);
 
       const now = new Date();
       const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString().slice(0, 10);
-      const avgMonthlyExpense = db.prepare('SELECT COALESCE(AVG(monthly), 0) as avg FROM (SELECT SUM(amount) as monthly FROM transactions WHERE user_id = ? AND type = \'expense\' AND date >= ? GROUP BY strftime(\'%Y-%m\', date))').get(userId, threeMonthsAgo);
-      const avgMonthlyIncome = db.prepare('SELECT COALESCE(AVG(monthly), 0) as avg FROM (SELECT SUM(amount) as monthly FROM transactions WHERE user_id = ? AND type = \'income\' AND date >= ? GROUP BY strftime(\'%Y-%m\', date))').get(userId, threeMonthsAgo);
+      const avgMonthlyExpense = statsRepo.getAvgMonthlyExpense(userId, threeMonthsAgo);
+      const avgMonthlyIncome = statsRepo.getAvgMonthlyIncome(userId, threeMonthsAgo);
 
-      const savingsAccounts = db.prepare('SELECT COALESCE(SUM(balance), 0) as total FROM accounts WHERE user_id = ? AND type IN (\'savings\', \'cash\') AND is_active = 1').get(userId);
+      const savingsAccounts = statsRepo.getSavingsAccountsTotal(userId);
 
       const ratios = healthService.calculateRatios({
         savingsBalance: savingsAccounts.total,
@@ -366,15 +362,13 @@ module.exports = function createStatsRoutes({ db }) {
   router.get('/budget-variance', (req, res, next) => {
     try {
       const userId = req.user.id;
-      const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ? AND is_active = 1').all(userId);
+      const budgets = statsRepo.getActiveBudgets(userId);
 
       const variance = budgets.map(b => {
-        const items = db.prepare('SELECT bi.*, c.name as category_name FROM budget_items bi LEFT JOIN categories c ON bi.category_id = c.id WHERE bi.budget_id = ?').all(b.id);
+        const items = statsRepo.getBudgetItemsWithCategory(b.id);
 
         const itemVariance = items.map(item => {
-          const spent = db.prepare(
-            'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND category_id = ? AND type = \'expense\' AND date >= ? AND date <= ?'
-          ).get(userId, item.category_id, b.start_date, b.end_date).total;
+          const { total: spent } = statsRepo.getCategorySpendInRange(userId, item.category_id, b.start_date, b.end_date);
 
           return {
             category_id: item.category_id,
@@ -501,41 +495,38 @@ module.exports = function createStatsRoutes({ db }) {
       const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
 
       // Net worth
-      const accounts = db.prepare(
-        'SELECT SUM(CASE WHEN type NOT IN (\'credit_card\', \'loan\') THEN balance ELSE 0 END) as assets, SUM(CASE WHEN type IN (\'credit_card\', \'loan\') THEN ABS(balance) ELSE 0 END) as liabilities FROM accounts WHERE user_id = ? AND is_active = 1'
-      ).get(userId);
+      const accounts = statsRepo.getAccountSummary(userId);
 
       // Monthly income/expense
-      const monthIncome = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = \'income\' AND date >= ?').get(userId, monthStart);
-      const monthExpense = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = \'expense\' AND date >= ?').get(userId, monthStart);
+      const { income: monthIncomeTotal, expense: monthExpenseTotal } = statsRepo.getMonthlyIncomeExpense(userId, monthStart);
 
       // Active budgets count
-      const activeBudgets = db.prepare('SELECT COUNT(*) as count FROM budgets WHERE user_id = ? AND is_active = 1').get(userId);
+      const activeBudgets = statsRepo.getActiveBudgetCount(userId);
 
       // Active goals
-      const goals = db.prepare('SELECT COUNT(*) as count, COALESCE(SUM(current_amount), 0) as saved, COALESCE(SUM(target_amount), 0) as target FROM savings_goals WHERE user_id = ? AND is_completed = 0').get(userId);
+      const goals = statsRepo.getGoalsSummary(userId);
 
       // Active subscriptions
-      const subs = db.prepare('SELECT COUNT(*) as count, COALESCE(SUM(CASE WHEN frequency = \'monthly\' THEN amount WHEN frequency = \'yearly\' THEN amount / 12.0 WHEN frequency = \'quarterly\' THEN amount / 3.0 ELSE amount * 4.33 END), 0) as monthly_total FROM subscriptions WHERE user_id = ? AND is_active = 1').get(userId);
+      const subs = statsRepo.getSubscriptionsSummary(userId);
 
       // Transaction count this month
-      const txnCount = db.prepare('SELECT COUNT(*) as count FROM transactions WHERE user_id = ? AND date >= ?').get(userId, monthStart);
+      const txnCount = statsRepo.getTransactionCount(userId, monthStart);
 
       // Accounts count
-      const accountCount = db.prepare('SELECT COUNT(*) as count FROM accounts WHERE user_id = ? AND is_active = 1').get(userId);
+      const accountCount = statsRepo.getActiveAccountCount(userId);
 
       // Savings rate
-      const savingsRate = monthIncome.total > 0
-        ? Math.round(((monthIncome.total - monthExpense.total) / monthIncome.total) * 10000) / 100
+      const savingsRate = monthIncomeTotal > 0
+        ? Math.round(((monthIncomeTotal - monthExpenseTotal) / monthIncomeTotal) * 10000) / 100
         : 0;
 
       res.json({
         net_worth: (accounts.assets || 0) - (accounts.liabilities || 0),
         total_assets: accounts.assets || 0,
         total_liabilities: accounts.liabilities || 0,
-        month_income: monthIncome.total,
-        month_expense: monthExpense.total,
-        month_savings: monthIncome.total - monthExpense.total,
+        month_income: monthIncomeTotal,
+        month_expense: monthExpenseTotal,
+        month_savings: monthIncomeTotal - monthExpenseTotal,
         savings_rate: savingsRate,
         active_budgets: activeBudgets.count,
         active_goals: goals.count,
@@ -740,5 +731,141 @@ module.exports = function createStatsRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/stats/budget-recommendations — smart budget suggestions based on spending patterns
+  router.get('/budget-recommendations', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const months = Math.min(Math.max(parseInt(req.query.months || '3', 10) || 3, 1), 12);
+
+      // Get date range
+      const now = new Date();
+      const fromDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
+      const from = fromDate.toISOString().slice(0, 10);
+      const to = now.toISOString().slice(0, 10);
+
+      // Get spending per category over the period
+      const categorySpending = db.prepare(`
+        SELECT c.id as category_id, c.name, c.icon,
+          COALESCE(SUM(t.amount), 0) as total_spent,
+          COUNT(t.id) as transaction_count,
+          COALESCE(AVG(t.amount), 0) as avg_per_transaction,
+          COALESCE(MIN(t.amount), 0) as min_spent,
+          COALESCE(MAX(t.amount), 0) as max_spent
+        FROM categories c
+        LEFT JOIN transactions t ON t.category_id = c.id
+          AND t.user_id = ? AND t.type = 'expense'
+          AND t.date >= ? AND t.date <= ?
+        WHERE c.user_id = ? AND c.type = 'expense'
+        GROUP BY c.id
+        HAVING total_spent > 0
+        ORDER BY total_spent DESC
+      `).all(userId, from, to, userId);
+
+      // Calculate monthly averages and suggest budgets
+      const recommendations = categorySpending.map(cat => {
+        const monthlyAvg = cat.total_spent / months;
+        // Suggest budget = 110% of average (10% buffer)
+        const suggested = Math.ceil(monthlyAvg / 100) * 100; // Round up to nearest 100
+        const aggressive = Math.ceil((monthlyAvg * 0.9) / 100) * 100; // 90% of avg (10% cut)
+        const conservative = Math.ceil((monthlyAvg * 1.2) / 100) * 100; // 120% of avg (generous buffer)
+
+        return {
+          category_id: cat.category_id,
+          category_name: cat.name,
+          category_icon: cat.icon,
+          monthly_average: Math.round(monthlyAvg * 100) / 100,
+          total_spent: Math.round(cat.total_spent * 100) / 100,
+          transaction_count: cat.transaction_count,
+          suggestions: {
+            recommended: suggested,
+            aggressive,
+            conservative,
+          },
+        };
+      });
+
+      // Overall stats
+      const totalMonthlyAvg = recommendations.reduce((s, r) => s + r.monthly_average, 0);
+
+      res.json({
+        period_months: months,
+        from,
+        to,
+        total_monthly_average: Math.round(totalMonthlyAvg * 100) / 100,
+        categories: recommendations,
+      });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/upcoming-forecast — predict next 30 days of recurring spend
+  router.get('/upcoming-forecast', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const days = Math.min(Math.max(parseInt(req.query.days || '30', 10) || 30, 1), 90);
+
+      const rules = db.prepare(
+        'SELECT * FROM recurring_rules WHERE user_id = ? AND is_active = 1'
+      ).all(userId);
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const upcoming = [];
+
+      for (const rule of rules) {
+        // Calculate how many times this rule fires in the next N days
+        let nextDate = rule.next_date;
+        let occurrences = 0;
+
+        while (nextDate <= getDatePlusDays(todayStr, days)) {
+          if (nextDate >= todayStr) {
+            upcoming.push({
+              date: nextDate,
+              description: rule.description,
+              amount: rule.amount,
+              type: rule.type,
+              frequency: rule.frequency,
+              rule_id: rule.id,
+            });
+            occurrences++;
+          }
+          nextDate = advanceDateStr(nextDate, rule.frequency);
+          if (occurrences > 100) break; // Safety limit
+        }
+      }
+
+      // Sort by date
+      upcoming.sort((a, b) => a.date.localeCompare(b.date));
+
+      const totalIncome = upcoming.filter(u => u.type === 'income').reduce((s, u) => s + u.amount, 0);
+      const totalExpense = upcoming.filter(u => u.type === 'expense').reduce((s, u) => s + u.amount, 0);
+
+      res.json({
+        days,
+        upcoming,
+        total_expected_income: Math.round(totalIncome * 100) / 100,
+        total_expected_expense: Math.round(totalExpense * 100) / 100,
+        net_expected: Math.round((totalIncome - totalExpense) * 100) / 100,
+      });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };
+
+function getDatePlusDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function advanceDateStr(dateStr, frequency) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  switch (frequency) {
+    case 'daily': d.setUTCDate(d.getUTCDate() + 1); break;
+    case 'weekly': d.setUTCDate(d.getUTCDate() + 7); break;
+    case 'biweekly': d.setUTCDate(d.getUTCDate() + 14); break;
+    case 'monthly': d.setUTCMonth(d.getUTCMonth() + 1); break;
+    case 'quarterly': d.setUTCMonth(d.getUTCMonth() + 3); break;
+    case 'yearly': d.setUTCFullYear(d.getUTCFullYear() + 1); break;
+  }
+  return d.toISOString().slice(0, 10);
+}

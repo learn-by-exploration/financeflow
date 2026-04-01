@@ -100,5 +100,36 @@ module.exports = function createRecurringRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // POST /api/recurring/:id/execute-now — immediately create a transaction from this rule
+  router.post('/:id/execute-now', (req, res, next) => {
+    try {
+      const rule = recurringRepo.findById(req.params.id, req.user.id);
+      if (!rule) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurring rule not found' } });
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+
+      // Create the transaction inside a DB transaction for atomicity
+      const result = db.transaction(() => {
+        const txResult = db.prepare(`
+          INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, payee, date, is_recurring, recurring_rule_id, tags)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, '[]')
+        `).run(
+          req.user.id, rule.account_id, rule.category_id, rule.type, rule.amount,
+          rule.currency, rule.description, rule.payee, todayStr, rule.id
+        );
+
+        // Update account balance
+        const balanceChange = rule.type === 'income' ? rule.amount : -rule.amount;
+        db.prepare("UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime('now') WHERE id = ? AND user_id = ?")
+          .run(Math.round((balanceChange + Number.EPSILON) * 100) / 100, rule.account_id, req.user.id);
+
+        return db.prepare('SELECT * FROM transactions WHERE id = ?').get(txResult.lastInsertRowid);
+      })();
+
+      audit.log(req.user.id, 'recurring.execute', 'recurring_rule', rule.id);
+      res.status(201).json({ transaction: result });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };

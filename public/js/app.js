@@ -111,6 +111,7 @@ const views = {
   'whats-new':   () => import('./views/whats-new.js').then(m => m.renderWhatsNew),
   calculators:   () => import('./views/calculators.js').then(m => m.renderCalculators),
   challenges:    () => import('./views/challenges.js').then(m => m.renderChallenges),
+  tags:          () => import('./views/tags.js').then(m => m.renderTags),
 };
 
 function placeholder(title, desc) {
@@ -201,6 +202,7 @@ function toggleBottomSheet() {
     { view: 'groups', icon: 'group', label: 'Groups' },
     { view: 'splits', icon: 'call_split', label: 'Splits' },
     { view: 'categories', icon: 'category', label: 'Categories' },
+    { view: 'tags', icon: 'label', label: 'Tags' },
     { view: 'reports', icon: 'analytics', label: 'Reports' },
     { view: 'insights', icon: 'lightbulb', label: 'Insights' },
     { view: 'calendar', icon: 'calendar_month', label: 'Calendar' },

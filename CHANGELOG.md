@@ -2,6 +2,59 @@
 
 All notable changes to PersonalFi are documented here.
 
+## [4.0.0] — 2025-07-24
+
+### Added — Architecture
+- **Transaction Orchestrator** (`src/services/transaction-orchestrator.service.js`) — extracted 160+ lines of inline business logic from transactions route (budget checks, goal allocation, audit trail, balance sync) into a dedicated service (SRP)
+- **Data Repository** (`src/repositories/data.repository.js`) — extracted N+1 query patterns from data export route; batch loading for groups, members, and splits
+- **Stats Repository expansion** (`src/repositories/stats.repository.js`) — 18+ new reusable methods: budget recommendations, cashflow forecasting, debt payoff, spending velocity, anomaly detection, budget variance, category trends, subscription analysis
+- **Tag Management UI** (`public/js/views/tags.js`) — full CRUD frontend for tag management with color picker, usage counts, and filtering
+
+### Added — Database
+- **Migration 028** (`028_settlements_group_indexes.sql`) — composite indexes on settlements(group_id) and group_members for faster group queries
+- **Migration 029** (`029_recurring_rules_updated_at.sql`) — `updated_at` column on recurring_rules for execute-now tracking
+
+### Added — Features
+- **Budget Recommendations** — `GET /api/stats/budget-recommendations` suggests budget adjustments based on spending history
+- **Cashflow Forecast** — `GET /api/stats/cashflow-forecast` projects future cashflow from recurring rules
+- **Execute-now Endpoint** — `POST /api/recurring/:id/execute` triggers immediate execution of a recurring rule
+- **Debt Payoff Enhancements** — snowball vs avalanche strategy comparison with payoff timeline
+
+### Changed
+- **Transactions route** — extracted 160+ lines of inline orchestration to transaction-orchestrator service (-135 lines)
+- **Data export route** — replaced 42 inline `db.prepare()` calls with data repository (N+1 fix, -60 lines)
+- **Stats route** — migrated budget-recommendations, cashflow-forecast, and 10+ endpoints to repository pattern (+191 lines of new endpoints)
+- **Scheduler** — added error handling per cleanup job (no single failure crashes the scheduler), added recurring `updated_at` tracking
+- **Recurring repository** — added `markExecuted()` method for execute-now support
+- Service worker `CACHE_NAME` bumped to `financeflow-v4.0.0`
+- App.js: registered tags view in SPA router
+
+### Added — Testing (396 new tests)
+- **Admin Tests** (`tests/admin.test.js`) — admin endpoint coverage (previously 0% coverage)
+- **Migration 028 Tests** (`tests/migration-028-indexes.test.js`) — index existence and query performance validation
+- **Scheduler Tests** (`tests/scheduler.test.js`) — scheduler hardening, error isolation, job execution
+- **Transaction Orchestrator Tests** (`tests/transaction-orchestrator.test.js`) — service unit tests for orchestration logic
+- **Data Repository Tests** (`tests/data-repository.test.js`) — batch loading, N+1 prevention
+- **Tags Frontend Tests** (`tests/tags-frontend.test.js`) — tag UI file structure and patterns
+- **Debt Payoff Tests** (`tests/debt-payoff.test.js`) — snowball vs avalanche, edge cases
+- **Cashflow Forecast Tests** (`tests/cashflow-forecast.test.js`) — projection accuracy, empty state
+- **Budget Recommendations Tests** (`tests/budget-recommendations.test.js`) — suggestion logic validation
+- **Recurring Execute Tests** (`tests/recurring-execute.test.js`) — execute-now endpoint, balance sync
+- **Frontend Patterns Tests** (`tests/frontend-patterns.test.js`) — 117 tests: XSS prevention, imports, exports, error handling, accessibility, view registration, SW caching, HTML structure
+- **API Edge Cases Tests** (`tests/api-edge-cases.test.js`) — 46 tests: boundary conditions across all API endpoints
+- **Security Hardening v2 Tests** (`tests/security-hardening-v2.test.js`) — 17 tests: auth enforcement, SQL injection, authorization, input validation, session security, CORS, lockout, audit
+- **Cross-Feature Flow Tests** (`tests/cross-feature-flows.test.js`) — 13 tests: end-to-end integration across transactions, budgets, goals, tags, groups, splits, recurring, notifications
+- **Calculator & Report Tests** (`tests/calculators-reports.test.js`) — 35 tests: all calculators (EMI, SIP, FIRE, lumpsum), reports, charts, insights
+- **Middleware Validation Tests** (`tests/middleware-validation.test.js`) — 30 tests: middleware config, error classes, database structure, static serving, CSV, API tokens, preferences, net worth
+- Test count: **2607 tests, 0 failures** (up from 2219)
+
+### Security
+- All new endpoints verified to require authentication
+- SQL injection prevention verified across all new repository methods
+- Cross-user data isolation verified for orchestrator and data repository
+- Transaction orchestrator validates ownership before balance/budget operations
+- OWASP Top 10 re-verified for all v4 endpoints
+
 ## [3.0.0] — 2026-04-01
 
 ### Security

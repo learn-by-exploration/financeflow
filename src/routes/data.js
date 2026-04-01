@@ -3,72 +3,27 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { safePatternTest } = require('../utils/safe-regex');
 const logger = require('../logger');
+const createDataRepository = require('../repositories/data.repository');
 
 module.exports = function createDataRoutes({ db }) {
 
+  const dataRepo = createDataRepository({ db });
+
   function createExportSnapshot(db, userId) {
-    const accounts = db.prepare('SELECT * FROM accounts WHERE user_id = ?').all(userId);
-    const categories = db.prepare('SELECT * FROM categories WHERE user_id = ?').all(userId);
-    const transactions = db.prepare('SELECT * FROM transactions WHERE user_id = ?').all(userId);
-    const recurringRules = db.prepare('SELECT * FROM recurring_rules WHERE user_id = ?').all(userId);
-    const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ?').all(userId).map(b => {
-      b.items = db.prepare('SELECT * FROM budget_items WHERE budget_id = ?').all(b.id);
-      return b;
-    });
-    const goals = db.prepare('SELECT * FROM savings_goals WHERE user_id = ?').all(userId);
-    const subscriptions = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').all(userId);
-    const settings = db.prepare('SELECT * FROM settings WHERE user_id = ?').all(userId);
-    const rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ?').all(userId);
-    return { exported_at: new Date().toISOString(), version: '1.0', accounts, categories, transactions, recurring_rules: recurringRules, budgets, goals, subscriptions, settings, rules };
+    return { exported_at: new Date().toISOString(), version: '1.0', ...dataRepo.getExportData(userId) };
   }
 
   // GET /api/data/export — complete JSON export of user data
   router.get('/export', (req, res, next) => {
     try {
       const userId = req.user.id;
-
-      const accounts = db.prepare('SELECT * FROM accounts WHERE user_id = ?').all(userId);
-      const categories = db.prepare('SELECT * FROM categories WHERE user_id = ?').all(userId);
-      const transactions = db.prepare('SELECT * FROM transactions WHERE user_id = ?').all(userId);
-      const recurringRules = db.prepare('SELECT * FROM recurring_rules WHERE user_id = ?').all(userId);
-
-      const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ?').all(userId).map(b => {
-        b.items = db.prepare('SELECT * FROM budget_items WHERE budget_id = ?').all(b.id);
-        return b;
-      });
-
-      const goals = db.prepare('SELECT * FROM savings_goals WHERE user_id = ?').all(userId);
-      const subscriptions = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').all(userId);
-      const settings = db.prepare('SELECT * FROM settings WHERE user_id = ?').all(userId);
-      const rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ?').all(userId);
-
-      // Groups the user belongs to
-      const groups = db.prepare(`
-        SELECT g.* FROM groups g
-        JOIN group_members gm ON gm.group_id = g.id
-        WHERE gm.user_id = ?
-      `).all(userId).map(g => {
-        g.members = db.prepare('SELECT * FROM group_members WHERE group_id = ?').all(g.id);
-        g.expenses = db.prepare('SELECT * FROM shared_expenses WHERE group_id = ?').all(g.id).map(e => {
-          e.splits = db.prepare('SELECT * FROM expense_splits WHERE expense_id = ?').all(e.id);
-          return e;
-        });
-        g.settlements = db.prepare('SELECT * FROM settlements WHERE group_id = ?').all(g.id);
-        return g;
-      });
+      const exportData = dataRepo.getExportData(userId);
+      const groups = dataRepo.getExportGroups(userId);
 
       res.json({
         exported_at: new Date().toISOString(),
         version: '1.0',
-        accounts,
-        categories,
-        transactions,
-        recurring_rules: recurringRules,
-        budgets,
-        goals,
-        subscriptions,
-        settings,
-        rules,
+        ...exportData,
         groups,
       });
     } catch (err) { next(err); }
@@ -105,21 +60,7 @@ module.exports = function createDataRoutes({ db }) {
       // Atomic import using transaction
       const importTx = db.transaction(() => {
         // Delete existing data (reverse dependency order)
-        db.prepare('DELETE FROM expense_splits WHERE expense_id IN (SELECT id FROM shared_expenses WHERE group_id IN (SELECT g.id FROM groups g JOIN group_members gm ON gm.group_id = g.id WHERE gm.user_id = ?))').run(userId);
-        db.prepare('DELETE FROM shared_expenses WHERE group_id IN (SELECT g.id FROM groups g JOIN group_members gm ON gm.group_id = g.id WHERE gm.user_id = ?)').run(userId);
-        db.prepare('DELETE FROM settlements WHERE group_id IN (SELECT g.id FROM groups g JOIN group_members gm ON gm.group_id = g.id WHERE gm.user_id = ?)').run(userId);
-        db.prepare('DELETE FROM group_members WHERE group_id IN (SELECT g.id FROM groups g WHERE g.created_by = ?)').run(userId);
-        db.prepare('DELETE FROM groups WHERE created_by = ?').run(userId);
-        db.prepare('DELETE FROM category_rules WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM budget_items WHERE budget_id IN (SELECT id FROM budgets WHERE user_id = ?)').run(userId);
-        db.prepare('DELETE FROM budgets WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM transactions WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM recurring_rules WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM subscriptions WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM savings_goals WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM settings WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM accounts WHERE user_id = ?').run(userId);
-        db.prepare('DELETE FROM categories WHERE user_id = ?').run(userId);
+        dataRepo.deleteAllUserData(userId);
 
         // ID mapping for references
         const categoryMap = {};

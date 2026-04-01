@@ -1,6 +1,6 @@
 {
   "name": "personalfi",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "Self-hosted personal finance manager with collaborative budgeting, expense splitting, and financial health tracking",
   "main": "src/server.js",
   "scripts": {
