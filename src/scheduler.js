@@ -99,9 +99,16 @@ module.exports = function createScheduler(db, logger) {
     }
   }
 
+  function runRateLimitCleanup() {
+    const createPerUserRateLimit = require('./middleware/per-user-rate-limit');
+    createPerUserRateLimit._cleanup();
+    logger.debug('Rate limit windows cleaned up');
+  }
+
   function registerBuiltinJobs() {
     register('cleanup', 6 * 3600000, runCleanup);
     register('recurring-spawn', 3600000, spawnDueRecurring);
+    register('rate-limit-cleanup', 3600000, runRateLimitCleanup);
   }
 
   return { register, registerBuiltinJobs, start, stop, spawnDueRecurring, runCleanup, advanceDate };

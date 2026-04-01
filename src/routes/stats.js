@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const createHealthService = require('../services/health.service');
 const createSplitService = require('../services/split.service');
+const { calculateEMI, calculateSIP, calculateLumpsum, calculateFIRE } = require('../services/stats.service');
 
 module.exports = function createStatsRoutes({ db }) {
 
@@ -80,7 +81,7 @@ module.exports = function createStatsRoutes({ db }) {
   // GET /api/stats/trends — monthly income vs expense over time
   router.get('/trends', (req, res, next) => {
     try {
-      const months = parseInt(req.query.months || '12', 10);
+      const months = Math.min(Math.max(parseInt(req.query.months || '12', 10) || 12, 1), 120);
       const { fy } = req.query;
 
       // Check if user has FY preference or fy query param is provided
@@ -212,41 +213,154 @@ module.exports = function createStatsRoutes({ db }) {
       const annualRate = Number(req.query.rate);
       const tenureMonths = Number(req.query.tenure);
 
-      if (!principal || principal <= 0 || !annualRate || annualRate <= 0 || !tenureMonths || tenureMonths <= 0) {
+      if (!principal || principal <= 0 || principal > 1e12 || !annualRate || annualRate <= 0 || annualRate > 100 || !tenureMonths || tenureMonths <= 0 || tenureMonths > 600) {
         return res.status(400).json({
-          error: { code: 'VALIDATION_ERROR', message: 'principal, rate (annual %), and tenure (months) are required and must be positive' }
+          error: { code: 'VALIDATION_ERROR', message: 'principal (max 1e12), rate (1-100%), and tenure (1-600 months) are required and must be positive' }
         });
       }
 
-      const monthlyRate = annualRate / 12 / 100;
-      const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, tenureMonths) / (Math.pow(1 + monthlyRate, tenureMonths) - 1);
-      const totalPayment = emi * tenureMonths;
-      const totalInterest = totalPayment - principal;
+      res.json(calculateEMI(principal, annualRate, tenureMonths));
+    } catch (err) { next(err); }
+  });
 
-      // Amortization schedule
-      const schedule = [];
-      let balance = principal;
-      for (let m = 1; m <= tenureMonths; m++) {
-        const interest = balance * monthlyRate;
-        const principalPart = emi - interest;
-        balance -= principalPart;
-        schedule.push({
-          month: m,
-          emi: Math.round(emi * 100) / 100,
-          principal: Math.round(principalPart * 100) / 100,
-          interest: Math.round(interest * 100) / 100,
-          balance: Math.max(0, Math.round(balance * 100) / 100),
+  // GET /api/stats/sip-calculator — SIP returns with optional step-up
+  router.get('/sip-calculator', (req, res, next) => {
+    try {
+      const monthly = Number(req.query.monthly);
+      const annualReturn = Number(req.query.return);
+      const years = Number(req.query.years);
+      const stepUp = Number(req.query.step_up || 0);
+
+      if (!monthly || monthly <= 0 || monthly > 1e8 || !annualReturn || annualReturn <= 0 || annualReturn > 50 || !years || years <= 0 || years > 50) {
+        return res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'monthly (max 1e8), return (1-50%), and years (1-50) are required' }
         });
       }
+      if (stepUp < 0 || stepUp > 100) {
+        return res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'step_up must be 0-100%' }
+        });
+      }
+
+      res.json(calculateSIP(monthly, annualReturn, years, stepUp));
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/lumpsum-calculator — lumpsum investment growth
+  router.get('/lumpsum-calculator', (req, res, next) => {
+    try {
+      const principal = Number(req.query.principal);
+      const annualReturn = Number(req.query.return);
+      const years = Number(req.query.years);
+
+      if (!principal || principal <= 0 || principal > 1e12 || !annualReturn || annualReturn <= 0 || annualReturn > 50 || !years || years <= 0 || years > 50) {
+        return res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'principal (max 1e12), return (1-50%), and years (1-50) are required' }
+        });
+      }
+
+      res.json(calculateLumpsum(principal, annualReturn, years));
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/fire-calculator — FIRE (Financial Independence, Retire Early) number
+  router.get('/fire-calculator', (req, res, next) => {
+    try {
+      const annualExpense = Number(req.query.annual_expense);
+      const withdrawalRate = Number(req.query.withdrawal_rate || 4);
+      const inflationRate = Number(req.query.inflation_rate || 6);
+      const yearsToRetirement = Number(req.query.years || 20);
+
+      if (!annualExpense || annualExpense <= 0 || annualExpense > 1e10) {
+        return res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'annual_expense is required (max 1e10)' }
+        });
+      }
+      if (withdrawalRate <= 0 || withdrawalRate > 20 || inflationRate < 0 || inflationRate > 30 || yearsToRetirement <= 0 || yearsToRetirement > 50) {
+        return res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'withdrawal_rate (0-20%), inflation_rate (0-30%), years (1-50) must be valid' }
+        });
+      }
+
+      res.json(calculateFIRE(annualExpense, withdrawalRate, inflationRate, yearsToRetirement));
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/spending-streak — consecutive days with expenses tracked
+  router.get('/spending-streak', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const days = db.prepare(
+        "SELECT DISTINCT date FROM transactions WHERE user_id = ? ORDER BY date DESC LIMIT 365"
+      ).all(userId).map(r => r.date);
+
+      if (days.length === 0) {
+        return res.json({ current_streak: 0, longest_streak: 0, total_tracking_days: 0 });
+      }
+
+      // Current streak (consecutive days from today backwards)
+      let currentStreak = 0;
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const daySet = new Set(days);
+
+      const d = new Date(todayStr + 'T00:00:00Z');
+      while (daySet.has(d.toISOString().slice(0, 10))) {
+        currentStreak++;
+        d.setUTCDate(d.getUTCDate() - 1);
+      }
+
+      // Longest streak
+      let longestStreak = 0;
+      let streak = 1;
+      const sorted = [...days].sort();
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = new Date(sorted[i - 1] + 'T00:00:00Z');
+        const curr = new Date(sorted[i] + 'T00:00:00Z');
+        const diff = (curr - prev) / 86400000;
+        if (diff === 1) {
+          streak++;
+        } else {
+          longestStreak = Math.max(longestStreak, streak);
+          streak = 1;
+        }
+      }
+      longestStreak = Math.max(longestStreak, streak);
 
       res.json({
-        principal,
-        annual_rate: annualRate,
-        tenure_months: tenureMonths,
-        monthly_emi: Math.round(emi * 100) / 100,
-        total_payment: Math.round(totalPayment * 100) / 100,
-        total_interest: Math.round(totalInterest * 100) / 100,
-        schedule,
+        current_streak: currentStreak,
+        longest_streak: longestStreak,
+        total_tracking_days: days.length,
+      });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/net-worth-trend — net worth over time
+  router.get('/net-worth-trend', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const months = Math.min(Math.max(parseInt(req.query.months || '12', 10) || 12, 1), 60);
+
+      // Get net worth snapshots if available
+      const snapshots = db.prepare(
+        'SELECT * FROM net_worth_snapshots WHERE user_id = ? ORDER BY date DESC LIMIT ?'
+      ).all(userId, months);
+
+      if (snapshots.length > 0) {
+        return res.json({ trend: snapshots.reverse() });
+      }
+
+      // Fallback: compute from current accounts
+      const accounts = db.prepare(
+        'SELECT SUM(CASE WHEN type NOT IN (\'credit_card\', \'loan\') THEN balance ELSE 0 END) as assets, SUM(CASE WHEN type IN (\'credit_card\', \'loan\') THEN ABS(balance) ELSE 0 END) as liabilities FROM accounts WHERE user_id = ? AND is_active = 1'
+      ).get(userId);
+
+      res.json({
+        trend: [{
+          date: new Date().toISOString().slice(0, 10),
+          total_assets: accounts.assets || 0,
+          total_liabilities: accounts.liabilities || 0,
+          net_worth: (accounts.assets || 0) - (accounts.liabilities || 0),
+        }],
       });
     } catch (err) { next(err); }
   });
@@ -411,6 +525,253 @@ module.exports = function createStatsRoutes({ db }) {
         total_tax_savings: Math.round(totalTaxSavings * 100) / 100,
         section_80c_limit: 150000,
         section_80c_utilized: Math.min(totalTaxSavings, 150000),
+      });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/financial-snapshot — comprehensive single-page financial summary
+  router.get('/financial-snapshot', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const now = new Date();
+      const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+
+      // Net worth
+      const accounts = db.prepare(
+        'SELECT SUM(CASE WHEN type NOT IN (\'credit_card\', \'loan\') THEN balance ELSE 0 END) as assets, SUM(CASE WHEN type IN (\'credit_card\', \'loan\') THEN ABS(balance) ELSE 0 END) as liabilities FROM accounts WHERE user_id = ? AND is_active = 1'
+      ).get(userId);
+
+      // Monthly income/expense
+      const monthIncome = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = \'income\' AND date >= ?').get(userId, monthStart);
+      const monthExpense = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = \'expense\' AND date >= ?').get(userId, monthStart);
+
+      // Active budgets count
+      const activeBudgets = db.prepare('SELECT COUNT(*) as count FROM budgets WHERE user_id = ? AND is_active = 1').get(userId);
+
+      // Active goals
+      const goals = db.prepare('SELECT COUNT(*) as count, COALESCE(SUM(current_amount), 0) as saved, COALESCE(SUM(target_amount), 0) as target FROM savings_goals WHERE user_id = ? AND is_completed = 0').get(userId);
+
+      // Active subscriptions
+      const subs = db.prepare('SELECT COUNT(*) as count, COALESCE(SUM(CASE WHEN frequency = \'monthly\' THEN amount WHEN frequency = \'yearly\' THEN amount / 12.0 WHEN frequency = \'quarterly\' THEN amount / 3.0 ELSE amount * 4.33 END), 0) as monthly_total FROM subscriptions WHERE user_id = ? AND is_active = 1').get(userId);
+
+      // Transaction count this month
+      const txnCount = db.prepare('SELECT COUNT(*) as count FROM transactions WHERE user_id = ? AND date >= ?').get(userId, monthStart);
+
+      // Accounts count
+      const accountCount = db.prepare('SELECT COUNT(*) as count FROM accounts WHERE user_id = ? AND is_active = 1').get(userId);
+
+      // Savings rate
+      const savingsRate = monthIncome.total > 0
+        ? Math.round(((monthIncome.total - monthExpense.total) / monthIncome.total) * 10000) / 100
+        : 0;
+
+      res.json({
+        net_worth: (accounts.assets || 0) - (accounts.liabilities || 0),
+        total_assets: accounts.assets || 0,
+        total_liabilities: accounts.liabilities || 0,
+        month_income: monthIncome.total,
+        month_expense: monthExpense.total,
+        month_savings: monthIncome.total - monthExpense.total,
+        savings_rate: savingsRate,
+        active_budgets: activeBudgets.count,
+        active_goals: goals.count,
+        goals_progress: goals.target > 0 ? Math.round((goals.saved / goals.target) * 10000) / 100 : 0,
+        active_subscriptions: subs.count,
+        monthly_subscription_cost: Math.round(subs.monthly_total * 100) / 100,
+        accounts_count: accountCount.count,
+        transactions_this_month: txnCount.count,
+      });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/savings-rate-history — monthly savings rate over time
+  router.get('/savings-rate-history', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const months = Math.min(Math.max(parseInt(req.query.months || '12', 10) || 12, 1), 60);
+
+      const data = db.prepare(`
+        SELECT strftime('%Y-%m', date) as month,
+          SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
+          SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
+        FROM transactions WHERE user_id = ?
+        GROUP BY month ORDER BY month DESC LIMIT ?
+      `).all(userId, months);
+
+      const history = data.reverse().map(m => ({
+        month: m.month,
+        income: m.income,
+        expense: m.expense,
+        savings: m.income - m.expense,
+        savings_rate: m.income > 0 ? Math.round(((m.income - m.expense) / m.income) * 10000) / 100 : 0,
+      }));
+
+      res.json({ history });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/goal-milestones — progress milestones for goals
+  router.get('/goal-milestones', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const goals = db.prepare('SELECT * FROM savings_goals WHERE user_id = ?').all(userId);
+
+      const milestones = goals.map(g => {
+        const pct = g.target_amount > 0 ? (g.current_amount / g.target_amount) * 100 : 0;
+        const milestoneList = [10, 25, 50, 75, 90, 100];
+        const achieved = milestoneList.filter(m => pct >= m);
+        const next = milestoneList.find(m => pct < m) || null;
+        const nextAmount = next !== null ? g.target_amount * (next / 100) : null;
+
+        return {
+          goal_id: g.id,
+          goal_name: g.name,
+          target: g.target_amount,
+          current: g.current_amount,
+          percentage: Math.round(pct * 100) / 100,
+          is_completed: g.is_completed === 1,
+          milestones_achieved: achieved,
+          next_milestone: next,
+          amount_to_next: nextAmount !== null ? Math.round((nextAmount - g.current_amount) * 100) / 100 : 0,
+        };
+      });
+
+      res.json({ milestones });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/challenges — list savings challenges
+  router.get('/challenges', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const { active } = req.query;
+      let sql = 'SELECT sc.*, c.name as category_name FROM savings_challenges sc LEFT JOIN categories c ON sc.category_id = c.id WHERE sc.user_id = ?';
+      const params = [userId];
+      if (active === '1') { sql += ' AND sc.is_active = 1'; }
+      sql += ' ORDER BY sc.created_at DESC';
+      const challenges = db.prepare(sql).all(...params);
+
+      // Calculate progress for each challenge
+      const result = challenges.map(ch => {
+        let progress = 0;
+        if (ch.type === 'no_spend' && ch.category_id) {
+          // Count spending in category during challenge period
+          const spent = db.prepare(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND category_id = ? AND type = 'expense' AND date >= ? AND date <= ?"
+          ).get(userId, ch.category_id, ch.start_date, ch.end_date).total;
+          progress = spent === 0 ? 100 : 0;
+        } else if (ch.type === 'savings_target') {
+          progress = ch.target_amount > 0 ? Math.round((ch.current_amount / ch.target_amount) * 10000) / 100 : 0;
+        } else if (ch.type === 'reduce_category' && ch.category_id) {
+          // Compare to previous period
+          const days = Math.max(1, Math.ceil((new Date(ch.end_date) - new Date(ch.start_date)) / 86400000));
+          const prevStart = new Date(new Date(ch.start_date).getTime() - days * 86400000).toISOString().slice(0, 10);
+          const prevSpent = db.prepare(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND category_id = ? AND type = 'expense' AND date >= ? AND date < ?"
+          ).get(userId, ch.category_id, prevStart, ch.start_date).total;
+          const currSpent = db.prepare(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND category_id = ? AND type = 'expense' AND date >= ? AND date <= ?"
+          ).get(userId, ch.category_id, ch.start_date, ch.end_date).total;
+
+          if (prevSpent > 0) {
+            const reduction = ((prevSpent - currSpent) / prevSpent) * 100;
+            const targetReduction = ch.target_amount; // target_amount used as % reduction target
+            progress = targetReduction > 0 ? Math.min(100, Math.round((reduction / targetReduction) * 10000) / 100) : 0;
+          }
+        }
+        return { ...ch, is_active: ch.is_active === 1, is_completed: ch.is_completed === 1, progress };
+      });
+
+      res.json({ challenges: result });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/stats/challenges — create a savings challenge
+  router.post('/challenges', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const { name, type, target_amount, category_id, start_date, end_date } = req.body;
+
+      if (!name || !type || !start_date || !end_date) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'name, type, start_date, and end_date are required' } });
+      }
+      if (!['no_spend', 'savings_target', 'reduce_category'].includes(type)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'type must be no_spend, savings_target, or reduce_category' } });
+      }
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start_date) || !/^\d{4}-\d{2}-\d{2}$/.test(end_date)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Dates must be YYYY-MM-DD' } });
+      }
+      if (start_date > end_date) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'start_date must be before end_date' } });
+      }
+
+      const result = db.prepare(
+        'INSERT INTO savings_challenges (user_id, name, type, target_amount, category_id, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?)'
+      ).run(userId, name, type, target_amount || 0, category_id || null, start_date, end_date);
+
+      const challenge = db.prepare('SELECT * FROM savings_challenges WHERE id = ?').get(result.lastInsertRowid);
+      res.status(201).json({ challenge });
+    } catch (err) { next(err); }
+  });
+
+  // DELETE /api/stats/challenges/:id — delete a challenge
+  router.delete('/challenges/:id', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const challenge = db.prepare('SELECT * FROM savings_challenges WHERE id = ? AND user_id = ?').get(req.params.id, userId);
+      if (!challenge) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Challenge not found' } });
+
+      db.prepare('DELETE FROM savings_challenges WHERE id = ? AND user_id = ?').run(req.params.id, userId);
+      res.json({ deleted: true });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/month-comparison — compare two months side by side
+  router.get('/month-comparison', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const now = new Date();
+      const thisMonth = req.query.month1 || `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+      const prevMonth = req.query.month2 || (() => {
+        const d = new Date(now);
+        d.setUTCMonth(d.getUTCMonth() - 1);
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      })();
+
+      function getMonthData(month) {
+        const from = `${month}-01`;
+        const to = `${month}-31`;
+        const income = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'income' AND date >= ? AND date <= ?").get(userId, from, to);
+        const expense = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'expense' AND date >= ? AND date <= ?").get(userId, from, to);
+        const txnCount = db.prepare("SELECT COUNT(*) as count FROM transactions WHERE user_id = ? AND date >= ? AND date <= ?").get(userId, from, to);
+        const topCategories = db.prepare(
+          "SELECT c.name, SUM(t.amount) as total FROM transactions t JOIN categories c ON t.category_id = c.id WHERE t.user_id = ? AND t.type = 'expense' AND t.date >= ? AND t.date <= ? GROUP BY c.id ORDER BY total DESC LIMIT 5"
+        ).all(userId, from, to);
+        return {
+          month,
+          income: income.total,
+          expense: expense.total,
+          savings: income.total - expense.total,
+          savings_rate: income.total > 0 ? Math.round(((income.total - expense.total) / income.total) * 10000) / 100 : 0,
+          transaction_count: txnCount.count,
+          top_categories: topCategories,
+        };
+      }
+
+      const month1Data = getMonthData(thisMonth);
+      const month2Data = getMonthData(prevMonth);
+
+      const incomeChange = month2Data.income > 0 ? Math.round(((month1Data.income - month2Data.income) / month2Data.income) * 10000) / 100 : 0;
+      const expenseChange = month2Data.expense > 0 ? Math.round(((month1Data.expense - month2Data.expense) / month2Data.expense) * 10000) / 100 : 0;
+
+      res.json({
+        month1: month1Data,
+        month2: month2Data,
+        changes: {
+          income_change_pct: incomeChange,
+          expense_change_pct: expenseChange,
+          savings_improved: month1Data.savings > month2Data.savings,
+        },
       });
     } catch (err) { next(err); }
   });

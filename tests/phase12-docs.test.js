@@ -152,7 +152,7 @@ describe('Phase 12 — Docs & Community (P3)', () => {
       const res = await rawAgent().get('/api/version');
       assert.equal(res.status, 200);
       assert.ok(res.body.version, 'Response should include version');
-      assert.ok(res.body.version.startsWith('0.'), 'Version should start with 0.');
+      assert.ok(/^\d+\.\d+\.\d+/.test(res.body.version), 'Version should be semver format');
     });
   });
 });

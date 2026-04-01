@@ -348,6 +348,14 @@ module.exports = function createDataRoutes({ db }) {
           if (!date || !description || isNaN(amount) || !type) continue;
           if (!['income', 'expense', 'transfer'].includes(type)) continue;
           if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+          // Date bounds: reject dates before 1900 or more than 1 day in the future
+          const parsedDate = new Date(date + 'T00:00:00Z');
+          if (isNaN(parsedDate.getTime())) continue;
+          if (parsedDate.getFullYear() < 1900) continue;
+          const tomorrow = new Date();
+          tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+          if (parsedDate > tomorrow) continue;
+          if (amount <= 0 || amount > 1e15) continue;
 
           // Resolve category
           let categoryId = null;

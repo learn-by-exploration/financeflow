@@ -2,6 +2,57 @@
 
 All notable changes to PersonalFi are documented here.
 
+## [2.0.0] — 2025-07-23
+
+### Added — Financial Calculators & Analytics
+- **SIP Calculator** (`GET /api/stats/sip-calculator`) — systematic investment plan projections with step-up support
+- **Lumpsum Calculator** (`GET /api/stats/lumpsum-calculator`) — one-time investment growth projection
+- **FIRE Calculator** (`GET /api/stats/fire-calculator`) — Financial Independence, Retire Early number with inflation adjustment
+- **Spending Streak** (`GET /api/stats/spending-streak`) — daily spending streak tracking
+- **Net Worth Trend** (`GET /api/stats/net-worth-trend`) — historical net worth snapshots
+- **Financial Snapshot** (`GET /api/stats/financial-snapshot`) — comprehensive financial health overview
+- **Savings Rate History** (`GET /api/stats/savings-rate-history`) — monthly savings rate tracking
+- **Goal Milestones** (`GET /api/stats/goal-milestones`) — goal progress milestones and projections
+- **Month Comparison** (`GET /api/stats/month-comparison`) — side-by-side month spending/income comparison
+
+### Added — Gamification
+- **Savings Challenges** (`GET/POST/DELETE /api/stats/challenges`) — create/track/delete savings challenges with progress calculation
+- Migration `026_savings_challenges.sql` — savings challenges table
+
+### Added — Testing & Quality
+- **v2 Validation Tests** — 19 tests for bounded params, EMI bounds, budget dates, rate limiter
+- **v2 Schema Hardening Tests** — 17 tests for transfer validation, CSV bounds, edge cases
+- **v2 Financial Calculator Tests** — 19 tests for SIP/lumpsum/FIRE service unit tests
+- **v2 New Feature Tests** — 21 tests for snapshot, savings rate, milestones, auth enforcement
+- **v2 Gamification Tests** — 16 tests for challenges CRUD, progress, month comparison
+- **v2 Performance Tests** — 26 tests for large datasets, concurrent requests, data integrity, fuzzing
+- **v2 Regression Suite** — 44 tests for auth enforcement, cross-user isolation, OWASP, stress testing
+- Test count: **2149+ tests, 0 failures** (up from 1987)
+
+### Changed — Architecture
+- **Stats Service extraction** (`src/services/stats.service.js`) — EMI, SIP, lumpsum, FIRE calculators moved to dedicated service (SOLID)
+- **Split rounding fairness** — remainder pennies now distributed round-robin instead of always to last member
+- **Stats endpoint caching** — `/api/stats/*` now cached (60s) with transaction/account invalidation
+- **Budget schema refactored** — base schema separated from refinement for Zod v4 `.partial()` compatibility
+
+### Changed — Validation Hardening
+- EMI calculator: principal capped at 1e12, rate 0.01-50%, tenure 1-600 months
+- Stats trends: `months` parameter capped at 120
+- Transaction schema: transfer/category mutual exclusivity enforced via Zod refinements
+- Account schema: currency validated with `/^[A-Z]{3}$/`, balance bounds ±1e15, account_number_last4 digits-only
+- CSV import: date bounds (>=1900, <=tomorrow), amount bounds (>0, <=1e15)
+
+### Added — Performance
+- Migration `027_performance_indexes_v2.sql` — composite indexes for v2 query patterns
+- Rate limiter cleanup job (hourly) added to scheduler
+
+### Security
+- All 12 new endpoints verified to require authentication (401 without token)
+- Cross-user data isolation verified for all new features
+- SQL injection protection verified on all parameter inputs
+- No sensitive data leaked in error responses
+- OWASP Top 10 re-verified for all new endpoints
+
 ## [1.0.0] — 2025-07-22
 
 ### Added — Financial Features

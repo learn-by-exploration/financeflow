@@ -160,7 +160,7 @@ app.use('/api/groups', requireAuth, createGroupRoutes(deps));
 app.use('/api/groups', requireAuth, createGroupInviteRoutes(deps));
 app.use('/api/groups', requireAuth, createExpenseCommentRoutes(deps));
 app.use('/api/splits', requireAuth, createSplitRoutes(deps));
-app.use('/api/stats', requireAuth, createStatsRoutes(deps));
+app.use('/api/stats', requireAuth, cacheMiddleware(60, ['transactions', 'accounts', 'categories', 'budgets', 'goals']), createStatsRoutes(deps));
 app.use('/api/subscriptions', requireAuth, createSubscriptionRoutes(deps));
 app.use('/api/goals', requireAuth, createGoalRoutes(deps));
 app.use('/api/settings', requireAuth, createSettingsRoutes(deps));

@@ -1,66 +1,80 @@
-# PersonalFi — Release Notes v1.0.0
+# PersonalFi — Release Notes v2.0.0
 
-**Stable Release — v1.0.0** | 22 July 2025
+**Major Release — v2.0.0** | 23 July 2025
 
 ---
 
 ## Summary
 
-PersonalFi v1.0.0 is the first stable release. This version completes 50 iterations of development, testing, and hardening since v0.7.0. The test suite now contains **1987+ tests** across 100+ test files, all passing with zero lint warnings.
+PersonalFi v2.0.0 is a major release delivering financial calculators, analytics, gamification, and significant hardening across validation, performance, and security. 50 iterations of development since v1.0.0. The test suite now contains **2149+ tests** across 112+ test files, all passing with zero lint warnings.
 
 ---
 
 ## Highlights
 
-### Financial Intelligence
-- **EMI Calculator** — Compute monthly installments with full amortization schedules for any loan
-- **Budget Variance Analysis** — See exactly where you're over/under budget with category-level breakdown
-- **Subscription Savings** — Identify costly subscriptions and estimate annual savings potential
-- **Debt Payoff Strategies** — Compare snowball vs avalanche payoff methods with timeline projections
-- **Indian Tax Summary** — Track 80C and 80D deductions automatically from categorized transactions
+### Financial Calculators
+- **SIP Calculator** — Project systematic investment plan returns with step-up (annual increase) support
+- **Lumpsum Calculator** — One-time investment growth projection with yearly breakdown
+- **FIRE Calculator** — Calculate your Financial Independence number accounting for inflation
+- **EMI Calculator** — Enhanced with tighter bounds and extracted to dedicated service
 
-### Reliability & Security
-- OWASP Top 10 verified — SQL injection, XSS, IDOR, auth bypass all tested
-- All 22 protected endpoints enforce authentication
-- Password hashes never leaked in API responses
-- Security headers (X-Content-Type-Options, CSP, X-Frame-Options) verified
-- Performance benchmarks: all endpoints respond under 500ms with realistic data
+### Analytics & Insights
+- **Spending Streak** — Track daily spending patterns and streaks
+- **Net Worth Trend** — Historical net worth snapshots over time
+- **Financial Snapshot** — Comprehensive single-endpoint financial health overview
+- **Savings Rate History** — Monthly savings rate tracking for trend analysis
+- **Goal Milestones** — Track progress milestones toward financial goals
+- **Month Comparison** — Side-by-side comparison of any two months
 
-### DevOps
-- Docker Compose with health checks, auto-restart, and container naming
-- Systemd service for auto-start on server reboot
-- SQLite backup script with 10-backup rotation
-- Zero-downtime deployment ready
+### Gamification
+- **Savings Challenges** — Create, track, and complete savings challenges with progress tracking
+
+### Validation & Security Hardening
+- All schema inputs validated with strict bounds (amounts, dates, currencies, rates)
+- Transfer/category mutual exclusivity enforced at schema level
+- Currency codes validated via regex, balance bounds enforced
+- CSV import date/amount bounds prevent data corruption
+- Split rounding improved: fair round-robin distribution of remainder pennies
+
+### Performance
+- Composite database indexes for v2 query patterns
+- Stats endpoints cached (60s) with automatic invalidation
+- Rate limiter cleanup job prevents memory leaks
+- All endpoints benchmarked under load (500+ transactions, concurrent requests)
 
 ---
 
-## What Changed Since v0.7.0
-
-### New Endpoints (5)
+## New Endpoints (11)
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/stats/emi-calculator` | Loan EMI with amortization schedule |
-| `GET /api/stats/subscription-savings` | Subscription cost analysis |
-| `GET /api/stats/budget-variance` | Budget vs actual spending |
-| `GET /api/stats/debt-payoff` | Snowball/avalanche strategies |
-| `GET /api/stats/tax-summary` | Indian 80C/80D tax tracking |
+| `GET /api/stats/sip-calculator` | SIP investment projection with step-up |
+| `GET /api/stats/lumpsum-calculator` | Lumpsum investment growth |
+| `GET /api/stats/fire-calculator` | FIRE number with inflation |
+| `GET /api/stats/spending-streak` | Daily spending streak |
+| `GET /api/stats/net-worth-trend` | Net worth time series |
+| `GET /api/stats/financial-snapshot` | Full financial overview |
+| `GET /api/stats/savings-rate-history` | Monthly savings rates |
+| `GET /api/stats/goal-milestones` | Goal progress milestones |
+| `GET /api/stats/month-comparison` | Month-to-month comparison |
+| `GET/POST /api/stats/challenges` | Savings challenges CRUD |
+| `DELETE /api/stats/challenges/:id` | Delete a challenge |
 
-### New Test Files (7)
+## New Test Files (7)
 | File | Tests | Coverage |
 |------|-------|----------|
-| `release-verification.test.js` | 42 | E2E, OWASP, performance, data integrity |
-| `reliability.test.js` | 39 | Concurrent ops, error paths, large datasets |
-| `financial-features.test.js` | 29 | EMI, variance, subscriptions, health score |
-| `indian-market-ux.test.js` | 25 | Tax, debt payoff, onboarding, branding |
-| `transaction-templates.test.js` | 24 | Template CRUD, from-template creation |
-| `calendar.test.js` | 13 | Calendar view API |
-| `whats-new.test.js` | 10 | Changelog API |
+| `v2-validation-fixes.test.js` | 19 | Bounded params, EMI bounds, budget dates |
+| `v2-schema-hardening.test.js` | 17 | Transfer validation, CSV bounds |
+| `v2-financial-calculators.test.js` | 19 | SIP, lumpsum, FIRE service tests |
+| `v2-new-features.test.js` | 21 | Snapshot, savings rate, milestones |
+| `v2-gamification.test.js` | 16 | Challenges CRUD, month comparison |
+| `v2-performance.test.js` | 26 | Performance, integrity, fuzzing |
+| `v2-regression.test.js` | 44 | Auth, OWASP, stress, edge cases |
 
-### Code Quality
-- Eliminated all 45 ESLint warnings → **0 errors, 0 warnings**
-- Removed dead code across 15+ files (unused imports, unreachable variables)
-- Strict equality (`!==`) enforced throughout codebase
-- `let` → `const` for all never-reassigned variables
+## New Migrations (2)
+| Migration | Description |
+|-----------|-------------|
+| `026_savings_challenges.sql` | Savings challenges table with indexes |
+| `027_performance_indexes_v2.sql` | Composite indexes for v2 queries |
 
 ---
 

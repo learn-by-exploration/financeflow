@@ -7,7 +7,7 @@ const createTransactionSchema = z.object({
   category_id: z.number().int().positive().optional().nullable(),
   type: z.enum(VALID_TYPES),
   amount: z.number().positive('Amount must be positive').max(1e15, 'Amount too large'),
-  currency: z.string().length(3).optional(),
+  currency: z.string().length(3).regex(/^[A-Z]{3}$/, 'Currency must be 3 uppercase letters').optional(),
   description: z.string().min(1, 'Description is required').max(500),
   note: z.string().max(1000).optional().nullable(),
   date: z.string().min(1, 'Date is required').regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').refine(s => !isNaN(Date.parse(s)), 'Invalid date'),
@@ -15,7 +15,13 @@ const createTransactionSchema = z.object({
   transfer_to_account_id: z.number().int().positive().optional().nullable(),
   tag_ids: z.array(z.number().int().positive()).optional(),
   reference_id: z.string().max(50).optional().nullable(),
-});
+}).refine(
+  (data) => !(data.type === 'transfer' && data.category_id),
+  { message: 'Transfers should not have a category', path: ['category_id'] }
+).refine(
+  (data) => data.type !== 'transfer' || data.transfer_to_account_id,
+  { message: 'Transfers require transfer_to_account_id', path: ['transfer_to_account_id'] }
+);
 
 const updateTransactionSchema = z.object({
   category_id: z.number().int().positive().optional().nullable(),

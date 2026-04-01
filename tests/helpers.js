@@ -75,6 +75,7 @@ function cleanDb() {
   // Reset onboarding for test user
   try { db.exec('UPDATE users SET onboarding_completed = 0'); } catch {}
   // Don't delete users/sessions — test user stays
+  try { db.exec('DELETE FROM savings_challenges'); } catch {}
   try { db.exec('DELETE FROM exchange_rates'); } catch {}
   try { db.exec('DELETE FROM category_rules'); } catch {}
   try { db.exec('DELETE FROM transaction_templates'); } catch {}

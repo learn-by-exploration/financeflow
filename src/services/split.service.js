@@ -1,18 +1,30 @@
 module.exports = function createSplitService({ db }) {
 
   /**
+   * Distribute remainder pennies round-robin across members.
+   * Guarantees sum(result) === target amount.
+   */
+  function distributeRemainder(amounts, totalAmount) {
+    const sum = amounts.reduce((s, a) => s + a, 0);
+    let remainderCents = Math.round((totalAmount - sum) * 100);
+    let i = 0;
+    while (remainderCents > 0) {
+      amounts[i % amounts.length] = Math.round((amounts[i % amounts.length] + 0.01) * 100) / 100;
+      remainderCents--;
+      i++;
+    }
+    return amounts;
+  }
+
+  /**
    * Calculate equal split amounts with rounding.
-   * Floor each share, assign remainder to last member.
+   * Floor each share, distribute remainder pennies round-robin.
    * Guarantees sum(splits) === amount.
    */
   function calculateEqualSplit(amount, memberCount) {
     const share = Math.floor(amount / memberCount * 100) / 100;
-    const remainder = Math.round((amount - share * memberCount) * 100) / 100;
-    const amounts = [];
-    for (let i = 0; i < memberCount; i++) {
-      amounts.push(i === memberCount - 1 ? Math.round((share + remainder) * 100) / 100 : share);
-    }
-    return amounts;
+    const amounts = Array(memberCount).fill(share);
+    return distributeRemainder(amounts, amount);
   }
 
   /**
@@ -75,28 +87,22 @@ module.exports = function createSplitService({ db }) {
   /**
    * Calculate percentage-based split amounts.
    * Each member's amount = floor(total * percentage / 100, 2 decimals).
-   * Remainder assigned to last member to guarantee sum === amount.
+   * Remainder distributed round-robin to guarantee sum === amount.
    */
   function calculatePercentageSplit(amount, percentages) {
     const amounts = percentages.map(p => Math.floor(amount * p / 100 * 100) / 100);
-    const sum = amounts.reduce((s, a) => s + a, 0);
-    const remainder = Math.round((amount - sum) * 100) / 100;
-    amounts[amounts.length - 1] = Math.round((amounts[amounts.length - 1] + remainder) * 100) / 100;
-    return amounts;
+    return distributeRemainder(amounts, amount);
   }
 
   /**
    * Calculate shares-based split amounts.
    * Each member's amount = floor(total * myShares / totalShares, 2 decimals).
-   * Remainder assigned to last member to guarantee sum === amount.
+   * Remainder distributed round-robin to guarantee sum === amount.
    */
   function calculateSharesSplit(amount, shares) {
     const totalShares = shares.reduce((s, sh) => s + sh, 0);
     const amounts = shares.map(sh => Math.floor(amount * sh / totalShares * 100) / 100);
-    const sum = amounts.reduce((s, a) => s + a, 0);
-    const remainder = Math.round((amount - sum) * 100) / 100;
-    amounts[amounts.length - 1] = Math.round((amounts[amounts.length - 1] + remainder) * 100) / 100;
-    return amounts;
+    return distributeRemainder(amounts, amount);
   }
 
   return { calculateEqualSplit, calculatePercentageSplit, calculateSharesSplit, simplifyDebts, calculateBalances };
