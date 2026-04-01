@@ -2,6 +2,50 @@
 
 All notable changes to PersonalFi are documented here.
 
+## [5.0.0] — 2026-04-02
+
+### Fixed — Critical
+- **Cross-currency transfers now convert correctly** — previously, transferring USD→INR would credit the INR account with the same numeric amount (e.g., $1000 → ₹1000 instead of ₹83,500). The transfer service now looks up exchange rates, converts amounts, and updates each account balance in its own currency. This fixes a double-entry ledger violation.
+
+### Added — Multi-Currency Enhancement
+- **Migration 030** (`030_transaction_conversion_columns.sql`) — adds `original_amount`, `original_currency`, `exchange_rate_used` columns to transactions table for immutable conversion audit trail
+- **Foreign currency income/expense** — transactions in a different currency than the account are auto-converted using stored exchange rates, with original amount preserved
+- **User-specified exchange rate** — optional `exchange_rate` field on transaction create/transfer overrides automatic rate lookup (for bank-specific rates)
+- **Transaction currency filter** — `GET /api/transactions?currency=USD` filters by transaction currency
+- **Currency breakdown endpoint** — `GET /api/stats/currency-breakdown` returns per-currency account totals
+- **Reports currency breakdown** — monthly reports include `currency_breakdown` showing income/expense per currency
+- **Stats overview currency balances** — `GET /api/stats/overview` now includes `currency_balances` array
+- **Transaction currency defaults to account currency** — when currency not specified, uses the account's currency (not user default) for correct UX
+
+### Added — Frontend
+- **Currency selector on transaction form** — dropdown shown only when user has accounts in multiple currencies
+- **Exchange rate field** — shown only for cross-currency transactions/transfers, with placeholder "Auto (from saved rates)"
+- **Account selector shows currency code** — e.g., "🏦 USD Savings (USD)"
+- **Per-currency locale formatting** — `fmt()` now maps 30+ currencies to their natural locale (JPY→ja-JP, USD→en-US, EUR→de-DE, etc.) instead of always using en-IN
+- **Original amount display** — transaction list shows converted amount with original in muted text: "₹83,500 ($1,000 @ 83.50)"
+- **Currency filter in filter bar** — dropdown filter shown only when user has multi-currency accounts
+- **CSS for conversion display** — `.txn-original-amount` styled for unobtrusive inline display
+
+### Added — Testing (34 new tests)
+- **Multi-Currency Transfers Tests** (`tests/multi-currency-transfers.test.js`) — 21 tests: migration columns, USD→INR transfer, reverse rate (INR→USD), same-currency no-op, missing rate error, user-specified rate, delete reversal, foreign currency expense/income, currency filter, schema validation, reports breakdown, dashboard breakdown
+- **Multi-Currency Frontend Tests** (`tests/multi-currency-frontend.test.js`) — 17 tests: form fields, conditional visibility, currency formatting, locale mapping, filter bar
+- Test count: **2641 tests, 0 failures** (up from 2607)
+
+### Changed
+- Transaction service: cross-currency transfers use exchange rate repo for rate lookup with reverse rate fallback
+- Transaction route: income/expense auto-converts foreign currency to account currency
+- Transaction repository: `create()` accepts `original_amount`, `original_currency`, `exchange_rate_used`; `findAllByUser()`/`countByUser()` support `currency` filter
+- Reports route: monthly report includes `currency_breakdown` per-currency
+- Stats route: overview includes `currency_balances`; new `/currency-breakdown` endpoint
+- Frontend `fmt()`: locale auto-detection from currency code (30+ mappings)
+- Service worker `CACHE_NAME` bumped to `financeflow-v5.0.0`
+
+### Security
+- Exchange rate manipulation prevented — only admins can CRUD rates (enforced via route middleware)
+- Conversion data stored immutably — original_amount/currency/rate captured at transaction time, never recalculated
+- Cross-currency transfer is atomic (SQLite transaction) — no partial balance updates possible
+- Missing rate → explicit 400 error (not silent 1:1 fallback)
+
 ## [4.0.0] — 2025-07-24
 
 ### Added — Architecture

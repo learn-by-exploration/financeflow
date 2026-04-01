@@ -129,8 +129,11 @@ module.exports = function createReportRoutes({ db }) {
       const summary = reportRepo.getMonthlySummary(userId, year, mm);
       const top_categories = reportRepo.getTopCategories(userId, `${year}-${mm}-01`, `${year}-${mm}-31`);
       const daily = reportRepo.getDailyBreakdown(userId, year, mm);
+      const currency_breakdown = db.prepare(
+        "SELECT currency, SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as total_expense, SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as total_income FROM transactions WHERE user_id = ? AND strftime('%Y', date) = ? AND strftime('%m', date) = ? GROUP BY currency"
+      ).all(userId, year, mm);
 
-      res.json({ month, ...summary, top_categories, daily });
+      res.json({ month, ...summary, top_categories, daily, currency_breakdown });
     } catch (err) { next(err); }
   });
 

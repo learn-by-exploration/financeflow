@@ -31,8 +31,20 @@ export const Api = {
 };
 
 // ─── Currency formatter ───
-export function fmt(amount, currency = 'INR', locale = 'en-IN') {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount || 0);
+// Currency → natural locale mapping for proper number formatting
+const CURRENCY_LOCALE = {
+  INR: 'en-IN', USD: 'en-US', EUR: 'de-DE', GBP: 'en-GB', JPY: 'ja-JP',
+  AUD: 'en-AU', CAD: 'en-CA', CHF: 'de-CH', CNY: 'zh-CN', SGD: 'en-SG',
+  AED: 'ar-AE', BRL: 'pt-BR', KRW: 'ko-KR', THB: 'th-TH', MYR: 'ms-MY',
+  IDR: 'id-ID', PHP: 'fil-PH', VND: 'vi-VN', ZAR: 'en-ZA', NZD: 'en-NZ',
+  SEK: 'sv-SE', NOK: 'nb-NO', DKK: 'da-DK', PLN: 'pl-PL', CZK: 'cs-CZ',
+  HUF: 'hu-HU', TRY: 'tr-TR', MXN: 'es-MX', RUB: 'ru-RU', HKD: 'zh-HK',
+  TWD: 'zh-TW', ILS: 'he-IL',
+};
+
+export function fmt(amount, currency = 'INR', locale) {
+  const resolvedLocale = locale || CURRENCY_LOCALE[currency] || 'en-US';
+  return new Intl.NumberFormat(resolvedLocale, { style: 'currency', currency }).format(amount || 0);
 }
 
 // ─── Date formatter ───

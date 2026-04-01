@@ -757,6 +757,7 @@ body {
 .row-actions { display: flex; gap: 0.25rem; justify-content: flex-end; }
 .txn-desc-cell { display: flex; flex-direction: column; gap: 0.125rem; }
 .txn-payee { font-size: 0.75rem; color: var(--text-muted); }
+.txn-original-amount { display: block; font-size: 0.7rem; color: var(--text-muted); opacity: 0.8; }
 
 /* ─── Badges ─── */
 .badge {

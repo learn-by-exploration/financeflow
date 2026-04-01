@@ -154,7 +154,7 @@ describe('v2 Performance & Reliability (Iter 31-40)', () => {
     it('migration count is correct', () => {
       const { db } = setup();
       const count = db.prepare('SELECT COUNT(*) as c FROM _migrations').get().c;
-      assert.equal(count, 29, 'should have exactly 29 migrations applied');
+      assert.equal(count, 30, 'should have exactly 30 migrations applied');
     });
   });
 

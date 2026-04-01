@@ -56,7 +56,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       if (!parsed.success) {
         throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
       }
-      const { account_id, category_id, type, amount, currency, description, note, date, payee, transfer_to_account_id, tag_ids, reference_id } = parsed.data;
+      const { account_id, category_id, type, amount, currency, description, note, date, payee, transfer_to_account_id, tag_ids, reference_id, exchange_rate } = parsed.data;
 
       // Transfer handling
       if (type === 'transfer') {
@@ -73,27 +73,66 @@ module.exports = function createTransactionRoutes({ db, audit }) {
           throw new ValidationError('Destination account not found');
         }
 
-        const transaction = txService.createTransfer({
-          userId: req.user.id, accountId: account_id, transferToAccountId: transfer_to_account_id,
-          categoryId: category_id, amount, currency: currency || req.user.defaultCurrency,
-          description, note, date, payee, tags: tag_ids
-        });
-        audit.log(req.user.id, 'transaction.create', 'transaction', transaction.id);
-        invalidateCache(req.user.id, CACHE_PATTERNS);
-        return res.status(201).json({ transaction });
+        try {
+          const transaction = txService.createTransfer({
+            userId: req.user.id, accountId: account_id, transferToAccountId: transfer_to_account_id,
+            categoryId: category_id, amount, currency: currency || req.user.defaultCurrency,
+            description, note, date, payee, tags: tag_ids, exchangeRate: exchange_rate
+          });
+          audit.log(req.user.id, 'transaction.create', 'transaction', transaction.id);
+          invalidateCache(req.user.id, CACHE_PATTERNS);
+          return res.status(201).json({ transaction });
+        } catch (err) {
+          if (err.message && err.message.includes('No exchange rate found')) {
+            throw new ValidationError(err.message);
+          }
+          throw err;
+        }
+      }
+
+      // Determine account currency for foreign-currency conversion
+      const account = db.prepare('SELECT currency FROM accounts WHERE id = ? AND user_id = ?').get(account_id, req.user.id);
+      const accountCurrency = account ? account.currency : (currency || req.user.defaultCurrency);
+      // Default transaction currency to account currency (not user default) for UX consistency
+      const txCurrency = currency || accountCurrency;
+
+      let finalAmount = amount;
+      let originalAmount = null;
+      let originalCurrency = null;
+      let exchangeRateUsed = null;
+
+      if (txCurrency !== accountCurrency) {
+        // Foreign currency transaction — convert to account currency
+        const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
+        const rateRepo = createExchangeRateRepository({ db });
+
+        if (exchange_rate) {
+          exchangeRateUsed = exchange_rate;
+          finalAmount = Math.round((amount * exchange_rate + Number.EPSILON) * 100) / 100;
+        } else {
+          const rateRecord = rateRepo.getLatestRate(txCurrency, accountCurrency);
+          if (!rateRecord) {
+            throw new ValidationError(`No exchange rate found for ${txCurrency} to ${accountCurrency}. Please provide an exchange_rate.`);
+          }
+          exchangeRateUsed = rateRecord.rate;
+          finalAmount = Math.round((amount * exchangeRateUsed + Number.EPSILON) * 100) / 100;
+        }
+        originalAmount = amount;
+        originalCurrency = txCurrency;
       }
 
       // Auto-categorize if no category_id provided
       const resolvedCategoryId = orchestrator.resolveCategory(req.user.id, category_id, description);
 
-      // Regular income/expense
+      // Regular income/expense — use converted amount in account currency
       const transaction = txRepo.create(req.user.id, {
-        account_id, category_id: resolvedCategoryId, type, amount,
-        currency: currency || req.user.defaultCurrency, description, note, date, payee, tag_ids, reference_id
+        account_id, category_id: resolvedCategoryId, type, amount: finalAmount,
+        currency: accountCurrency, description, note, date, payee, tag_ids, reference_id,
+        original_amount: originalAmount, original_currency: originalCurrency, exchange_rate_used: exchangeRateUsed
       });
 
-      // Update account balance
-      const balanceChange = type === 'income' ? amount : -amount;
+      // Update account balance (in account currency)
+      const balanceChange = type === 'income' ? finalAmount : -finalAmount;
       accountRepo.updateBalance(account_id, req.user.id, balanceChange);
 
       // Link tags if provided
@@ -107,7 +146,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
 
       // Run all post-creation side effects (notifications, spending limits, budget checks, duplicate detection, goal allocation)
       const effects = orchestrator.runPostCreationEffects(req.user.id, transaction, {
-        categoryId: resolvedCategoryId, type, amount, date: parsed.data.date, account_id, description
+        categoryId: resolvedCategoryId, type, amount: finalAmount, date: parsed.data.date, account_id, description
       });
 
       invalidateCache(req.user.id, CACHE_PATTERNS);

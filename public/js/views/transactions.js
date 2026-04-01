@@ -162,6 +162,16 @@ function buildFilterBar() {
   bar.appendChild(from);
   bar.appendChild(to);
 
+  // Currency filter (only show if multiple currencies exist)
+  const currencies = [...new Set(accounts.map(a => a.currency))];
+  if (currencies.length > 1) {
+    const currSelect = el('select', { className: 'filter-select', title: 'Filter by currency' });
+    currSelect.appendChild(el('option', { value: '', textContent: 'All Currencies' }));
+    currencies.sort().forEach(c => currSelect.appendChild(el('option', { value: c, textContent: c })));
+    currSelect.addEventListener('change', () => { state.filters.currency = currSelect.value; loadPage(0); });
+    bar.appendChild(currSelect);
+  }
+
   return bar;
 }
 
@@ -241,7 +251,10 @@ function renderTable() {
       el('td', { textContent: t.category_icon ? `${t.category_icon} ${t.category_name || ''}` : (t.category_name || '—'), 'data-label': 'Category' }),
       el('td', { textContent: t.account_name || '—', 'data-label': 'Account' }),
       el('td', { 'data-label': 'Type' }, [el('span', { className: `badge ${typeClass}`, textContent: t.type })]),
-      el('td', { className: `text-right txn-amount ${amtClass}`, textContent: `${prefix}${fmt(t.amount)}`, 'data-label': 'Amount' }),
+      el('td', { className: `text-right txn-amount ${amtClass}`, 'data-label': 'Amount' }, [
+        el('span', { textContent: `${prefix}${fmt(t.amount, t.currency)}` }),
+        t.original_amount ? el('span', { className: 'txn-original-amount', textContent: `(${fmt(t.original_amount, t.original_currency)} @ ${t.exchange_rate_used})` }) : null,
+      ].filter(Boolean)),
       el('td', { className: 'row-actions hover-actions' }, [
         el('button', { className: 'btn-icon', title: 'Edit', 'aria-label': `Edit ${t.description}`, onClick: () => showTxnForm(t) }, [
           el('span', { className: 'material-icons-round', textContent: 'edit' }),
@@ -296,12 +309,38 @@ function showTxnForm(txn) {
       const select = el('select', { name: 'account_id', required: 'true' });
       select.appendChild(el('option', { value: '', textContent: 'Select account' }));
       accounts.forEach(a => {
-        const opt = el('option', { value: String(a.id), textContent: `${a.icon} ${a.name}` });
+        const opt = el('option', { value: String(a.id), textContent: `${a.icon} ${a.name} (${a.currency})` });
         if (txn?.account_id === a.id) opt.selected = true;
         select.appendChild(opt);
       });
+      // When account changes, update currency default
+      select.addEventListener('change', () => {
+        const acct = accounts.find(a => a.id === parseInt(select.value, 10));
+        const currSelect = form.querySelector('[name="currency"]');
+        if (acct && currSelect) currSelect.value = acct.currency;
+        updateFormVisibility(form);
+      });
       return select;
     })()),
+
+    formGroup('Currency', (() => {
+      const currencies = [...new Set(accounts.map(a => a.currency))].sort();
+      // Only show currency picker if user has multiple currencies
+      const select = el('select', { name: 'currency', className: 'currency-field' });
+      currencies.forEach(c => {
+        const opt = el('option', { value: c, textContent: c });
+        if ((txn?.currency || currencies[0]) === c) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', () => updateFormVisibility(form));
+      return select;
+    })()),
+
+    formGroup('Exchange Rate', el('input', {
+      type: 'number', name: 'exchange_rate', step: '0.0001', min: '0.0001',
+      className: 'exchange-rate-field', placeholder: 'Auto (from saved rates)',
+      value: '',
+    })),
 
     formGroup('Transfer To', (() => {
       const select = el('select', { name: 'transfer_to_account_id', className: 'transfer-field' });
@@ -353,6 +392,31 @@ function updateFormVisibility(form) {
   if (transferField) {
     transferField.closest('.form-group').style.display = type === 'transfer' ? '' : 'none';
   }
+
+  // Show currency field only if user has multiple currencies
+  const currencyField = form.querySelector('.currency-field');
+  if (currencyField) {
+    const hasMulCurr = new Set(accounts.map(a => a.currency)).size > 1;
+    currencyField.closest('.form-group').style.display = hasMulCurr ? '' : 'none';
+  }
+
+  // Show exchange rate field only for cross-currency operations
+  const rateField = form.querySelector('.exchange-rate-field');
+  if (rateField) {
+    const selectedAcctId = parseInt(form.account_id?.value, 10);
+    const acct = accounts.find(a => a.id === selectedAcctId);
+    const selectedCurrency = form.querySelector('[name="currency"]')?.value;
+    const isCrossCurrency = acct && selectedCurrency && acct.currency !== selectedCurrency;
+
+    let isCrossTransfer = false;
+    if (type === 'transfer') {
+      const dstAcctId = parseInt(form.transfer_to_account_id?.value, 10);
+      const dstAcct = accounts.find(a => a.id === dstAcctId);
+      isCrossTransfer = acct && dstAcct && acct.currency !== dstAcct.currency;
+    }
+
+    rateField.closest('.form-group').style.display = (isCrossCurrency || isCrossTransfer) ? '' : 'none';
+  }
 }
 
 function formGroup(label, input) {
@@ -374,6 +438,12 @@ async function handleSubmit(e, existing) {
     payee: f.payee.value.trim() || undefined,
     note: f.note.value.trim() || undefined,
   };
+  if (f.currency && f.currency.value) {
+    body.currency = f.currency.value;
+  }
+  if (f.exchange_rate && f.exchange_rate.value) {
+    body.exchange_rate = parseFloat(f.exchange_rate.value);
+  }
   if (body.type === 'transfer') {
     body.transfer_to_account_id = parseInt(f.transfer_to_account_id.value, 10) || undefined;
   }

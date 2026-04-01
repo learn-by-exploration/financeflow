@@ -57,7 +57,20 @@ module.exports = function createStatsRoutes({ db }) {
           net: Math.round((totalOwed - totalOwing) * 100) / 100,
           group_count: userGroups.length,
         },
+        currency_balances: db.prepare(
+          "SELECT currency, SUM(balance) as total_balance, COUNT(*) as account_count FROM accounts WHERE user_id = ? AND is_active = 1 GROUP BY currency"
+        ).all(userId),
       });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/currency-breakdown — per-currency account totals
+  router.get('/currency-breakdown', (req, res, next) => {
+    try {
+      const breakdown = db.prepare(
+        "SELECT currency, SUM(balance) as total_balance, COUNT(*) as account_count FROM accounts WHERE user_id = ? AND is_active = 1 GROUP BY currency ORDER BY total_balance DESC"
+      ).all(req.user.id);
+      res.json({ breakdown });
     } catch (err) { next(err); }
   });
 

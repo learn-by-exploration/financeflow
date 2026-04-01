@@ -15,6 +15,7 @@ const createTransactionSchema = z.object({
   transfer_to_account_id: z.number().int().positive().optional().nullable(),
   tag_ids: z.array(z.number().int().positive()).optional(),
   reference_id: z.string().max(50).optional().nullable(),
+  exchange_rate: z.number().positive('Exchange rate must be positive').max(1e10).optional(),
 }).refine(
   (data) => !(data.type === 'transfer' && data.category_id),
   { message: 'Transfers should not have a category', path: ['category_id'] }
