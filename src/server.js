@@ -49,10 +49,11 @@ app.use(helmet({
       connectSrc: ["'self'"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
-      frameAncestors: ["'none'"]
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: config.isProd ? [] : null
     }
   },
-  strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
+  strictTransportSecurity: config.isProd ? { maxAge: 31536000, includeSubDomains: true } : false,
   referrerPolicy: { policy: 'same-origin' }
 }));
 
