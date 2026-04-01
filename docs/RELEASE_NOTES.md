@@ -1,80 +1,39 @@
-# PersonalFi — Release Notes v2.0.0
+# PersonalFi — Release Notes v3.0.0
 
-**Major Release — v2.0.0** | 23 July 2025
+**Major Release — v3.0.0** | 1 April 2026
 
 ---
 
 ## Summary
 
-PersonalFi v2.0.0 is a major release delivering financial calculators, analytics, gamification, and significant hardening across validation, performance, and security. 50 iterations of development since v1.0.0. The test suite now contains **2149+ tests** across 112+ test files, all passing with zero lint warnings.
+PersonalFi v3.0.0 focuses on security hardening, architectural cleanup, and making existing features accessible through the UI. 10 expert-reviewed iterations delivered attachment path traversal fixes, silent error logging, schema validation for previously unvalidated routes, stats repository extraction, recurring pause/resume, subscription alerts, and two new frontend views (Calculators, Challenges). The test suite now contains **2219+ tests** across 114 test files, all passing with zero lint warnings.
 
 ---
 
 ## Highlights
 
-### Financial Calculators
-- **SIP Calculator** — Project systematic investment plan returns with step-up (annual increase) support
-- **Lumpsum Calculator** — One-time investment growth projection with yearly breakdown
-- **FIRE Calculator** — Calculate your Financial Independence number accounting for inflation
-- **EMI Calculator** — Enhanced with tighter bounds and extracted to dedicated service
+### Security Hardening
+- **Attachment path traversal blocked** — file paths validated against uploads directory before read/delete
+- **Silent catches eliminated** — 10 catch blocks now log warnings via Pino structured logging
+- **Rule schema validation** — category rules now validated with Zod (pattern max length, type checks)
+- **Report schema** — year, month, date range params validated with Zod regex patterns
 
-### Analytics & Insights
-- **Spending Streak** — Track daily spending patterns and streaks
-- **Net Worth Trend** — Historical net worth snapshots over time
-- **Financial Snapshot** — Comprehensive single-endpoint financial health overview
-- **Savings Rate History** — Monthly savings rate tracking for trend analysis
-- **Goal Milestones** — Track progress milestones toward financial goals
-- **Month Comparison** — Side-by-side comparison of any two months
+### Architecture
+- **Stats repository extracted** — 13 SQL queries moved from stats.js to stats.repository.js (SRP principle)
+- Overview, trends, and category-breakdown use repository layer
 
-### Gamification
-- **Savings Challenges** — Create, track, and complete savings challenges with progress tracking
+### New Features
+- **Recurring pause/resume** — dedicated endpoints to deactivate/reactivate recurring rules
+- **Subscription alerts** — GET /api/subscriptions/upcoming returns renewals within N days
+- **Calculators UI** — tabbed SIP, Lumpsum, EMI, FIRE calculator frontend view
+- **Challenges UI** — gamification dashboard with progress bars, create/delete challenges
 
-### Validation & Security Hardening
-- All schema inputs validated with strict bounds (amounts, dates, currencies, rates)
-- Transfer/category mutual exclusivity enforced at schema level
-- Currency codes validated via regex, balance bounds enforced
-- CSV import date/amount bounds prevent data corruption
-- Split rounding improved: fair round-robin distribution of remainder pennies
-
-### Performance
-- Composite database indexes for v2 query patterns
-- Stats endpoints cached (60s) with automatic invalidation
-- Rate limiter cleanup job prevents memory leaks
-- All endpoints benchmarked under load (500+ transactions, concurrent requests)
-
----
-
-## New Endpoints (11)
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/stats/sip-calculator` | SIP investment projection with step-up |
-| `GET /api/stats/lumpsum-calculator` | Lumpsum investment growth |
-| `GET /api/stats/fire-calculator` | FIRE number with inflation |
-| `GET /api/stats/spending-streak` | Daily spending streak |
-| `GET /api/stats/net-worth-trend` | Net worth time series |
-| `GET /api/stats/financial-snapshot` | Full financial overview |
-| `GET /api/stats/savings-rate-history` | Monthly savings rates |
-| `GET /api/stats/goal-milestones` | Goal progress milestones |
-| `GET /api/stats/month-comparison` | Month-to-month comparison |
-| `GET/POST /api/stats/challenges` | Savings challenges CRUD |
-| `DELETE /api/stats/challenges/:id` | Delete a challenge |
-
-## New Test Files (7)
-| File | Tests | Coverage |
-|------|-------|----------|
-| `v2-validation-fixes.test.js` | 19 | Bounded params, EMI bounds, budget dates |
-| `v2-schema-hardening.test.js` | 17 | Transfer validation, CSV bounds |
-| `v2-financial-calculators.test.js` | 19 | SIP, lumpsum, FIRE service tests |
-| `v2-new-features.test.js` | 21 | Snapshot, savings rate, milestones |
-| `v2-gamification.test.js` | 16 | Challenges CRUD, month comparison |
-| `v2-performance.test.js` | 26 | Performance, integrity, fuzzing |
-| `v2-regression.test.js` | 44 | Auth, OWASP, stress, edge cases |
-
-## New Migrations (2)
-| Migration | Description |
-|-----------|-------------|
-| `026_savings_challenges.sql` | Savings challenges table with indexes |
-| `027_performance_indexes_v2.sql` | Composite indexes for v2 queries |
+### Testing
+- 70 new tests across 2 test files
+- All 20 frontend views verified to exist
+- Scheduler edge cases (date advancement, month boundaries)
+- Stats repository unit tests
+- Total: **2219 tests, 0 failures, 0 lint warnings**
 
 ---
 

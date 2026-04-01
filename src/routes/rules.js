@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { validatePattern } = require('../utils/safe-regex');
+const { createRuleSchema, updateRuleSchema } = require('../schemas/rule.schema');
 
 module.exports = function createRulesRoutes({ db }) {
 
@@ -21,16 +22,14 @@ module.exports = function createRulesRoutes({ db }) {
   // POST /api/rules
   router.post('/', (req, res, next) => {
     try {
-      const { pattern, category_id, position } = req.body;
-      if (!pattern) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Pattern is required' } });
+      const parsed = createRuleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
+      const { pattern, category_id, position } = parsed.data;
       const patternCheck = validatePattern(pattern);
       if (!patternCheck.valid) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: patternCheck.reason } });
-      }
-      if (!category_id) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'category_id is required' } });
       }
       // Verify category exists and belongs to user
       const cat = db.prepare('SELECT id FROM categories WHERE id = ? AND user_id = ?').get(category_id, req.user.id);
@@ -56,7 +55,11 @@ module.exports = function createRulesRoutes({ db }) {
       if (rule.is_system) {
         return res.status(403).json({ error: { code: 'FORBIDDEN', message: 'Cannot modify system rules' } });
       }
-      const { pattern, category_id, position } = req.body;
+      const parsed = updateRuleSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
+      }
+      const { pattern, category_id, position } = parsed.data;
       if (pattern) {
         const patternCheck = validatePattern(pattern);
         if (!patternCheck.valid) {

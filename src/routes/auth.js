@@ -301,7 +301,7 @@ module.exports = function createAuthRoutes({ db, audit }) {
       const deleteTx = db.transaction(() => {
         // Tables without direct user FK cascade
         db.prepare('DELETE FROM audit_log WHERE user_id = ?').run(userId);
-        try { db.prepare('DELETE FROM category_rules WHERE user_id = ?').run(userId); } catch {}
+        try { db.prepare('DELETE FROM category_rules WHERE user_id = ?').run(userId); } catch (_e) { /* table may not exist in older schemas */ }
         // Delete user — cascades to accounts, transactions, categories, sessions,
         // settings, budgets, goals, subscriptions, recurring_rules, tags,
         // groups (via created_by), group_members (via user_id),

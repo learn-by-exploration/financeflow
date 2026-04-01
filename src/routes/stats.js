@@ -2,12 +2,14 @@ const express = require('express');
 const router = express.Router();
 const createHealthService = require('../services/health.service');
 const createSplitService = require('../services/split.service');
+const createStatsRepository = require('../repositories/stats.repository');
 const { calculateEMI, calculateSIP, calculateLumpsum, calculateFIRE } = require('../services/stats.service');
 
 module.exports = function createStatsRoutes({ db }) {
 
   const healthService = createHealthService();
   const splitService = createSplitService({ db });
+  const statsRepo = createStatsRepository({ db });
 
   // GET /api/stats/overview — dashboard summary
   router.get('/overview', (req, res, next) => {
@@ -16,25 +18,11 @@ module.exports = function createStatsRoutes({ db }) {
       const now = new Date();
       const monthStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
 
-      const accounts = db.prepare('SELECT SUM(CASE WHEN type NOT IN (\'credit_card\', \'loan\') THEN balance ELSE 0 END) as assets, SUM(CASE WHEN type IN (\'credit_card\', \'loan\') THEN ABS(balance) ELSE 0 END) as liabilities FROM accounts WHERE user_id = ? AND is_active = 1').get(userId);
-
-      const monthIncome = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = \'income\' AND date >= ?').get(userId, monthStart);
-      const monthExpense = db.prepare('SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = \'expense\' AND date >= ?').get(userId, monthStart);
-
-      const topCategories = db.prepare(`
-        SELECT c.name, c.icon, SUM(t.amount) as total
-        FROM transactions t JOIN categories c ON t.category_id = c.id
-        WHERE t.user_id = ? AND t.type = 'expense' AND t.date >= ?
-        GROUP BY c.id ORDER BY total DESC LIMIT 5
-      `).all(userId, monthStart);
-
-      const recentTransactions = db.prepare(`
-        SELECT t.*, c.name as category_name, c.icon as category_icon, a.name as account_name
-        FROM transactions t LEFT JOIN categories c ON t.category_id = c.id LEFT JOIN accounts a ON t.account_id = a.id
-        WHERE t.user_id = ? ORDER BY t.date DESC, t.id DESC LIMIT 10
-      `).all(userId);
-
-      const subscriptionTotal = db.prepare('SELECT COALESCE(SUM(amount), 0) as monthly FROM subscriptions WHERE user_id = ? AND is_active = 1 AND frequency = \'monthly\'').get(userId);
+      const accounts = statsRepo.getAccountSummary(userId);
+      const monthTotals = statsRepo.getMonthTotals(userId, monthStart);
+      const topCategories = statsRepo.getTopCategories(userId, monthStart);
+      const recentTransactions = statsRepo.getRecentTransactions(userId);
+      const subscriptionTotal = statsRepo.getSubscriptionMonthlyTotal(userId);
 
       // Groups balance: aggregate simplified debts across all groups
       const userGroups = db.prepare(`
@@ -48,7 +36,6 @@ module.exports = function createStatsRoutes({ db }) {
       for (const g of userGroups) {
         const balances = splitService.calculateBalances(g.id);
         const debts = splitService.simplifyDebts(balances);
-        // Find the member id for the current user in this group
         const userMember = db.prepare('SELECT id FROM group_members WHERE group_id = ? AND user_id = ?').get(g.id, userId);
         if (userMember) {
           for (const d of debts) {
@@ -62,9 +49,9 @@ module.exports = function createStatsRoutes({ db }) {
         net_worth: (accounts.assets || 0) - (accounts.liabilities || 0),
         total_assets: accounts.assets || 0,
         total_liabilities: accounts.liabilities || 0,
-        month_income: monthIncome.total,
-        month_expense: monthExpense.total,
-        month_savings: monthIncome.total - monthExpense.total,
+        month_income: monthTotals.income,
+        month_expense: monthTotals.expense,
+        month_savings: monthTotals.income - monthTotals.expense,
         top_categories: topCategories,
         recent_transactions: recentTransactions,
         monthly_subscriptions: subscriptionTotal.monthly,
@@ -93,31 +80,17 @@ module.exports = function createStatsRoutes({ db }) {
       }
 
       if (fyStart && fyStart > 1 && fy) {
-        // FY mode: e.g. fy=2025 with start=4 means April 2025 to March 2026
         const fyYear = parseInt(fy, 10);
         const fromDate = `${fyYear}-${String(fyStart).padStart(2, '0')}-01`;
         const toYear = fyStart === 1 ? fyYear : fyYear + 1;
         const toMonth = fyStart === 1 ? 12 : fyStart - 1;
-        // Last day of the to month
         const toDate = `${toYear}-${String(toMonth).padStart(2, '0')}-31`;
 
-        const trends = db.prepare(`
-          SELECT strftime('%Y-%m', date) as month,
-            SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-            SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
-          FROM transactions WHERE user_id = ? AND date >= ? AND date <= ?
-          GROUP BY month ORDER BY month ASC
-        `).all(req.user.id, fromDate, toDate);
+        const trends = statsRepo.getTrendsByDateRange(req.user.id, fromDate, toDate);
         return res.json({ trends });
       }
 
-      const trends = db.prepare(`
-        SELECT strftime('%Y-%m', date) as month,
-          SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as income,
-          SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as expense
-        FROM transactions WHERE user_id = ?
-        GROUP BY month ORDER BY month DESC LIMIT ?
-      `).all(req.user.id, months);
+      const trends = statsRepo.getTrendsByMonths(req.user.id, months);
       res.json({ trends: trends.reverse() });
     } catch (err) { next(err); }
   });
@@ -126,16 +99,7 @@ module.exports = function createStatsRoutes({ db }) {
   router.get('/category-breakdown', (req, res, next) => {
     try {
       const { from, to, type = 'expense' } = req.query;
-      let sql = `
-        SELECT c.id, c.name, c.icon, c.color, SUM(t.amount) as total, COUNT(t.id) as count
-        FROM transactions t JOIN categories c ON t.category_id = c.id
-        WHERE t.user_id = ? AND t.type = ?
-      `;
-      const params = [req.user.id, type];
-      if (from) { sql += ' AND t.date >= ?'; params.push(from); }
-      if (to) { sql += ' AND t.date <= ?'; params.push(to); }
-      sql += ' GROUP BY c.id ORDER BY total DESC';
-      const breakdown = db.prepare(sql).all(...params);
+      const breakdown = statsRepo.getCategoryBreakdown(req.user.id, type, from, to);
       res.json({ breakdown });
     } catch (err) { next(err); }
   });

@@ -162,7 +162,7 @@ module.exports = function createExportRoutes({ db }) {
       });
 
       let rules = [];
-      try { rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ?').all(userId); } catch {}
+      try { rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ?').all(userId); } catch (_e) { /* category_rules may not exist in older schemas */ }
 
       res.json({
         exported_at: new Date().toISOString(),

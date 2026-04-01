@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const router = express.Router();
 const config = require('../config');
+const logger = require('../logger');
 const { getMetrics } = require('../middleware/metrics');
 
 module.exports = function createHealthRoutes({ db }) {
@@ -11,7 +12,8 @@ module.exports = function createHealthRoutes({ db }) {
     try {
       db.prepare('SELECT 1').get();
       return 'ok';
-    } catch {
+    } catch (_e) {
+      logger.warn({ err: _e }, 'Health DB check failed');
       return 'error';
     }
   }
@@ -55,14 +57,14 @@ module.exports = function createHealthRoutes({ db }) {
       totalUsers = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
       totalTransactions = db.prepare('SELECT COUNT(*) as cnt FROM transactions').get().cnt;
       totalAccounts = db.prepare('SELECT COUNT(*) as cnt FROM accounts').get().cnt;
-    } catch {}
+    } catch (_e) { logger.warn({ err: _e }, 'Metrics: failed to count entities'); }
 
     // Database file size
     let dbFileSize = 0;
     try {
       const dbFile = path.join(config.dbDir, 'personalfi.db');
       dbFileSize = fs.statSync(dbFile).size;
-    } catch {}
+    } catch (_e) { logger.debug({ err: _e }, 'Metrics: failed to read DB file size'); }
 
     res.json({
       totalUsers,

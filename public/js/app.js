@@ -109,6 +109,8 @@ const views = {
   calendar:      () => import('./views/calendar.js').then(m => m.renderCalendar),
   export:        () => import('./views/export.js').then(m => m.renderExport),
   'whats-new':   () => import('./views/whats-new.js').then(m => m.renderWhatsNew),
+  calculators:   () => import('./views/calculators.js').then(m => m.renderCalculators),
+  challenges:    () => import('./views/challenges.js').then(m => m.renderChallenges),
 };
 
 function placeholder(title, desc) {

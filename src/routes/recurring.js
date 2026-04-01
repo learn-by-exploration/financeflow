@@ -74,5 +74,31 @@ module.exports = function createRecurringRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // POST /api/recurring/:id/pause — deactivate a recurring rule
+  router.post('/:id/pause', (req, res, next) => {
+    try {
+      const existing = recurringRepo.findById(req.params.id, req.user.id);
+      if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurring rule not found' } });
+      if (!existing.is_active) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Rule is already paused' } });
+
+      const rule = recurringRepo.update(req.params.id, req.user.id, { is_active: 0 });
+      audit.log(req.user.id, 'recurring.pause', 'recurring_rule', rule.id);
+      res.json({ rule });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/recurring/:id/resume — reactivate a recurring rule
+  router.post('/:id/resume', (req, res, next) => {
+    try {
+      const existing = recurringRepo.findById(req.params.id, req.user.id);
+      if (!existing) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurring rule not found' } });
+      if (existing.is_active) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Rule is already active' } });
+
+      const rule = recurringRepo.update(req.params.id, req.user.id, { is_active: 1 });
+      audit.log(req.user.id, 'recurring.resume', 'recurring_rule', rule.id);
+      res.json({ rule });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };

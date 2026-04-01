@@ -198,13 +198,13 @@ app.get('/api/metrics', requireAuth, requireAdmin, (req, res) => {
   try {
     totalUsers = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
     totalTransactions = db.prepare('SELECT COUNT(*) as cnt FROM transactions').get().cnt;
-  } catch {}
+  } catch (_e) { logger.warn({ err: _e }, 'Health check: failed to count users/transactions'); }
 
   let dbFileSize = 0;
   try {
     const dbFile = path.join(config.dbDir, 'personalfi.db');
     dbFileSize = fs.statSync(dbFile).size;
-  } catch {}
+  } catch (_e) { logger.debug({ err: _e }, 'Health check: failed to read DB file size'); }
 
   res.json({
     uptime: Math.floor(process.uptime()),

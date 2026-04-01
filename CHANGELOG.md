@@ -2,6 +2,38 @@
 
 All notable changes to PersonalFi are documented here.
 
+## [3.0.0] — 2026-04-01
+
+### Security
+- **Attachment path traversal fix** — validate file_path stays within uploads directory before read/delete
+- **Silent catch logging** — all previously silent catch blocks now log warnings via Pino (audit.js, server.js, health.js, export.js, auth.js)
+- OWASP re-verified: attachment security, cross-user isolation, input validation on all new endpoints
+
+### Added — Validation
+- **Rule schema** (`src/schemas/rule.schema.js`) — Zod validation for category rule create/update (pattern max 500 chars, integer category_id)
+- **Report schema** (`src/schemas/report.schema.js`) — Zod validation for year, month, and date range parameters
+- Rules route now uses Zod `safeParse()` instead of inline validation
+
+### Added — Architecture
+- **Stats repository** (`src/repositories/stats.repository.js`) — extracted 13 reusable SQL queries from stats route (SRP)
+- Stats route overview, trends, category-breakdown now use repository layer
+
+### Added — Features
+- **Recurring pause/resume** — `POST /api/recurring/:id/pause` and `POST /api/recurring/:id/resume` endpoints
+- **Subscription renewal alerts** — `GET /api/subscriptions/upcoming?days=7` returns subscriptions renewing within N days
+- **Calculators frontend view** — SIP, Lumpsum, EMI, FIRE calculator UI with tabbed interface
+- **Challenges frontend view** — savings challenges dashboard with progress bars, CRUD, gamification
+
+### Added — Testing
+- **v3 Security Hardening Tests** — 25 tests: attachment security, rule validation, pause/resume, upcoming alerts, repo integration
+- **v3 Frontend QA Tests** — 45 tests: view file existence (20 views), module exports, navigation, scheduler, schema validation, repo unit tests
+- Test count: **2219+ tests, 0 failures** (up from 2149)
+
+### Changed
+- Sidebar navigation: added Calculators and Challenges nav items
+- Service worker: added calculators.js and challenges.js to static cache
+- All 10 silent catch blocks now log warnings (improving debuggability)
+
 ## [2.0.0] — 2025-07-23
 
 ### Added — Financial Calculators & Analytics

@@ -58,5 +58,21 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/subscriptions/upcoming — subscriptions renewing within next N days
+  router.get('/upcoming', (req, res, next) => {
+    try {
+      const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 90);
+      const today = new Date().toISOString().slice(0, 10);
+      const future = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+      const upcoming = db.prepare(`
+        SELECT * FROM subscriptions
+        WHERE user_id = ? AND is_active = 1 AND next_billing_date >= ? AND next_billing_date <= ?
+        ORDER BY next_billing_date ASC
+      `).all(req.user.id, today, future);
+      const totalUpcoming = upcoming.reduce((s, sub) => s + sub.amount, 0);
+      res.json({ upcoming, count: upcoming.length, total_amount: Math.round(totalUpcoming * 100) / 100, days });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };
