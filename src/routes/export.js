@@ -4,7 +4,7 @@ const router = express.Router();
 module.exports = function createExportRoutes({ db }) {
 
   function escapeCsv(value) {
-    if (value == null) return '';
+    if (value === null || value === undefined) return '';
     let str = String(value);
     // Prevent CSV formula injection
     if (/^[=+\-@\t\r]/.test(str)) str = "'" + str;

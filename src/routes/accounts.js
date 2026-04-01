@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { createAccountSchema, updateAccountSchema } = require('../schemas/account.schema');
 const createAccountRepository = require('../repositories/account.repository');
-const createTransactionRepository = require('../repositories/transaction.repository');
 const { ValidationError, NotFoundError } = require('../errors');
 const { invalidateCache } = require('../middleware/cache');
 
@@ -11,7 +10,6 @@ const CACHE_PATTERNS = ['/api/reports', '/api/charts', '/api/insights', '/api/st
 module.exports = function createAccountRoutes({ db, audit }) {
 
   const accountRepo = createAccountRepository({ db });
-  const txnRepo = createTransactionRepository({ db });
 
   // GET /api/accounts
   router.get('/', (req, res, next) => {

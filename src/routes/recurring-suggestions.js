@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { detectRecurringPatterns, computePatternHash } = require('../services/recurring-detector');
+const { detectRecurringPatterns } = require('../services/recurring-detector');
 const createRecurringRepository = require('../repositories/recurring.repository');
 
 module.exports = function createRecurringSuggestionRoutes({ db, audit }) {

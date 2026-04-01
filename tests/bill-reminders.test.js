@@ -74,7 +74,7 @@ describe('Bill Reminders & Upcoming Expenses', () => {
       const res = await agent().get('/api/reminders').expect(200);
       assert.equal(res.body.reminders.length, 2);
       // Verify joined data is present
-      const subReminder = res.body.reminders.find(r => r.subscription_id != null);
+      const subReminder = res.body.reminders.find(r => r.subscription_id !== null && r.subscription_id !== undefined);
       assert.ok(subReminder.subscription_name);
     });
 

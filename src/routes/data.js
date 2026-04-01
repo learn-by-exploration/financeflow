@@ -139,7 +139,7 @@ module.exports = function createDataRoutes({ db }) {
         if (Array.isArray(data.accounts)) {
           const acctInsert = db.prepare('INSERT INTO accounts (user_id, name, type, currency, balance, icon, color, is_active, include_in_net_worth, position) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
           for (const a of data.accounts) {
-            const r = acctInsert.run(userId, a.name, a.type || 'checking', a.currency || 'INR', a.balance || 0, a.icon || '🏦', a.color || '#2563EB', a.is_active != null ? a.is_active : 1, a.include_in_net_worth != null ? a.include_in_net_worth : 1, a.position || 0);
+            const r = acctInsert.run(userId, a.name, a.type || 'checking', a.currency || 'INR', a.balance || 0, a.icon || '🏦', a.color || '#2563EB', a.is_active !== null && a.is_active !== undefined ? a.is_active : 1, a.include_in_net_worth !== null && a.include_in_net_worth !== undefined ? a.include_in_net_worth : 1, a.position || 0);
             accountMap[a.id] = r.lastInsertRowid;
           }
         }
@@ -159,7 +159,7 @@ module.exports = function createDataRoutes({ db }) {
           const budgetInsert = db.prepare('INSERT INTO budgets (user_id, name, period, start_date, end_date, is_active) VALUES (?, ?, ?, ?, ?, ?)');
           const itemInsert = db.prepare('INSERT INTO budget_items (budget_id, category_id, amount, rollover) VALUES (?, ?, ?, ?)');
           for (const b of data.budgets) {
-            const r = budgetInsert.run(userId, b.name, b.period, b.start_date, b.end_date, b.is_active != null ? b.is_active : 1);
+            const r = budgetInsert.run(userId, b.name, b.period, b.start_date, b.end_date, b.is_active !== null && b.is_active !== undefined ? b.is_active : 1);
             budgetMap[b.id] = r.lastInsertRowid;
             if (Array.isArray(b.items)) {
               for (const item of b.items) {
@@ -183,7 +183,7 @@ module.exports = function createDataRoutes({ db }) {
           const subInsert = db.prepare('INSERT INTO subscriptions (user_id, name, amount, currency, frequency, next_billing_date, category_id, provider, is_active, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
           for (const s of data.subscriptions) {
             const mappedCat = s.category_id ? (categoryMap[s.category_id] || s.category_id) : null;
-            subInsert.run(userId, s.name, s.amount, s.currency || 'INR', s.frequency, s.next_billing_date || null, mappedCat, s.provider || null, s.is_active != null ? s.is_active : 1, s.notes || null);
+            subInsert.run(userId, s.name, s.amount, s.currency || 'INR', s.frequency, s.next_billing_date || null, mappedCat, s.provider || null, s.is_active !== null && s.is_active !== undefined ? s.is_active : 1, s.notes || null);
           }
         }
 
@@ -213,7 +213,7 @@ module.exports = function createDataRoutes({ db }) {
           for (const rr of data.recurring_rules) {
             const mappedAcct = accountMap[rr.account_id] || rr.account_id;
             const mappedCat = rr.category_id ? (categoryMap[rr.category_id] || rr.category_id) : null;
-            rrInsert.run(userId, mappedAcct, mappedCat, rr.type, rr.amount, rr.currency || 'INR', rr.description, rr.payee || null, rr.frequency, rr.next_date, rr.end_date || null, rr.is_active != null ? rr.is_active : 1);
+            rrInsert.run(userId, mappedAcct, mappedCat, rr.type, rr.amount, rr.currency || 'INR', rr.description, rr.payee || null, rr.frequency, rr.next_date, rr.end_date || null, rr.is_active !== null && rr.is_active !== undefined ? rr.is_active : 1);
           }
         }
 

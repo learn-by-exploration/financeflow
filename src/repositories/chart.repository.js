@@ -156,7 +156,7 @@ module.exports = function createChartRepository({ db }) {
     };
   }
 
-  function getNetWorthTrend(userId, from, to, interval = 'monthly') {
+  function getNetWorthTrend(userId, from, to, _interval = 'monthly') {
     // Use net_worth_snapshots if available, else compute from accounts
     const snapshots = db.prepare(`
       SELECT

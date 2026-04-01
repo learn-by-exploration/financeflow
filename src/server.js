@@ -6,7 +6,6 @@ const config = require('./config');
 const initDatabase = require('./db');
 const createAuthMiddleware = require('./middleware/auth');
 const errorHandler = require('./middleware/errors');
-const createCsrfMiddleware = require('./middleware/csrf');
 const createCustomCorsMiddleware = require('./middleware/cors');
 const createAuditLogger = require('./services/audit');
 const createRequestLogger = require('./middleware/request-logger');

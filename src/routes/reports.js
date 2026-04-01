@@ -280,8 +280,8 @@ module.exports = function createReportRoutes({ db }) {
         const d = new Date(todayDate);
         d.setDate(d.getDate() + i);
         const dateStr = d.toISOString().slice(0, 10);
-        const dayOfMonth = d.getDate();
-        const dayOfWeek = d.getDay();
+        const _dayOfMonth = d.getDate();
+        const _dayOfWeek = d.getDay();
 
         let dailyChange = 0;
 

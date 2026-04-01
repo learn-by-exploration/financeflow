@@ -1,6 +1,6 @@
 // PersonalFi — Shared utilities (ES module)
 
-let _token = localStorage.getItem('pfi_token') || sessionStorage.getItem('pfi_token');
+const _token = localStorage.getItem('pfi_token') || sessionStorage.getItem('pfi_token');
 const token = () => localStorage.getItem('pfi_token') || sessionStorage.getItem('pfi_token') || _token;
 const user = () => JSON.parse(localStorage.getItem('pfi_user') || sessionStorage.getItem('pfi_user') || '{}');
 

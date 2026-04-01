@@ -2,6 +2,55 @@
 
 All notable changes to PersonalFi are documented here.
 
+## [1.0.0] — 2025-07-22
+
+### Added — Financial Features
+- **EMI Calculator** (`GET /api/stats/emi-calculator`) — loan EMI with full amortization schedule
+- **Subscription Savings** (`GET /api/stats/subscription-savings`) — subscription cost analysis and savings potential
+- **Budget Variance** (`GET /api/stats/budget-variance`) — planned vs actual spending analysis
+- **Debt Payoff** (`GET /api/stats/debt-payoff`) — snowball and avalanche repayment strategies
+- **Tax Summary** (`GET /api/stats/tax-summary`) — Indian 80C/80D tax deduction tracking
+
+### Added — Testing & Quality
+- **Release verification suite** — 42-test E2E covering full user journeys, OWASP security, performance benchmarks, auth enforcement, data integrity
+- **Reliability tests** — 39 tests for concurrent operations, error paths, session edge cases, large datasets, scheduler verification
+- **Financial feature tests** — 29 tests for EMI calculator, budget variance, subscription savings, health score, cash flow
+- **Indian market tests** — 25 tests for tax summary, debt payoff, onboarding, branding, multi-currency INR
+- **Transaction template tests** — 24 tests for template CRUD and from-template creation
+- **Calendar tests** — 13 tests for calendar view API
+- **What's new tests** — 10 tests for changelog API
+- All 22 protected endpoints verified to require auth (401 without token)
+
+### Added — DevOps
+- `scripts/backup.sh` — SQLite backup script with automatic rotation (keeps last 10)
+- `scripts/setup-autostart.sh` — systemd service installer for Docker auto-start on boot
+- Docker Compose: healthcheck, container naming, `restart: always`
+- Package.json docker scripts rewired to use compose
+
+### Changed
+- Eliminated all 45 ESLint warnings (0 errors, 0 warnings)
+- Removed dead code: unused CSRF import, unused repository imports, unused schema imports
+- Strict equality (`!==`) throughout — replaced all loose `!=` comparisons
+- `let` → `const` where variables are never reassigned
+- Catch block parameter naming: `catch(_e)` pattern for unused errors
+- Test count: **1987+ tests, 0 failures** (up from 1757)
+
+### Fixed
+- `src/server.js` — removed unused CSRF middleware import
+- `src/routes/accounts.js` — removed unused transaction repository imports
+- `src/routes/net-worth.js` — removed unused exchange rate repository imports
+- `src/routes/recurring.js` — removed unused VALID_FREQUENCIES constant
+- `src/routes/recurring-suggestions.js` — removed unused computePatternHash import
+- `src/routes/goals.js` — removed unused contributeSchema import
+- `src/routes/auth.js` — removed unused accountDeleteSchema import
+- `src/db/seed.js` — removed unused crypto import
+
+### Security
+- OWASP Top 10 verification: SQL injection, XSS, IDOR, auth bypass all tested
+- All protected endpoints verified to return 401 without valid session token
+- Password hashes never returned in API responses
+- Security headers (X-Content-Type-Options, CSP) verified present
+
 ## [0.3.25] — 2026-03-30
 
 ### Added

@@ -99,7 +99,7 @@ function getRecurringDatesInRange(nextDate, frequency, endDate, rangeStart, rang
   const dates = [];
   if (!nextDate) return dates;
 
-  let current = new Date(nextDate + 'T00:00:00Z');
+  const current = new Date(nextDate + 'T00:00:00Z');
   const start = new Date(rangeStart + 'T00:00:00Z');
   const end = new Date(rangeEnd + 'T00:00:00Z');
   const ruleEnd = endDate ? new Date(endDate + 'T00:00:00Z') : null;

@@ -1,6 +1,7 @@
 services:
   personalfi:
     build: .
+    container_name: personalfi
     ports:
       - "3457:3457"
     volumes:
@@ -8,12 +9,18 @@ services:
     environment:
       - NODE_ENV=production
       - DB_DIR=/app/data
-    restart: unless-stopped
+    restart: always
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
       - /tmp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3457/api/health/live"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     deploy:
       resources:
         limits:

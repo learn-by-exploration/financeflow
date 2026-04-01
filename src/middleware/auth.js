@@ -1,5 +1,4 @@
 const crypto = require('crypto');
-const { AppError } = require('../errors');
 const createApiTokenRepository = require('../repositories/api-token.repository');
 
 function createAuthMiddleware(db) {

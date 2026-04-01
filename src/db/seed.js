@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 
-const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 
@@ -93,8 +92,7 @@ function seedDemoData(db) {
     categories.push({ id: r.lastInsertRowid, ...c });
   }
 
-  const expenseCategories = categories.filter(c => c.type === 'expense');
-  const incomeCategories = categories.filter(c => c.type === 'income');
+  // Categories split by type available via: categories.filter(c => c.type === 'expense'|'income')
 
   // ─── Transactions (100+ spanning 6 months = ~180 days) ───
   const insertTransaction = db.prepare(

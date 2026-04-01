@@ -40,7 +40,7 @@ module.exports = function createRulesRoutes({ db }) {
       const maxPos = db.prepare('SELECT COALESCE(MAX(position), -1) as max FROM category_rules WHERE user_id = ?').get(req.user.id).max;
       const result = db.prepare(
         'INSERT INTO category_rules (user_id, pattern, category_id, is_system, position) VALUES (?, ?, ?, 0, ?)'
-      ).run(req.user.id, pattern, category_id, position != null ? position : maxPos + 1);
+      ).run(req.user.id, pattern, category_id, position !== null && position !== undefined ? position : maxPos + 1);
       const rule = db.prepare('SELECT * FROM category_rules WHERE id = ?').get(result.lastInsertRowid);
       res.status(201).json({ rule });
     } catch (err) { next(err); }
@@ -69,7 +69,7 @@ module.exports = function createRulesRoutes({ db }) {
             category_id = COALESCE(?, category_id),
             position = COALESCE(?, position)
         WHERE id = ?
-      `).run(pattern || null, category_id || null, position != null ? position : null, rule.id);
+      `).run(pattern || null, category_id || null, position !== null && position !== undefined ? position : null, rule.id);
       const updated = db.prepare('SELECT * FROM category_rules WHERE id = ?').get(rule.id);
       res.json({ rule: updated });
     } catch (err) { next(err); }

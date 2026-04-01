@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const OTPAuth = require('otpauth');
 const router = express.Router();
-const { registerSchema, loginSchema, passwordChangeSchema, accountDeleteSchema } = require('../schemas/auth.schema');
+const { registerSchema, loginSchema, passwordChangeSchema } = require('../schemas/auth.schema');
 
 module.exports = function createAuthRoutes({ db, audit }) {
   const config = require('../config');

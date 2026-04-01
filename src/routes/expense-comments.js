@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const createGroupRepository = require('../repositories/group.repository');
 
-module.exports = function createExpenseCommentRoutes({ db, audit }) {
+module.exports = function createExpenseCommentRoutes({ db, audit: _audit }) {
 
   const groupRepo = createGroupRepository({ db });
 

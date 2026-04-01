@@ -130,7 +130,7 @@ function placeholder(title, desc) {
 // ─── Mobile sidebar toggle ───
 const sidebar = document.getElementById('sidebar');
 const mobileMenuBtn = document.getElementById('mobile-menu');
-let backdrop = document.createElement('div');
+const backdrop = document.createElement('div');
 backdrop.className = 'sidebar-backdrop';
 document.getElementById('app').appendChild(backdrop);
 mobileMenuBtn.addEventListener('click', () => {

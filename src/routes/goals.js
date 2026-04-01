@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createGoalSchema, contributeSchema, updateGoalSchema } = require('../schemas/goal.schema');
+const { createGoalSchema, updateGoalSchema } = require('../schemas/goal.schema');
 const createGoalRepository = require('../repositories/goal.repository');
 const createTransactionRepository = require('../repositories/transaction.repository');
 const createNotificationService = require('../services/notification.service');
@@ -46,7 +46,7 @@ module.exports = function createGoalRoutes({ db, audit }) {
 
       // Auto-notification: goal completed
       if (!existing.is_completed && goal.is_completed) {
-        try { notifService.checkGoalCompleted(req.user.id, goal.id, goal.name); } catch (_) {}
+        try { notifService.checkGoalCompleted(req.user.id, goal.id, goal.name); } catch (_e) {}
       }
 
       res.json({ goal });

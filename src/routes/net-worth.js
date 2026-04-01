@@ -1,11 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
 const { convert, buildRateMap } = require('../utils/currency-converter');
 
 module.exports = function createNetWorthRoutes({ db, audit }) {
-
-  const rateRepo = createExchangeRateRepository({ db });
 
   // GET /api/net-worth — current net worth calculated from accounts
   router.get('/', (req, res, next) => {
@@ -25,7 +22,7 @@ module.exports = function createNetWorthRoutes({ db, audit }) {
       const unconvertible = [];
 
       for (const a of accounts) {
-        let balance = a.balance;
+        const balance = a.balance;
         let convertedBalance = balance;
 
         if (a.currency !== defaultCurrency) {

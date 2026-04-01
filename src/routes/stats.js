@@ -205,5 +205,215 @@ module.exports = function createStatsRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/stats/emi-calculator — EMI calculation for loan planning
+  router.get('/emi-calculator', (req, res, next) => {
+    try {
+      const principal = Number(req.query.principal);
+      const annualRate = Number(req.query.rate);
+      const tenureMonths = Number(req.query.tenure);
+
+      if (!principal || principal <= 0 || !annualRate || annualRate <= 0 || !tenureMonths || tenureMonths <= 0) {
+        return res.status(400).json({
+          error: { code: 'VALIDATION_ERROR', message: 'principal, rate (annual %), and tenure (months) are required and must be positive' }
+        });
+      }
+
+      const monthlyRate = annualRate / 12 / 100;
+      const emi = principal * monthlyRate * Math.pow(1 + monthlyRate, tenureMonths) / (Math.pow(1 + monthlyRate, tenureMonths) - 1);
+      const totalPayment = emi * tenureMonths;
+      const totalInterest = totalPayment - principal;
+
+      // Amortization schedule
+      const schedule = [];
+      let balance = principal;
+      for (let m = 1; m <= tenureMonths; m++) {
+        const interest = balance * monthlyRate;
+        const principalPart = emi - interest;
+        balance -= principalPart;
+        schedule.push({
+          month: m,
+          emi: Math.round(emi * 100) / 100,
+          principal: Math.round(principalPart * 100) / 100,
+          interest: Math.round(interest * 100) / 100,
+          balance: Math.max(0, Math.round(balance * 100) / 100),
+        });
+      }
+
+      res.json({
+        principal,
+        annual_rate: annualRate,
+        tenure_months: tenureMonths,
+        monthly_emi: Math.round(emi * 100) / 100,
+        total_payment: Math.round(totalPayment * 100) / 100,
+        total_interest: Math.round(totalInterest * 100) / 100,
+        schedule,
+      });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/subscription-savings — analyze subscription spending and savings opportunities
+  router.get('/subscription-savings', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const subs = db.prepare('SELECT * FROM subscriptions WHERE user_id = ? AND is_active = 1').all(userId);
+
+      let monthlyTotal = 0;
+      const analysis = subs.map(s => {
+        let monthlyCost = s.amount;
+        if (s.frequency === 'yearly') monthlyCost = s.amount / 12;
+        else if (s.frequency === 'quarterly') monthlyCost = s.amount / 3;
+        else if (s.frequency === 'weekly') monthlyCost = s.amount * 4.33;
+        monthlyTotal += monthlyCost;
+        return {
+          id: s.id,
+          name: s.name,
+          amount: s.amount,
+          frequency: s.frequency,
+          monthly_cost: Math.round(monthlyCost * 100) / 100,
+        };
+      });
+
+      analysis.sort((a, b) => b.monthly_cost - a.monthly_cost);
+
+      res.json({
+        total_monthly: Math.round(monthlyTotal * 100) / 100,
+        total_yearly: Math.round(monthlyTotal * 12 * 100) / 100,
+        subscription_count: subs.length,
+        subscriptions: analysis,
+      });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/budget-variance — budget vs actual spending variance
+  router.get('/budget-variance', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ? AND is_active = 1').all(userId);
+
+      const variance = budgets.map(b => {
+        const items = db.prepare('SELECT bi.*, c.name as category_name FROM budget_items bi LEFT JOIN categories c ON bi.category_id = c.id WHERE bi.budget_id = ?').all(b.id);
+
+        const itemVariance = items.map(item => {
+          const spent = db.prepare(
+            'SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND category_id = ? AND type = \'expense\' AND date >= ? AND date <= ?'
+          ).get(userId, item.category_id, b.start_date, b.end_date).total;
+
+          return {
+            category_id: item.category_id,
+            category_name: item.category_name,
+            budgeted: item.amount,
+            actual: Math.round(spent * 100) / 100,
+            variance: Math.round((item.amount - spent) * 100) / 100,
+            variance_pct: item.amount > 0 ? Math.round((spent / item.amount) * 10000) / 100 : 0,
+            status: spent > item.amount ? 'over' : spent > item.amount * 0.8 ? 'warning' : 'on_track',
+          };
+        });
+
+        const totalBudgeted = items.reduce((sum, i) => sum + i.amount, 0);
+        const totalActual = itemVariance.reduce((sum, i) => sum + i.actual, 0);
+
+        return {
+          budget_id: b.id,
+          budget_name: b.name,
+          period: b.period,
+          start_date: b.start_date,
+          end_date: b.end_date,
+          total_budgeted: totalBudgeted,
+          total_actual: Math.round(totalActual * 100) / 100,
+          total_variance: Math.round((totalBudgeted - totalActual) * 100) / 100,
+          items: itemVariance,
+        };
+      });
+
+      res.json({ budgets: variance });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/debt-payoff — debt snowball/avalanche strategy comparison
+  router.get('/debt-payoff', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const extraPayment = Number(req.query.extra || 0);
+
+      // Find loan/credit card accounts with negative balance (debt)
+      const debts = db.prepare(
+        "SELECT id, name, type, ABS(balance) as balance, currency FROM accounts WHERE user_id = ? AND is_active = 1 AND type IN ('credit_card', 'loan') AND balance < 0 ORDER BY ABS(balance) ASC"
+      ).all(userId);
+
+      if (debts.length === 0) {
+        return res.json({ debts: [], snowball: null, avalanche: null, message: 'No debts found' });
+      }
+
+      // Minimum monthly payment assumption: 2% of balance or ₹500, whichever is greater
+      const withMinPayments = debts.map(d => ({
+        ...d,
+        min_payment: Math.max(d.balance * 0.02, 500),
+        // Estimated interest rate based on type
+        rate: d.type === 'credit_card' ? 36 : 12,
+      }));
+
+      // Snowball: smallest balance first
+      const snowball = [...withMinPayments].sort((a, b) => a.balance - b.balance);
+
+      // Avalanche: highest rate first
+      const avalanche = [...withMinPayments].sort((a, b) => b.rate - a.rate);
+
+      const totalDebt = withMinPayments.reduce((s, d) => s + d.balance, 0);
+      const totalMinPayment = withMinPayments.reduce((s, d) => s + d.min_payment, 0);
+
+      res.json({
+        total_debt: Math.round(totalDebt * 100) / 100,
+        total_min_payment: Math.round(totalMinPayment * 100) / 100,
+        extra_payment: extraPayment,
+        debt_count: debts.length,
+        snowball_order: snowball.map(d => ({ id: d.id, name: d.name, balance: d.balance, rate: d.rate })),
+        avalanche_order: avalanche.map(d => ({ id: d.id, name: d.name, balance: d.balance, rate: d.rate })),
+        recommendation: 'avalanche',
+        recommendation_reason: 'Avalanche method saves more on interest over time',
+      });
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/stats/tax-summary — tax-relevant spending summary (Indian 80C/80D/HRA)
+  router.get('/tax-summary', (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const fy = req.query.fy || new Date().getFullYear().toString();
+      const fyYear = parseInt(fy, 10);
+
+      // FY runs April-March in India
+      const fyStart = `${fyYear}-04-01`;
+      const fyEnd = `${fyYear + 1}-03-31`;
+
+      // Get all expense transactions in the FY
+      const totalIncome = db.prepare(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'income' AND date >= ? AND date <= ?"
+      ).get(userId, fyStart, fyEnd).total;
+
+      const totalExpense = db.prepare(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'expense' AND date >= ? AND date <= ?"
+      ).get(userId, fyStart, fyEnd).total;
+
+      // Tax-tagged categories: look for categories with names containing tax keywords
+      const taxCategories = db.prepare(
+        "SELECT c.id, c.name, COALESCE(SUM(t.amount), 0) as total FROM categories c LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = ? AND t.type = 'expense' AND t.date >= ? AND t.date <= ? WHERE c.user_id = ? AND (c.name LIKE '%80C%' OR c.name LIKE '%80D%' OR c.name LIKE '%HRA%' OR c.name LIKE '%tax%' OR c.name LIKE '%insurance%' OR c.name LIKE '%LIC%' OR c.name LIKE '%PPF%' OR c.name LIKE '%ELSS%' OR c.name LIKE '%NPS%') GROUP BY c.id"
+      ).all(userId, fyStart, fyEnd, userId);
+
+      const totalTaxSavings = taxCategories.reduce((s, c) => s + c.total, 0);
+
+      res.json({
+        financial_year: `FY ${fyYear}-${fyYear + 1}`,
+        fy_start: fyStart,
+        fy_end: fyEnd,
+        total_income: totalIncome,
+        total_expense: totalExpense,
+        tax_saving_investments: taxCategories,
+        total_tax_savings: Math.round(totalTaxSavings * 100) / 100,
+        section_80c_limit: 150000,
+        section_80c_utilized: Math.min(totalTaxSavings, 150000),
+      });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };

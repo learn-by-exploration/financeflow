@@ -63,7 +63,7 @@ module.exports = function createTransactionTemplateRoutes({ db }) {
 
       // Template values with optional overrides
       const description = req.body.description || template.description || template.name;
-      const amount = req.body.amount != null ? req.body.amount : template.amount;
+      const amount = req.body.amount !== null && req.body.amount !== undefined ? req.body.amount : template.amount;
       const type = req.body.type || template.type || 'expense';
 
       // Validate type and amount
@@ -75,8 +75,8 @@ module.exports = function createTransactionTemplateRoutes({ db }) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'amount must be a positive number' } });
       }
 
-      const category_id = req.body.category_id != null ? req.body.category_id : template.category_id;
-      const account_id = req.body.account_id != null ? req.body.account_id : template.account_id;
+      const category_id = req.body.category_id !== null && req.body.category_id !== undefined ? req.body.category_id : template.category_id;
+      const account_id = req.body.account_id !== null && req.body.account_id !== undefined ? req.body.account_id : template.account_id;
       const date = new Date().toISOString().slice(0, 10);
       const currency = req.user.defaultCurrency || 'INR';
 
@@ -90,7 +90,7 @@ module.exports = function createTransactionTemplateRoutes({ db }) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Account not found' } });
       }
 
-      if (amount == null) {
+      if (amount === null || amount === undefined) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'amount is required (set on template or provide in body)' } });
       }
 

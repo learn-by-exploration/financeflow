@@ -1,6 +1,6 @@
 {
   "name": "personalfi",
-  "version": "0.7.0",
+  "version": "1.0.0",
   "description": "Self-hosted personal finance manager with collaborative budgeting, expense splitting, and financial health tracking",
   "main": "src/server.js",
   "scripts": {
@@ -18,9 +18,13 @@
     "lint:fix": "eslint src/ tests/ public/ --fix",
     "format": "prettier --write src/ tests/ public/js/ public/css/",
     "format:check": "prettier --check src/ tests/ public/js/ public/css/",
-    "build:docker": "docker build -t financeflow:latest .",
-    "docker:run": "docker run -d --name financeflow -p 3457:3457 -v financeflow-data:/app/data --read-only --security-opt no-new-privileges:true --tmpfs /tmp --memory 512m financeflow:latest",
-    "docker:stop": "docker stop financeflow && docker rm financeflow",
+    "build:docker": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose stop",
+    "docker:logs": "docker compose logs -f",
+    "docker:status": "docker compose ps",
+    "docker:restart": "docker compose restart",
+    "docker:setup-autostart": "bash scripts/setup-autostart.sh",
     "validate": "npm run lint && npm run format:check && npm run test:fast && npm audit --audit-level=high"
   },
   "keywords": [

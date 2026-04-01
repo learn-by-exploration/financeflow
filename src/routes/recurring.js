@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createRecurringSchema, updateRecurringSchema, VALID_FREQUENCIES } = require('../schemas/recurring.schema');
+const { createRecurringSchema, updateRecurringSchema } = require('../schemas/recurring.schema');
 const createRecurringRepository = require('../repositories/recurring.repository');
 
 module.exports = function createRecurringRoutes({ db, audit }) {

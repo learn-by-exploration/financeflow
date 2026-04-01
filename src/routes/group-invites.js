@@ -27,7 +27,7 @@ module.exports = function createGroupInviteRoutes({ db, audit }) {
           return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'expires_at must be a valid ISO date string' } });
         }
       }
-      const sanitizedMaxUses = max_uses != null ? Math.max(0, Math.floor(Number(max_uses) || 0)) : 0;
+      const sanitizedMaxUses = max_uses !== null && max_uses !== undefined ? Math.max(0, Math.floor(Number(max_uses) || 0)) : 0;
 
       const result = db.prepare(
         'INSERT INTO group_invites (group_id, token, created_by, expires_at, max_uses) VALUES (?, ?, ?, ?, ?)'

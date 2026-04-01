@@ -5,12 +5,12 @@ import { rules, attachValidation } from '../form-validator.js';
 import { renderPagination as renderPaginationComponent } from '../pagination.js';
 
 const PAGE_SIZE = 20;
-let state = { transactions: [], total: 0, page: 0, filters: {} };
+const state = { transactions: [], total: 0, page: 0, filters: {} };
 let accounts = [];
 let categories = [];
 let onRefresh = null;
 let multiSelectMode = false;
-let selectedIds = new Set();
+const selectedIds = new Set();
 
 export async function renderTransactions(container) {
   container.innerHTML = '';

@@ -5,7 +5,6 @@ const { safePatternTest } = require('../utils/safe-regex');
 const { createTransactionSchema, updateTransactionSchema, bulkDeleteSchema, bulkCategorizeSchema, bulkTagSchema, bulkUntagSchema } = require('../schemas/transaction.schema');
 const createTransactionRepository = require('../repositories/transaction.repository');
 const createAccountRepository = require('../repositories/account.repository');
-const createExchangeRateRepository = require('../repositories/exchange-rate.repository');
 const createDuplicateRepository = require('../repositories/duplicate.repository');
 const createGoalRepository = require('../repositories/goal.repository');
 const { convert, buildRateMap } = require('../utils/currency-converter');
@@ -21,7 +20,6 @@ module.exports = function createTransactionRoutes({ db, audit }) {
   const txService = createTransactionService({ db });
   const txRepo = createTransactionRepository({ db });
   const accountRepo = createAccountRepository({ db });
-  const rateRepo = createExchangeRateRepository({ db });
   const notifService = createNotificationService({ db });
   const dupRepo = createDuplicateRepository({ db });
   const goalRepo = createGoalRepository({ db });
@@ -129,7 +127,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         const setting = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'large_transaction_threshold'").get(req.user.id);
         const threshold = setting ? Number(setting.value) : 10000;
         notifService.checkLargeTransaction(req.user.id, transaction.id, amount, threshold);
-      } catch (_) { /* notification failure should not break transaction */ }
+      } catch (_e) { /* notification failure should not break transaction */ }
 
       // Spending limit alerts
       if (type === 'expense') {
@@ -168,7 +166,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
               });
             }
           }
-        } catch (_) { /* spending limit check failure should not break transaction */ }
+        } catch (_e) { /* spending limit check failure should not break transaction */ }
       }
 
       // Budget threshold notifications
@@ -219,7 +217,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
               }
             }
           }
-        } catch (_) { /* budget threshold check failure should not break transaction */ }
+        } catch (_e) { /* budget threshold check failure should not break transaction */ }
       }
 
       // Duplicate detection
@@ -233,10 +231,10 @@ module.exports = function createTransactionRoutes({ db, audit }) {
           potential_duplicate = true;
           similar_transaction_id = match.id;
         }
-      } catch (_) { /* duplicate check failure should not break transaction */ }
+      } catch (_e) { /* duplicate check failure should not break transaction */ }
 
       // Auto-allocate to savings goals on income
-      let auto_allocations = [];
+      const auto_allocations = [];
       if (type === 'income') {
         try {
           const goals = goalRepo.getAutoAllocateGoals(req.user.id);
@@ -248,7 +246,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
               auto_allocations.push({ goal_id: goal.id, goal_name: goal.name, amount: allocAmount });
             }
           }
-        } catch (_) { /* auto-allocation failure should not break transaction */ }
+        } catch (_e) { /* auto-allocation failure should not break transaction */ }
       }
 
       invalidateCache(req.user.id, CACHE_PATTERNS);
