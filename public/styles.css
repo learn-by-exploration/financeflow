@@ -355,6 +355,7 @@ body {
 }
 
 .view-header h2 { font-size: 1.5rem; font-weight: 700; }
+.view-header-actions { display: flex; gap: 0.5rem; align-items: center; }
 .greeting { color: var(--text-secondary); font-size: 0.875rem; }
 
 /* ─── Stats grid ─── */

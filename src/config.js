@@ -52,6 +52,7 @@ const config = Object.freeze({
   },
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS, 10) || 10000,
   trustProxy: process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1',
+  forceHttps: process.env.FORCE_HTTPS === 'true' || process.env.FORCE_HTTPS === '1',
   demoMode: process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1',
   brand: {
     name: process.env.BRAND_NAME || 'FinanceFlow',

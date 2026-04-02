@@ -138,6 +138,7 @@ describe('P23 — Breadcrumbs', () => {
 describe('P24 — Multi-Select Transactions', () => {
   const appJs = read('js/app.js');
   const css = read('styles.css');
+  const txnJs = read('js/views/transactions.js');
 
   it('app.js has M key for multi-select', () => {
     assert.match(appJs, /['"]m['"]|['"]M['"]/);
@@ -145,6 +146,14 @@ describe('P24 — Multi-Select Transactions', () => {
 
   it('styles.css has multi-select styles', () => {
     assert.ok(css.includes('multi-select') || css.includes('bulk-action'));
+  });
+
+  it('transactions view has a visible Select button', () => {
+    assert.ok(txnJs.includes("textContent: 'Select'") || txnJs.includes('toggle-multi-select'));
+  });
+
+  it('M shortcut is listed in help modal', () => {
+    assert.ok(appJs.includes('Toggle multi-select') || appJs.includes('multi-select'));
   });
 });
 

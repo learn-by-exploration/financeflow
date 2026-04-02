@@ -465,6 +465,7 @@ function showShortcutsHelp() {
     { key: 'G', desc: 'Groups' },
     { key: '1-5', desc: 'Navigate (Dashboard, Transactions, Accounts, Budgets, Goals)' },
     { key: 'Ctrl+K or /', desc: 'Focus search bar' },
+    { key: 'M', desc: 'Toggle multi-select (Transactions)' },
     { key: 'Esc', desc: 'Close modal' },
   ];
   const list = el('div', { className: 'shortcuts-list' },

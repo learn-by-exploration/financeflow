@@ -37,7 +37,8 @@ module.exports = function createAuthRoutes({ db, audit }) {
         const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
         const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
         const userAgent = req.headers['user-agent'] || null;
-        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(userId, tokenHash, expiresAt, ip, userAgent);
+        const now = new Date().toISOString();
+        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent, last_used_at) VALUES (?, ?, ?, ?, ?, ?)').run(userId, tokenHash, expiresAt, ip, userAgent, now);
 
         return { userId, token };
       });
@@ -111,7 +112,8 @@ module.exports = function createAuthRoutes({ db, audit }) {
       const token = crypto.randomBytes(32).toString('hex');
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
       const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
-      db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(user.id, tokenHash, expiresAt, ip, userAgent);
+      const now = new Date().toISOString();
+      db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent, last_used_at) VALUES (?, ?, ?, ?, ?, ?)').run(user.id, tokenHash, expiresAt, ip, userAgent, now);
 
       audit.log(user.id, 'user.login', 'user', user.id, null, { ip, userAgent });
       res.json({ token, user: { id: user.id, username: user.username, display_name: user.display_name } });
@@ -267,7 +269,8 @@ module.exports = function createAuthRoutes({ db, audit }) {
         const expiresAt = new Date(Date.now() + config.session.maxAgeDays * 86400000).toISOString();
         const ip = req.ip || req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
         const userAgent = req.headers['user-agent'] || null;
-        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent) VALUES (?, ?, ?, ?, ?)').run(session.user_id, tokenHash, expiresAt, ip, userAgent);
+        const now = new Date().toISOString();
+        db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent, last_used_at) VALUES (?, ?, ?, ?, ?, ?)').run(session.user_id, tokenHash, expiresAt, ip, userAgent, now);
         return token;
       });
 
