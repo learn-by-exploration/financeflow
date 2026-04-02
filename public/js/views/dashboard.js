@@ -28,15 +28,11 @@ export async function renderDashboard(container) {
   container.appendChild(header);
 
   // Stats grid
-  const goTo = (view) => () => {
-    const nav = document.querySelector(`.nav-item[data-view="${view}"]`);
-    if (nav) nav.click();
-  };
   const stats = el('div', { className: 'stats-grid' }, [
-    statCard('Net Worth', fmt(data.net_worth), 'accent', goTo('accounts')),
-    statCard('Income (this month)', fmt(data.month_income), 'green', goTo('transactions')),
-    statCard('Expenses (this month)', fmt(data.month_expense), 'red', goTo('transactions')),
-    statCard('Savings (this month)', fmt(data.month_savings), data.month_savings >= 0 ? 'green' : 'red', goTo('budgets')),
+    statCard('Net Worth', fmt(data.net_worth), 'accent', 'accounts'),
+    statCard('Income (this month)', fmt(data.month_income), 'green', 'transactions'),
+    statCard('Expenses (this month)', fmt(data.month_expense), 'red', 'transactions'),
+    statCard('Savings (this month)', fmt(data.month_savings), data.month_savings >= 0 ? 'green' : 'red', 'budgets'),
   ]);
   container.appendChild(stats);
 
@@ -83,9 +79,7 @@ function chartCard(title, canvasId, ariaLabel) {
   ]);
 }
 
-function statCard(label, value, color, onClick) {
-  const viewMap = { 'accounts': 'accounts', 'transactions': 'transactions', 'budgets': 'budgets' };
-  const targetView = onClick ? Object.keys(viewMap).find(v => onClick.toString().includes(v)) || '' : '';
+function statCard(label, value, color, targetView) {
   const card = el('div', {
     className: `stat-card ${color} clickable`,
     tabindex: '0',
@@ -106,7 +100,18 @@ function statCard(label, value, color, onClick) {
     el('div', { className: 'stat-label', textContent: label }),
     el('div', { className: 'stat-value', textContent: value }),
     el('div', { className: 'stat-detail' }, [
-      el('a', { className: 'stat-detail-link', textContent: 'View all →', href: targetView ? `/#/${targetView}` : '#' }),
+      el('a', {
+        className: 'stat-detail-link',
+        textContent: 'View all →',
+        href: targetView ? `/#/${targetView}` : '#',
+        onClick: (e) => {
+          e.stopPropagation();
+          if (targetView) {
+            const nav = document.querySelector(`.nav-item[data-view="${targetView}"]`);
+            if (nav) { e.preventDefault(); nav.click(); }
+          }
+        },
+      }),
     ]),
   ]);
   return card;
