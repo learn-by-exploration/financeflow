@@ -128,6 +128,7 @@ module.exports = function createBudgetRoutes({ db, audit }) {
       const parsed = updateBudgetSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       const budget = budgetRepo.update(req.params.id, req.user.id, parsed.data);
+      audit.log(req.user.id, 'budget.update', 'budget', req.params.id);
       res.json({ budget });
     } catch (err) { next(err); }
   });

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-module.exports = function createOnboardingRoutes({ db }) {
+module.exports = function createOnboardingRoutes({ db, audit }) {
 
   // GET /api/users/onboarding — check onboarding progress
   router.get('/onboarding', (req, res, next) => {
@@ -31,6 +31,7 @@ module.exports = function createOnboardingRoutes({ db }) {
     try {
       const userId = req.user.id;
       db.prepare('UPDATE users SET onboarding_completed = 1 WHERE id = ?').run(userId);
+      audit.log(userId, 'onboarding.dismiss', 'user', userId);
       res.json({ dismissed: true });
     } catch (err) { next(err); }
   });

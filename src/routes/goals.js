@@ -43,6 +43,7 @@ module.exports = function createGoalRoutes({ db, audit }) {
       const parsed = updateGoalSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       const goal = goalRepo.update(req.params.id, req.user.id, parsed.data);
+      audit.log(req.user.id, 'goal.update', 'savings_goal', req.params.id);
 
       // Auto-notification: goal completed
       if (!existing.is_completed && goal.is_completed) {

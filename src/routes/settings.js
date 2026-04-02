@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 
-module.exports = function createSettingsRoutes({ db }) {
+module.exports = function createSettingsRoutes({ db, audit }) {
 
   const ALLOWED_KEYS = ['default_currency', 'date_format', 'dashboard_layout'];
 
@@ -32,6 +32,7 @@ module.exports = function createSettingsRoutes({ db }) {
       }
       db.prepare('INSERT INTO settings (user_id, key, value) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET value = ?')
         .run(req.user.id, key, value, value);
+      audit.log(req.user.id, 'setting.update', 'setting', key);
       res.json({ ok: true });
     } catch (err) { next(err); }
   });

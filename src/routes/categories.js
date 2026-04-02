@@ -5,7 +5,7 @@ const createCategoryRepository = require('../repositories/category.repository');
 const { ValidationError, NotFoundError } = require('../errors');
 const { safePatternTest } = require('../utils/safe-regex');
 
-module.exports = function createCategoryRoutes({ db }) {
+module.exports = function createCategoryRoutes({ db, audit }) {
 
   const categoryRepo = createCategoryRepository({ db });
 
@@ -57,6 +57,7 @@ module.exports = function createCategoryRoutes({ db }) {
         throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
       }
       const category = categoryRepo.create(req.user.id, parsed.data);
+      audit.log(req.user.id, 'category.create', 'category', category.id);
       res.status(201).json({ category });
     } catch (err) { next(err); }
   });
@@ -74,6 +75,7 @@ module.exports = function createCategoryRoutes({ db }) {
       const parsed = updateCategorySchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       const category = categoryRepo.update(req.params.id, req.user.id, parsed.data);
+      audit.log(req.user.id, 'category.update', 'category', req.params.id);
       res.json({ category });
     } catch (err) { next(err); }
   });
@@ -86,6 +88,7 @@ module.exports = function createCategoryRoutes({ db }) {
         throw new NotFoundError('Category');
       }
       categoryRepo.delete(req.params.id, req.user.id);
+      audit.log(req.user.id, 'category.delete', 'category', req.params.id);
       res.json({ ok: true });
     } catch (err) { next(err); }
   });

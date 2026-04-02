@@ -276,10 +276,74 @@ function daysFromNow(n) {
   return d.toISOString().slice(0, 10);
 }
 
+// ─── Additional factory helpers ───
+
+function makeTag(overrides = {}) {
+  const { db } = setup();
+  const o = { name: 'test-tag', color: '#FF5733', ...overrides };
+  const r = db.prepare('INSERT INTO tags (user_id, name, color) VALUES (?, ?, ?)').run(_testUserId, o.name, o.color);
+  return db.prepare('SELECT * FROM tags WHERE id = ?').get(r.lastInsertRowid);
+}
+
+function makeExchangeRate(overrides = {}) {
+  const { db } = setup();
+  const o = { base_currency: 'USD', target_currency: 'INR', rate: 83.50, date: today(), ...overrides };
+  const r = db.prepare('INSERT INTO exchange_rates (base_currency, target_currency, rate, date) VALUES (?, ?, ?, ?)').run(o.base_currency, o.target_currency, o.rate, o.date);
+  return db.prepare('SELECT * FROM exchange_rates WHERE id = ?').get(r.lastInsertRowid);
+}
+
+function makeNotification(overrides = {}) {
+  const { db } = setup();
+  const o = { type: 'system', title: 'Test notification', message: 'Test message body', is_read: 0, ...overrides };
+  const r = db.prepare('INSERT INTO notifications (user_id, type, title, message, is_read) VALUES (?, ?, ?, ?, ?)').run(_testUserId, o.type, o.title, o.message, o.is_read);
+  return db.prepare('SELECT * FROM notifications WHERE id = ?').get(r.lastInsertRowid);
+}
+
+function makeRule(overrides = {}) {
+  const { db } = setup();
+  const o = { pattern: 'amazon', category_id: null, ...overrides };
+  const r = db.prepare('INSERT INTO category_rules (user_id, pattern, category_id, position) VALUES (?, ?, ?, ?)').run(_testUserId, o.pattern, o.category_id, o.position || 0);
+  return db.prepare('SELECT * FROM category_rules WHERE id = ?').get(r.lastInsertRowid);
+}
+
+function makeTemplate(accountId, overrides = {}) {
+  const { db } = setup();
+  const o = { name: 'Monthly Rent', type: 'expense', amount: 15000, description: 'Rent payment', ...overrides };
+  const r = db.prepare('INSERT INTO transaction_templates (user_id, name, account_id, category_id, type, amount, description) VALUES (?, ?, ?, ?, ?, ?, ?)').run(_testUserId, o.name, accountId, o.category_id || null, o.type, o.amount, o.description);
+  return db.prepare('SELECT * FROM transaction_templates WHERE id = ?').get(r.lastInsertRowid);
+}
+
+function makeSpendingLimit(overrides = {}) {
+  const { db } = setup();
+  const o = { category_id: null, amount: 5000, period: 'monthly', ...overrides };
+  const r = db.prepare('INSERT INTO spending_limits (user_id, category_id, amount, period) VALUES (?, ?, ?, ?)').run(_testUserId, o.category_id, o.amount, o.period);
+  return db.prepare('SELECT * FROM spending_limits WHERE id = ?').get(r.lastInsertRowid);
+}
+
+function makeApiToken(overrides = {}) {
+  const { db } = setup();
+  const o = { name: 'Test Token', scope: 'read', ...overrides };
+  const token = 'pfi_' + crypto.randomBytes(32).toString('hex');
+  const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+  const r = db.prepare('INSERT INTO api_tokens (user_id, name, token_hash, scope) VALUES (?, ?, ?, ?)').run(_testUserId, o.name, tokenHash, o.scope);
+  const row = db.prepare('SELECT * FROM api_tokens WHERE id = ?').get(r.lastInsertRowid);
+  return { ...row, raw_token: token };
+}
+
+function makeReminder(overrides = {}) {
+  const { db } = setup();
+  const sub = makeSubscription({ name: 'Reminder Sub', amount: overrides.amount || 2000 });
+  const o = { subscription_id: sub.id, days_before: 3, is_enabled: 1, ...overrides };
+  const r = db.prepare('INSERT INTO bill_reminders (user_id, subscription_id, days_before, is_enabled) VALUES (?, ?, ?, ?)').run(_testUserId, o.subscription_id, o.days_before, o.is_enabled);
+  return db.prepare('SELECT * FROM bill_reminders WHERE id = ?').get(r.lastInsertRowid);
+}
+
 module.exports = {
   setup, cleanDb, teardown,
   makeAccount, makeCategory, makeTransaction, makeBudget,
   makeSubscription, makeGoal, makeGroup, makeGroupMember,
   makeSharedExpense, makeRecurringRule, makeSecondUser,
+  makeTag, makeExchangeRate, makeNotification, makeRule,
+  makeTemplate, makeSpendingLimit, makeApiToken, makeReminder,
   agent, rawAgent, today, daysFromNow,
 };

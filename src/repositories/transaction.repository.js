@@ -66,9 +66,12 @@ module.exports = function createTransactionRepository({ db }) {
 
   function linkTags(transactionId, tagIds) {
     const insertTag = db.prepare('INSERT OR IGNORE INTO transaction_tags (transaction_id, tag_id) VALUES (?, ?)');
-    for (const tid of tagIds) {
-      insertTag.run(transactionId, tid);
-    }
+    const doLink = db.transaction(() => {
+      for (const tid of tagIds) {
+        insertTag.run(transactionId, tid);
+      }
+    });
+    doLink();
   }
 
   function bulkDelete(userId, ids) {

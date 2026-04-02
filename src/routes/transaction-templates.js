@@ -1,6 +1,6 @@
 const express = require('express');
 
-module.exports = function createTransactionTemplateRoutes({ db }) {
+module.exports = function createTransactionTemplateRoutes({ db, audit }) {
   const router = express.Router();
   const fromTemplateRouter = express.Router();
 
@@ -23,6 +23,7 @@ module.exports = function createTransactionTemplateRoutes({ db }) {
         'INSERT INTO transaction_templates (user_id, name, description, amount, type, category_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
       ).run(req.user.id, name.trim(), description || null, amount || null, type || 'expense', category_id || null, account_id || null);
       const template = db.prepare('SELECT * FROM transaction_templates WHERE id = ?').get(result.lastInsertRowid);
+      audit.log(req.user.id, 'template.create', 'template', template.id);
       res.status(201).json({ template });
     } catch (err) { next(err); }
   });
@@ -47,6 +48,7 @@ module.exports = function createTransactionTemplateRoutes({ db }) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Template not found' } });
       }
       db.prepare('DELETE FROM transaction_templates WHERE id = ?').run(template.id);
+      audit.log(req.user.id, 'template.delete', 'template', req.params.id);
       res.json({ ok: true });
     } catch (err) { next(err); }
   });
@@ -103,6 +105,7 @@ module.exports = function createTransactionTemplateRoutes({ db }) {
       db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2), updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?').run(balanceChange, account_id, req.user.id);
 
       const transaction = db.prepare('SELECT * FROM transactions WHERE id = ?').get(result.lastInsertRowid);
+      audit.log(req.user.id, 'transaction.create_from_template', 'transaction', transaction.id);
       res.status(201).json({ transaction });
     } catch (err) { next(err); }
   });

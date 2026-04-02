@@ -43,6 +43,7 @@ module.exports = function createSubscriptionRoutes({ db, audit }) {
       const parsed = updateSubscriptionSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       const subscription = subRepo.update(req.params.id, req.user.id, parsed.data);
+      audit.log(req.user.id, 'subscription.update', 'subscription', req.params.id);
       res.json({ subscription });
     } catch (err) { next(err); }
   });

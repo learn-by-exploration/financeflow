@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { preferencesSchema, PREFERENCE_KEYS, PREFERENCE_DEFAULTS } = require('../schemas/preferences.schema');
 
-module.exports = function createPreferencesRoutes({ db }) {
+module.exports = function createPreferencesRoutes({ db, audit }) {
 
   // GET /api/preferences
   router.get('/', (req, res, next) => {
@@ -43,6 +43,7 @@ module.exports = function createPreferencesRoutes({ db }) {
         }
       });
       updates();
+      audit.log(req.user.id, 'preferences.update', 'preference', null);
 
       // Return updated preferences
       const rows = db.prepare(

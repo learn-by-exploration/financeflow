@@ -6,7 +6,7 @@ function isDemoMode() {
   return process.env.DEMO_MODE === 'true' || process.env.DEMO_MODE === '1';
 }
 
-module.exports = function createDemoRoutes({ db }) {
+module.exports = function createDemoRoutes({ db, audit }) {
   const seedDemoData = require('../db/seed');
 
   // GET /api/demo/session — returns auth token for demo user
@@ -41,6 +41,7 @@ module.exports = function createDemoRoutes({ db }) {
         seedDemoData(db);
       })();
 
+      audit.log(0, 'demo.reset', 'system', null);
       res.json({ ok: true, message: 'Demo data reset successfully' });
     } catch (err) { next(err); }
   });
