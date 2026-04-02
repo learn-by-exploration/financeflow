@@ -270,9 +270,9 @@ describe('Task 1.8 — Nav Cleanup & SW Cache', () => {
       'Empty System nav group should be removed');
   });
 
-  it('SW cache name is updated to v7.0.0', () => {
-    assert.ok(sw.includes('financeflow-v7.0.0'),
-      'SW CACHE_NAME should be financeflow-v7.0.0');
+  it('SW cache name is updated to v7.3.0', () => {
+    assert.ok(sw.includes('financeflow-v7.3.0'),
+      'SW CACHE_NAME should be financeflow-v7.3.0');
   });
 
   it('SW does not reference removed view files', () => {
