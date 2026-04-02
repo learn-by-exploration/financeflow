@@ -2055,25 +2055,23 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
 
 /* ─── Stat card expandable detail ─── */
 .stat-detail {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height var(--transition-medium, 250ms ease-out);
-  margin-top: 0;
+  margin-top: 0.5rem;
 }
 .stat-card.expanded .stat-detail {
-  max-height: 200px;
   margin-top: 0.75rem;
 }
 .stat-detail-link {
   display: inline-block;
-  margin-top: 0.5rem;
   color: var(--accent);
   font-size: 0.8125rem;
   font-weight: 500;
   cursor: pointer;
   text-decoration: none;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast, 150ms);
 }
-.stat-detail-link:hover { text-decoration: underline; }
+.stat-card:hover .stat-detail-link { opacity: 1; }
+.stat-detail-link:hover { text-decoration: underline; opacity: 1; }
 
 /* ─── Hover action buttons ─── */
 .hover-actions {

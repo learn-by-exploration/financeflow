@@ -83,36 +83,19 @@ function statCard(label, value, color, targetView) {
   const card = el('div', {
     className: `stat-card ${color} clickable`,
     tabindex: '0',
-    role: 'button',
-    'aria-expanded': 'false',
-    'aria-label': `${label}: ${value}`,
+    role: 'link',
+    'aria-label': `${label}: ${value}. Click to view all.`,
     onClick: () => {
-      const isExpanded = card.getAttribute('aria-expanded') === 'true';
-      // Collapse all other cards (accordion)
-      card.parentElement.querySelectorAll('.stat-card.expanded').forEach(c => {
-        if (c !== card) { c.classList.remove('expanded'); c.setAttribute('aria-expanded', 'false'); }
-      });
-      card.classList.toggle('expanded');
-      card.setAttribute('aria-expanded', String(!isExpanded));
+      if (targetView) {
+        const nav = document.querySelector(`.nav-item[data-view="${targetView}"]`);
+        if (nav) nav.click();
+      }
     },
     onKeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); } },
   }, [
     el('div', { className: 'stat-label', textContent: label }),
     el('div', { className: 'stat-value', textContent: value }),
-    el('div', { className: 'stat-detail' }, [
-      el('a', {
-        className: 'stat-detail-link',
-        textContent: 'View all →',
-        href: targetView ? `/#/${targetView}` : '#',
-        onClick: (e) => {
-          e.stopPropagation();
-          if (targetView) {
-            const nav = document.querySelector(`.nav-item[data-view="${targetView}"]`);
-            if (nav) { e.preventDefault(); nav.click(); }
-          }
-        },
-      }),
-    ]),
+    el('div', { className: 'stat-detail-link', textContent: 'View all →' }),
   ]);
   return card;
 }
