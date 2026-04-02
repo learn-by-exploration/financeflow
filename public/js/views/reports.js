@@ -59,6 +59,93 @@ export async function renderHealth(container) {
     ]);
     container.appendChild(recsCard);
   }
+
+  // ─── Planning Tools (calculators) ───
+  renderPlanningTools(container);
+}
+
+function renderPlanningTools(container) {
+  const section = el('div', { className: 'card planning-tools-section' }, [
+    el('h3', { textContent: 'Planning Tools' }),
+  ]);
+
+  const calcs = [
+    { id: 'sip', label: 'SIP Calculator', desc: 'Systematic Investment Plan returns', fields: [
+      { name: 'monthly', label: 'Monthly Investment (₹)', val: '10000' },
+      { name: 'return', label: 'Expected Return (%)', val: '12' },
+      { name: 'years', label: 'Period (years)', val: '20' },
+      { name: 'step_up', label: 'Annual Step-Up (%)', val: '10' },
+    ], endpoint: '/stats/sip-calculator', resultKeys: ['total_invested', 'future_value', 'total_returns', 'return_multiple'] },
+    { id: 'lumpsum', label: 'Lumpsum Calculator', desc: 'One-time investment growth', fields: [
+      { name: 'principal', label: 'Investment Amount (₹)', val: '100000' },
+      { name: 'return', label: 'Expected Return (%)', val: '12' },
+      { name: 'years', label: 'Period (years)', val: '10' },
+    ], endpoint: '/stats/lumpsum-calculator', resultKeys: ['principal', 'future_value', 'total_returns'] },
+    { id: 'emi', label: 'EMI Calculator', desc: 'Loan EMI and amortization', fields: [
+      { name: 'principal', label: 'Loan Amount (₹)', val: '1000000' },
+      { name: 'rate', label: 'Annual Rate (%)', val: '8.5' },
+      { name: 'tenure', label: 'Tenure (months)', val: '240' },
+    ], endpoint: '/stats/emi-calculator', resultKeys: ['monthly_emi', 'total_payment', 'total_interest'] },
+    { id: 'fire', label: 'FIRE Calculator', desc: 'Financial Independence, Retire Early', fields: [
+      { name: 'annual_expense', label: 'Annual Expenses (₹)', val: '600000' },
+      { name: 'safe_withdrawal_rate', label: 'Safe Withdrawal Rate (%)', val: '4' },
+      { name: 'inflation', label: 'Inflation Rate (%)', val: '6' },
+      { name: 'years', label: 'Years to Retirement', val: '20' },
+    ], endpoint: '/stats/fire-calculator', resultKeys: ['fire_number', 'future_annual_expense', 'monthly_sip_needed'] },
+  ];
+
+  for (const calc of calcs) {
+    const details = el('details', { className: 'calculator-card' });
+    const summary = el('summary', { className: 'calculator-header' }, [
+      el('span', { className: 'material-icons-round', textContent: 'calculate' }),
+      el('span', { textContent: calc.label }),
+    ]);
+    details.appendChild(summary);
+
+    const resultArea = el('div', { className: 'calculator-results' });
+    const formDiv = el('div', { className: 'calculator-form' }, [
+      el('p', { className: 'text-muted', textContent: calc.desc }),
+      ...calc.fields.map(f =>
+        el('div', { className: 'form-group' }, [
+          el('label', { textContent: f.label, htmlFor: `calc-${calc.id}-${f.name}` }),
+          el('input', { type: 'number', id: `calc-${calc.id}-${f.name}`, className: 'form-input', value: f.val }),
+        ])
+      ),
+      el('button', {
+        className: 'btn btn-primary',
+        textContent: 'Calculate',
+        onClick: async () => {
+          const params = calc.fields.map(f => {
+            const input = document.getElementById(`calc-${calc.id}-${f.name}`);
+            return `${f.name}=${encodeURIComponent(input ? input.value : f.val)}`;
+          }).join('&');
+          try {
+            const data = await Api.get(`${calc.endpoint}?${params}`);
+            resultArea.innerHTML = '';
+            resultArea.appendChild(el('div', { className: 'result-card card' }, [
+              el('h4', { textContent: calc.label }),
+              ...calc.resultKeys.map(k => {
+                const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const val = typeof data[k] === 'number' && !k.includes('multiple') ? fmt.currency(data[k]) : String(data[k]);
+                return el('div', { className: 'result-row' }, [
+                  el('span', { className: 'result-label', textContent: label }),
+                  el('span', { className: 'result-value', textContent: val }),
+                ]);
+              }),
+            ]));
+          } catch (err) {
+            resultArea.innerHTML = '';
+            resultArea.appendChild(el('p', { className: 'error', textContent: err.message }));
+          }
+        },
+      }),
+    ]);
+    details.appendChild(formDiv);
+    details.appendChild(resultArea);
+    section.appendChild(details);
+  }
+
+  container.appendChild(section);
 }
 
 export async function renderReports(container) {

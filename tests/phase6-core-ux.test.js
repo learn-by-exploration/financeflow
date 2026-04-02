@@ -21,9 +21,9 @@ describe('Phase 6 – Core UX Improvements', () => {
 
     it('has .nav-group containers', () => {
       assert.ok(indexHtml.includes('nav-group'), 'index.html should have nav-group containers');
-      // Should have groups for Core, Planning, Social, Analysis, System
+      // Should have groups for Core, Planning, Social, Analysis
       const groupCount = (indexHtml.match(/class="nav-group"/g) || []).length;
-      assert.ok(groupCount >= 5, `Expected at least 5 nav-group containers, found ${groupCount}`);
+      assert.ok(groupCount >= 4, `Expected at least 4 nav-group containers, found ${groupCount}`);
     });
 
     it('each nav-group has a .nav-group-header', () => {
@@ -44,8 +44,7 @@ describe('Phase 6 – Core UX Improvements', () => {
         'dashboard', 'transactions', 'accounts', 'categories',
         'budgets', 'subscriptions', 'goals', 'recurring',
         'groups', 'splits',
-        'health', 'reports', 'rules', 'insights', 'calendar',
-        'export', 'whats-new'
+        'health', 'reports', 'insights',
       ];
       for (const view of expectedViews) {
         assert.ok(

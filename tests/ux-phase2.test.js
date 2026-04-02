@@ -133,25 +133,21 @@ describe('P12 — Expandable Stat Cards', () => {
   });
 });
 
-describe('P13 — Privacy Banner', () => {
+describe('P13 — Privacy Banner (Removed in v7)', () => {
   const html = read('index.html');
   const css = read('styles.css');
   const appJs = read('js/app.js');
 
-  it('index.html contains privacy-banner element', () => {
-    assert.ok(html.includes('privacy-banner'));
+  it('privacy banner has been removed from index.html', () => {
+    assert.ok(!html.includes('privacy-banner'));
   });
 
-  it('privacy banner mentions data staying on server', () => {
-    assert.match(html, /data stays|no cookie|no tracking/i);
+  it('privacy banner CSS has been removed', () => {
+    assert.ok(!css.includes('.privacy-banner'));
   });
 
-  it('styles.css contains .privacy-banner styles', () => {
-    assert.ok(css.includes('.privacy-banner'));
-  });
-
-  it('app.js checks pfi_privacy_accepted localStorage', () => {
-    assert.ok(appJs.includes('pfi_privacy_accepted'));
+  it('app.js no longer checks pfi_privacy_accepted', () => {
+    assert.ok(!appJs.includes('pfi_privacy_accepted'));
   });
 });
 

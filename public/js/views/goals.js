@@ -55,6 +55,9 @@ export async function renderGoals(container) {
   }
 
   onRefresh = () => renderGoals(container);
+
+  // ─── Challenges section ───
+  await renderChallengesSection(container);
 }
 
 function goalCard(goal) {
@@ -219,4 +222,126 @@ async function deleteGoal(goal) {
 
 function formGroup(label, input) {
   return el('div', { className: 'form-group' }, [el('label', { textContent: label }), input]);
+}
+
+// ─── Challenges Section (merged from challenges view) ───
+
+async function renderChallengesSection(container) {
+  const section = el('div', { className: 'challenges-section' });
+  const divider = el('hr', { className: 'section-divider' });
+  container.appendChild(divider);
+
+  const sectionHeader = el('div', { className: 'view-header' }, [
+    el('h3', { textContent: 'Savings Challenges' }),
+    el('button', { className: 'btn btn-secondary btn-sm', textContent: '+ New Challenge', onClick: () => showChallengeForm(container) }),
+  ]);
+  section.appendChild(sectionHeader);
+
+  let challenges;
+  try {
+    const data = await Api.get('/stats/challenges');
+    challenges = data.challenges;
+  } catch {
+    section.appendChild(el('p', { className: 'text-muted', textContent: 'Unable to load challenges.' }));
+    container.appendChild(section);
+    return;
+  }
+
+  if (challenges.length === 0) {
+    section.appendChild(el('p', { className: 'text-muted', textContent: 'No challenges yet. Create one to gamify your savings!' }));
+    container.appendChild(section);
+    return;
+  }
+
+  const typeLabel = { no_spend: '🚫 No Spend', savings_target: '💰 Savings Target', reduce_category: '📉 Reduce Spending' };
+  const active = challenges.filter(c => c.is_active && !c.is_completed);
+  const completed = challenges.filter(c => c.is_completed);
+
+  if (active.length > 0) {
+    section.appendChild(el('h4', { textContent: `Active (${active.length})`, className: 'section-title' }));
+    const grid = el('div', { className: 'card-grid' });
+    active.forEach(ch => grid.appendChild(challengeCard(ch, container, typeLabel)));
+    section.appendChild(grid);
+  }
+
+  if (completed.length > 0) {
+    section.appendChild(el('h4', { textContent: `Completed (${completed.length})`, className: 'section-title' }));
+    const grid = el('div', { className: 'card-grid' });
+    completed.forEach(ch => grid.appendChild(challengeCard(ch, container, typeLabel)));
+    section.appendChild(grid);
+  }
+
+  container.appendChild(section);
+}
+
+function challengeCard(ch, container, typeLabel) {
+  const progress = ch.progress || 0;
+  const isActive = ch.is_active && !ch.is_completed;
+
+  return el('div', { className: `card challenge-card ${ch.is_completed ? 'completed' : ''}` }, [
+    el('div', { className: 'challenge-header' }, [
+      el('h4', { textContent: ch.name }),
+      el('span', { className: 'badge', textContent: typeLabel[ch.type] || ch.type }),
+    ]),
+    el('div', { className: 'challenge-dates text-muted' }, [
+      el('span', { textContent: `${ch.start_date} → ${ch.end_date}` }),
+    ]),
+    el('div', { className: 'progress-bar-container' }, [
+      el('div', { className: 'progress-bar', style: `width: ${Math.min(progress, 100)}%` }),
+    ]),
+    el('div', { className: 'challenge-progress' }, [
+      el('span', { textContent: `${progress}% complete` }),
+      ch.target_amount > 0 ? el('span', { textContent: fmt.currency(ch.target_amount) + ' target' }) : null,
+    ].filter(Boolean)),
+    isActive ? el('button', {
+      className: 'btn btn-sm btn-danger',
+      textContent: 'Delete',
+      onClick: async () => {
+        if (await confirm('Delete this challenge?')) {
+          try {
+            await Api.del(`/stats/challenges/${ch.id}`);
+            toast('Challenge deleted', 'success');
+            renderGoals(container);
+          } catch (err) { toast(err.message, 'error'); }
+        }
+      },
+    }) : null,
+  ].filter(Boolean));
+}
+
+function showChallengeForm(container) {
+  const form = el('div', { className: 'modal-body' }, [
+    el('h3', { textContent: 'New Savings Challenge' }),
+    formGroup('Name', el('input', { type: 'text', id: 'ch-name', className: 'form-input', placeholder: 'e.g. No Coffee Month' })),
+    formGroup('Type', el('select', { id: 'ch-type', className: 'form-input' }, [
+      el('option', { value: 'savings_target', textContent: 'Savings Target' }),
+      el('option', { value: 'no_spend', textContent: 'No Spend Challenge' }),
+      el('option', { value: 'reduce_category', textContent: 'Reduce Category Spending' }),
+    ])),
+    formGroup('Target Amount', el('input', { type: 'number', id: 'ch-target', className: 'form-input', placeholder: '5000' })),
+    formGroup('Start Date', el('input', { type: 'date', id: 'ch-start', className: 'form-input', value: new Date().toISOString().slice(0, 10) })),
+    formGroup('End Date', el('input', { type: 'date', id: 'ch-end', className: 'form-input' })),
+    el('button', {
+      className: 'btn btn-primary',
+      textContent: 'Create Challenge',
+      onClick: async () => {
+        const name = document.getElementById('ch-name').value;
+        const type = document.getElementById('ch-type').value;
+        const target_amount = Number(document.getElementById('ch-target').value) || 0;
+        const start_date = document.getElementById('ch-start').value;
+        const end_date = document.getElementById('ch-end').value;
+        if (!name || !start_date || !end_date) {
+          toast('Fill all required fields', 'error');
+          return;
+        }
+        try {
+          await Api.post('/stats/challenges', { name, type, target_amount, start_date, end_date });
+          toast('Challenge created!', 'success');
+          closeModal();
+          renderGoals(container);
+        } catch (err) { toast(err.message, 'error'); }
+      },
+    }),
+  ]);
+  openModal(form);
 }

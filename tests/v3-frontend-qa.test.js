@@ -21,7 +21,7 @@ describe('v3 Frontend & QA (Iter 8)', () => {
       'dashboard', 'accounts', 'transactions', 'categories', 'budgets',
       'subscriptions', 'goals', 'groups', 'splits', 'reports',
       'rules', 'settings', 'search', 'insights', 'recurring',
-      'calendar', 'export', 'whats-new', 'calculators', 'challenges',
+      'export',
     ];
 
     for (const view of views) {
@@ -32,91 +32,68 @@ describe('v3 Frontend & QA (Iter 8)', () => {
     }
   });
 
-  // ─── Calculators view module content ───
-  describe('Calculators view module', () => {
-    it('exports renderCalculators function', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'calculators.js'), 'utf8');
-      assert.ok(content.includes('export async function renderCalculators'), 'Should export renderCalculators');
+  // ─── Calculators merged into Health view (v7) ───
+  describe('Calculators merged into Health view', () => {
+    it('reports.js (health view) contains SIP calculator', () => {
+      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'reports.js'), 'utf8');
+      assert.ok(content.includes('SIP Calculator'), 'Should have SIP Calculator in health view');
     });
 
-    it('has SIP calculator form', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'calculators.js'), 'utf8');
-      assert.ok(content.includes('SIP Calculator'), 'Should have SIP Calculator');
+    it('reports.js contains all 4 calculator types', () => {
+      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'reports.js'), 'utf8');
+      assert.ok(content.includes('sip-calculator'), 'Should include SIP');
+      assert.ok(content.includes('emi-calculator'), 'Should include EMI');
+      assert.ok(content.includes('fire-calculator'), 'Should include FIRE');
+      assert.ok(content.includes('lumpsum-calculator'), 'Should include Lumpsum');
     });
 
-    it('has FIRE calculator form', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'calculators.js'), 'utf8');
-      assert.ok(content.includes('FIRE Calculator'), 'Should have FIRE Calculator');
-    });
-
-    it('has EMI calculator form', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'calculators.js'), 'utf8');
-      assert.ok(content.includes('EMI Calculator'), 'Should have EMI Calculator');
-    });
-
-    it('uses el() helper not innerHTML with user data', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'calculators.js'), 'utf8');
-      // innerHTML = '' for container reset is acceptable, but no dynamic data
-      const dynamicInner = content.replace(/innerHTML\s*=\s*['"]\s*['"]\s*;/g, '').match(/innerHTML/g);
-      assert.ok(!dynamicInner, 'Should not use innerHTML with dynamic content');
+    it('calculators.js standalone view file no longer exists', () => {
+      assert.ok(!fs.existsSync(path.join(__dirname, '..', 'public', 'js', 'views', 'calculators.js')));
     });
   });
 
-  // ─── Challenges view module content ───
-  describe('Challenges view module', () => {
-    it('exports renderChallenges function', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'challenges.js'), 'utf8');
-      assert.ok(content.includes('export async function renderChallenges'), 'Should export renderChallenges');
+  // ─── Challenges merged into Goals view (v7) ───
+  describe('Challenges merged into Goals view', () => {
+    it('goals.js contains challenge creation form', () => {
+      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'goals.js'), 'utf8');
+      assert.ok(content.includes('New Savings Challenge'), 'Should have creation form in goals view');
     });
 
-    it('has challenge creation form', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'challenges.js'), 'utf8');
-      assert.ok(content.includes('New Savings Challenge'), 'Should have creation form');
+    it('goals.js shows challenge progress bar', () => {
+      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'goals.js'), 'utf8');
+      assert.ok(content.includes('challenge-card'), 'Should have challenge cards in goals view');
     });
 
-    it('shows progress bar', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'challenges.js'), 'utf8');
-      assert.ok(content.includes('progress-bar'), 'Should have progress bar');
-    });
-
-    it('uses el() helper not innerHTML with user data', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'views', 'challenges.js'), 'utf8');
-      // innerHTML = '' for container reset is acceptable
-      const dynamicInner = content.replace(/innerHTML\s*=\s*['"]\s*['"]\s*;/g, '').match(/innerHTML/g);
-      assert.ok(!dynamicInner || dynamicInner.length === 0, `Should minimize innerHTML with dynamic content`);
+    it('challenges.js standalone view file no longer exists', () => {
+      assert.ok(!fs.existsSync(path.join(__dirname, '..', 'public', 'js', 'views', 'challenges.js')));
     });
   });
 
   // ─── Navigation integration ───
   describe('Navigation integration', () => {
-    it('index.html has calculators nav item', () => {
+    it('calculators nav item removed (merged into health)', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-      assert.ok(content.includes('data-view="calculators"'), 'Should have calculators nav');
+      assert.ok(!content.includes('data-view="calculators"'), 'Calculators nav should be removed');
     });
 
-    it('index.html has challenges nav item', () => {
+    it('challenges nav item removed (merged into goals)', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-      assert.ok(content.includes('data-view="challenges"'), 'Should have challenges nav');
+      assert.ok(!content.includes('data-view="challenges"'), 'Challenges nav should be removed');
     });
 
-    it('app.js has calculators route', () => {
+    it('app.js does not have calculators route (merged)', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'app.js'), 'utf8');
-      assert.ok(content.includes("calculators:"), 'Should have calculators route');
+      assert.ok(!content.includes("calculators:"), 'calculators route should be removed');
     });
 
-    it('app.js has challenges route', () => {
+    it('app.js does not have challenges route (merged)', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'app.js'), 'utf8');
-      assert.ok(content.includes("challenges:"), 'Should have challenges route');
+      assert.ok(!content.includes("challenges:"), 'challenges route should be removed');
     });
 
-    it('service worker caches calculators.js', () => {
+    it('service worker caches reports.js (includes calculators)', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf8');
-      assert.ok(content.includes('calculators.js'), 'SW should cache calculators.js');
-    });
-
-    it('service worker caches challenges.js', () => {
-      const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'sw.js'), 'utf8');
-      assert.ok(content.includes('challenges.js'), 'SW should cache challenges.js');
+      assert.ok(content.includes('reports.js'), 'SW should cache reports.js');
     });
   });
 

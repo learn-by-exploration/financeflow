@@ -99,7 +99,7 @@ describe('HTML Integrity', () => {
       'app', 'sidebar', 'main-content', 'view-container',
       'modal-overlay', 'modal-content', 'toast-container',
       'global-search', 'sidebar-collapse', 'fab-add',
-      'notif-bell', 'privacy-banner', 'offline-banner',
+      'notif-bell', 'offline-banner',
       'breadcrumb', 'a11y-announce',
     ];
     for (const id of requiredIds) {
@@ -201,7 +201,7 @@ describe('CSS Integrity', () => {
       '.btn', '.btn-primary', '.btn-secondary',
       '.modal-overlay', '.toast-container', '.toast',
       '.breadcrumb', '.fab', '.settings-section',
-      '.color-swatch', '.privacy-banner', '.demo-banner',
+      '.color-swatch', '.demo-banner',
       '.offline-banner', '.bottom-nav', '.search-bar',
     ];
     for (const cls of required) {

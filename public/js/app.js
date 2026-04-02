@@ -112,11 +112,7 @@ const views = {
   search:        () => import('./views/search.js').then(m => m.renderSearch),
   insights:      () => import('./views/insights.js').then(m => m.renderInsights),
   recurring:     () => import('./views/recurring.js').then(m => m.renderRecurring),
-  calendar:      () => import('./views/calendar.js').then(m => m.renderCalendar),
   export:        () => import('./views/export.js').then(m => m.renderExport),
-  'whats-new':   () => import('./views/whats-new.js').then(m => m.renderWhatsNew),
-  calculators:   () => import('./views/calculators.js').then(m => m.renderCalculators),
-  challenges:    () => import('./views/challenges.js').then(m => m.renderChallenges),
   tags:          () => import('./views/tags.js').then(m => m.renderTags),
 };
 
@@ -745,18 +741,6 @@ history.replaceState({ view: currentView }, '', `/#/${currentView}`);
 
 // ─── Init ───
 render();
-
-// ─── Privacy banner ───
-const privBanner = document.getElementById('privacy-banner');
-if (privBanner) {
-  if (!localStorage.getItem('pfi_privacy_accepted')) {
-    privBanner.classList.remove('hidden');
-    document.getElementById('privacy-dismiss').addEventListener('click', () => {
-      localStorage.setItem('pfi_privacy_accepted', '1');
-      privBanner.classList.add('hidden');
-    });
-  }
-}
 
 // ─── Pending sync indicator (P25) ───
 if ('serviceWorker' in navigator) {

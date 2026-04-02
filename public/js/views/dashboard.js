@@ -55,6 +55,12 @@ export async function renderDashboard(container) {
   ]);
   container.appendChild(grid);
 
+  // Upcoming this week + Group Balances widgets
+  const widgetGrid = el('div', { className: 'dashboard-grid' });
+  widgetGrid.appendChild(await buildUpcomingWidget());
+  widgetGrid.appendChild(await buildGroupBalancesWidget());
+  container.appendChild(widgetGrid);
+
   // Subscription banner
   if (data.monthly_subscriptions > 0) {
     const banner = el('div', { className: 'card info-banner' }, [
@@ -139,4 +145,70 @@ function buildRecentTxnCard(transactions) {
     el('h3', { textContent: 'Recent Transactions' }),
     el('div', { className: 'transaction-list' }, rows),
   ]);
+}
+
+async function buildUpcomingWidget() {
+  const card = el('div', { className: 'card upcoming-widget' }, [
+    el('h3', { textContent: 'Upcoming This Week' }),
+  ]);
+  try {
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const data = await Api.get(`/calendar?month=${monthStr}`);
+    const today = now.toISOString().slice(0, 10);
+    const weekEnd = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+
+    const upcoming = [];
+    for (const [date, dayData] of Object.entries(data.days || {})) {
+      if (date >= today && date <= weekEnd) {
+        for (const r of (dayData.recurring || [])) {
+          upcoming.push({ date, description: r.description, amount: r.amount, type: r.type, source: 'recurring' });
+        }
+      }
+    }
+
+    if (upcoming.length === 0) {
+      card.appendChild(el('p', { className: 'text-muted', textContent: 'No upcoming items this week.' }));
+    } else {
+      for (const item of upcoming.slice(0, 5)) {
+        card.appendChild(el('div', { className: 'txn-row' }, [
+          el('span', { className: 'txn-icon', textContent: '🔄' }),
+          el('div', { className: 'txn-info' }, [
+            el('span', { className: 'txn-desc', textContent: item.description }),
+            el('span', { className: 'txn-meta', textContent: item.date }),
+          ]),
+          el('span', { className: `txn-amount ${item.type}`, textContent: `${item.type === 'expense' ? '-' : '+'}${fmt(item.amount)}` }),
+        ]));
+      }
+    }
+  } catch {
+    card.appendChild(el('p', { className: 'text-muted', textContent: 'Unable to load upcoming items.' }));
+  }
+  return card;
+}
+
+async function buildGroupBalancesWidget() {
+  const card = el('div', { className: 'card group-balances-widget' }, [
+    el('h3', { textContent: 'Group Balances' }),
+  ]);
+  try {
+    const data = await Api.get('/groups');
+    const groups = data.groups || [];
+    if (groups.length === 0) {
+      card.appendChild(el('p', { className: 'text-muted', textContent: 'No groups yet.' }));
+    } else {
+      for (const g of groups.slice(0, 5)) {
+        const balanceText = g.user_balance > 0 ? `You are owed ${fmt(g.user_balance)}` :
+          g.user_balance < 0 ? `You owe ${fmt(Math.abs(g.user_balance))}` : 'Settled up';
+        const balanceClass = g.user_balance > 0 ? 'income' : g.user_balance < 0 ? 'expense' : '';
+        card.appendChild(el('div', { className: 'settings-row' }, [
+          el('span', { className: 'settings-label', textContent: g.name }),
+          el('span', { className: `settings-value ${balanceClass}`, textContent: balanceText }),
+        ]));
+      }
+    }
+  } catch {
+    card.appendChild(el('p', { className: 'text-muted', textContent: 'Unable to load group balances.' }));
+  }
+  return card;
 }

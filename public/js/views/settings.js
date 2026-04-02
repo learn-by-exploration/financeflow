@@ -201,8 +201,43 @@ export async function renderSettings(container) {
       el('span', { className: 'settings-label', textContent: 'PWA' }),
       el('span', { className: 'settings-value', textContent: 'serviceWorker' in navigator ? 'Installed' : 'Not supported' }),
     ]),
+    el('div', { className: 'settings-row' }, [
+      el('span', { className: 'settings-label', textContent: "What's New" }),
+      el('button', { className: 'btn btn-secondary', textContent: 'View Changelog', onClick: showWhatsNewModal }),
+    ]),
   ]);
   grid.appendChild(infoCard);
+
+  // ─── Lazy-loaded management sections ───
+  const mgmtSections = [
+    { id: 'tags', icon: 'label', label: 'Tags', module: './tags.js', fn: 'renderTags' },
+    { id: 'rules', icon: 'auto_fix_high', label: 'Auto Rules', module: './rules.js', fn: 'renderRules' },
+    { id: 'export', icon: 'file_download', label: 'Export Transactions', module: './export.js', fn: 'renderExport' },
+  ];
+
+  for (const sec of mgmtSections) {
+    const details = el('details', { className: 'card settings-section settings-lazy-section' });
+    const summary = el('summary', {}, [
+      el('span', { className: 'material-icons-round', textContent: sec.icon }),
+      document.createTextNode(sec.label),
+    ]);
+    details.appendChild(summary);
+    const contentDiv = el('div', { className: 'lazy-section-content' });
+    details.appendChild(contentDiv);
+    let loaded = false;
+    details.addEventListener('toggle', async () => {
+      if (details.open && !loaded) {
+        loaded = true;
+        try {
+          const mod = await import(sec.module);
+          await mod[sec.fn](contentDiv);
+        } catch (err) {
+          contentDiv.appendChild(el('p', { className: 'error', textContent: `Failed to load: ${err.message}` }));
+        }
+      }
+    });
+    grid.appendChild(details);
+  }
 
   // Fetch version from API
   try {
@@ -356,4 +391,40 @@ function showCsvImportForm() {
 
 function formGroup(label, input) {
   return el('div', { className: 'form-group' }, [el('label', { textContent: label }), input]);
+}
+
+async function showWhatsNewModal() {
+  const container = el('div', { className: 'whats-new-modal' }, [
+    el('h3', { className: 'modal-title', textContent: "What's New" }),
+    el('p', { className: 'text-muted', textContent: 'Loading changelog...' }),
+  ]);
+  openModal(container);
+
+  try {
+    const data = await Api.get('/whats-new');
+    container.innerHTML = '';
+    container.appendChild(el('h3', { className: 'modal-title', textContent: "What's New" }));
+
+    if (!data.entries || data.entries.length === 0) {
+      container.appendChild(el('p', { className: 'text-muted', textContent: 'No release notes available.' }));
+      return;
+    }
+
+    for (const entry of data.entries) {
+      const entryDiv = el('div', { className: 'whats-new-entry' }, [
+        el('div', { className: 'whats-new-header' }, [
+          el('span', { className: 'whats-new-version', textContent: `v${entry.version}` }),
+          el('span', { className: 'whats-new-date text-muted', textContent: entry.date }),
+        ]),
+      ]);
+      const ul = el('ul', { className: 'whats-new-changes' });
+      (entry.changes || []).forEach(c => ul.appendChild(el('li', { textContent: c })));
+      entryDiv.appendChild(ul);
+      container.appendChild(entryDiv);
+    }
+  } catch {
+    container.innerHTML = '';
+    container.appendChild(el('h3', { className: 'modal-title', textContent: "What's New" }));
+    container.appendChild(el('p', { className: 'text-muted', textContent: 'Failed to load changelog.' }));
+  }
 }

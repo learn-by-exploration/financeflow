@@ -153,14 +153,12 @@ describe('Phase 1 — Security Foundation (P0)', () => {
     });
   });
 
-  // ─── 1.2b csrf.js duplicate module.exports fix ───
+  // ─── 1.2b csrf.js removed in v7 (dead code — header-auth is CSRF-immune) ───
 
-  describe('1.2b csrf.js fix', () => {
-    it('csrf.js has exactly one module.exports', () => {
-      const src = fs.readFileSync(path.join(ROOT, 'src', 'middleware', 'csrf.js'), 'utf8');
-      const matches = src.match(/module\.exports\s*=/g);
-      assert.ok(matches, 'csrf.js must have module.exports');
-      assert.equal(matches.length, 1, `Expected 1 module.exports, found ${matches.length}`);
+  describe('1.2b csrf.js removal', () => {
+    it('csrf.js has been removed from middleware', () => {
+      assert.ok(!fs.existsSync(path.join(ROOT, 'src', 'middleware', 'csrf.js')),
+        'csrf.js was dead code and should be removed');
     });
   });
 

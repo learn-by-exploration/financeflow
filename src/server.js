@@ -84,9 +84,8 @@ if (!config.isTest) {
   }));
 }
 app.use(createRequestLogger());
-// CSRF middleware disabled — app uses X-Session-Token header auth,
+// CSRF protection not needed — app uses X-Session-Token header auth,
 // which inherently prevents CSRF (browsers don't auto-attach custom headers).
-// The middleware exists at middleware/csrf.js for future cookie-auth use.
 app.use('/.well-known', express.static(path.join(__dirname, '..', 'public', '.well-known')));
 app.use(express.static(path.join(__dirname, '..', 'public'), { dotfiles: 'deny', index: false }));
 
