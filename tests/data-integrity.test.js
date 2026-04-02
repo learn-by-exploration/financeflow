@@ -41,9 +41,9 @@ describe('Data Integrity', () => {
       }
     });
 
-    it('all 31 migrations are recorded in _migrations', () => {
+    it('all 32 migrations are recorded in _migrations', () => {
       const count = db.prepare('SELECT COUNT(*) as cnt FROM _migrations').get().cnt;
-      assert.equal(count, 31, 'should have exactly 31 migrations applied');
+      assert.equal(count, 32, 'should have exactly 32 migrations applied');
     });
 
     it('migration order is alphabetical (sorted by filename)', () => {
