@@ -29,6 +29,10 @@ module.exports = function createGoalRoutes({ db, audit }) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message, details: parsed.error.issues } });
       }
       const data = { ...parsed.data, currency: parsed.data.currency || req.user.defaultCurrency };
+      // Support shared goals via group_id
+      if (parsed.data.group_id) {
+        data.group_id = parsed.data.group_id;
+      }
       const goal = goalRepo.create(req.user.id, data);
       audit.log(req.user.id, 'goal.create', 'savings_goal', goal.id);
       res.status(201).json({ goal });

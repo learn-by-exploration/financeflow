@@ -137,6 +137,21 @@ async function renderSpendingByCategory(canvas) {
         maintainAspectRatio: false,
         animation: !reducedMotion,
         cutout: '60%',
+        onClick: (_event, elements) => {
+          if (elements.length > 0) {
+            const idx = elements[0].index;
+            const category = data.labels[idx];
+            const nav = document.querySelector('.nav-item[data-view="transactions"]');
+            if (nav) {
+              nav.click();
+              // Set filter after navigation
+              setTimeout(() => {
+                const search = document.querySelector('input[name="search"], .search-input');
+                if (search) { search.value = category; search.dispatchEvent(new Event('input')); }
+              }, 200);
+            }
+          }
+        },
         plugins: {
           legend: {
             position: 'bottom',

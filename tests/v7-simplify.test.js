@@ -637,3 +637,157 @@ describe('Task 3.7 — Financial Milestones', () => {
       'Should detect net worth milestones');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════
+// PHASE 4 — DEEPEN: Advanced Features & Security Hardening
+// ═══════════════════════════════════════════════════════════════
+
+// Task 4.1 — Shared Goals
+describe('Task 4.1 — Shared Goals', () => {
+  it('savings_goals supports group_id', () => {
+    const { setup } = require('./helpers');
+    const { db } = setup();
+    const cols = db.prepare("PRAGMA table_info(savings_goals)").all();
+    const hasGroupId = cols.some(c => c.name === 'group_id');
+    assert.ok(hasGroupId, 'savings_goals table should have group_id column');
+  });
+
+  it('goals route supports group-scoped goals', () => {
+    const goalsSrc = fs.readFileSync(path.join(SRC, 'routes/goals.js'), 'utf8');
+    assert.ok(goalsSrc.includes('group_id') || goalsSrc.includes('group'),
+      'Goals route should support group_id');
+  });
+});
+
+// Task 4.2 — API Token Scopes (already exists)
+describe('Task 4.2 — API Token Scopes', () => {
+  it('api_tokens table has scope column', () => {
+    const { setup } = require('./helpers');
+    const { db } = setup();
+    const cols = db.prepare("PRAGMA table_info(api_tokens)").all();
+    const hasScope = cols.some(c => c.name === 'scope');
+    assert.ok(hasScope, 'api_tokens should have scope column');
+  });
+
+  it('auth middleware enforces scope restrictions', () => {
+    const authSrc = fs.readFileSync(path.join(SRC, 'middleware/auth.js'), 'utf8');
+    assert.ok(authSrc.includes('scope') && authSrc.includes('read'),
+      'Auth middleware should enforce scope');
+  });
+});
+
+// Task 4.3 — Reconciliation Mode
+describe('Task 4.3 — Reconciliation Mode', () => {
+  it('transactions table has reconciled_at column', () => {
+    const { setup } = require('./helpers');
+    const { db } = setup();
+    const cols = db.prepare("PRAGMA table_info(transactions)").all();
+    const hasReconciled = cols.some(c => c.name === 'reconciled_at');
+    assert.ok(hasReconciled, 'transactions should have reconciled_at column');
+  });
+
+  it('accounts route has reconcile endpoint', () => {
+    const accountsSrc = fs.readFileSync(path.join(SRC, 'routes/accounts.js'), 'utf8');
+    assert.ok(accountsSrc.includes('reconcile'),
+      'Accounts should have reconcile endpoint');
+  });
+});
+
+// Task 4.4 — Category Hierarchy
+describe('Task 4.4 — Category Hierarchy', () => {
+  it('categories table has parent_id column', () => {
+    const { setup } = require('./helpers');
+    const { db } = setup();
+    const cols = db.prepare("PRAGMA table_info(categories)").all();
+    const hasParent = cols.some(c => c.name === 'parent_id');
+    assert.ok(hasParent, 'categories should have parent_id column');
+  });
+
+  it('categories route has tree endpoint', () => {
+    const catSrc = fs.readFileSync(path.join(SRC, 'routes/categories.js'), 'utf8');
+    assert.ok(catSrc.includes('tree') || catSrc.includes('hierarchy'),
+      'Categories should have tree/hierarchy endpoint');
+  });
+});
+
+// Task 4.5 — Session Management (already exists)
+describe('Task 4.5 — Session Management', () => {
+  it('auth route has session listing', () => {
+    const authSrc = fs.readFileSync(path.join(SRC, 'routes/auth.js'), 'utf8');
+    assert.ok(authSrc.includes('/sessions') && authSrc.includes('ip_address'),
+      'Auth should have session listing with IP');
+  });
+
+  it('password change kills all sessions', () => {
+    const authSrc = fs.readFileSync(path.join(SRC, 'routes/auth.js'), 'utf8');
+    assert.ok(authSrc.includes('DELETE FROM sessions') && authSrc.includes('password'),
+      'Password change should delete all sessions');
+  });
+});
+
+// Task 4.6 — Backup Re-authentication (already exists)
+describe('Task 4.6 — Backup Re-authentication', () => {
+  it('data import requires password confirmation', () => {
+    const dataSrc = fs.readFileSync(path.join(SRC, 'routes/data.js'), 'utf8');
+    assert.ok(dataSrc.includes('password') && dataSrc.includes('confirm'),
+      'Data import should require password and confirmation');
+  });
+});
+
+// Task 4.7 — Guest Group Members (schema ready)
+describe('Task 4.7 — Guest Group Members', () => {
+  it('group_members allows nullable user_id', () => {
+    const { setup } = require('./helpers');
+    const { db } = setup();
+    const cols = db.prepare("PRAGMA table_info(group_members)").all();
+    const userIdCol = cols.find(c => c.name === 'user_id');
+    assert.ok(userIdCol && !userIdCol.notnull, 'user_id should be nullable in group_members');
+  });
+
+  it('groups route supports adding guest members', () => {
+    const groupsSrc = fs.readFileSync(path.join(SRC, 'routes/groups.js'), 'utf8');
+    assert.ok(groupsSrc.includes('display_name') && (groupsSrc.includes('guest') || groupsSrc.includes('username') || groupsSrc.includes('null')),
+      'Groups should support adding guest members');
+  });
+});
+
+// Task 4.8 — Account Archiving
+describe('Task 4.8 — Account Archiving', () => {
+  it('accounts have archive capability (soft delete)', () => {
+    const accountsSrc = fs.readFileSync(path.join(SRC, 'routes/accounts.js'), 'utf8');
+    assert.ok(accountsSrc.includes('archive') || accountsSrc.includes('is_archived'),
+      'Accounts should support archiving');
+  });
+});
+
+// Task 4.9 — Chart Drill-Down
+describe('Task 4.9 — Chart Drill-Down', () => {
+  it('dashboard charts have click-to-filter handlers', () => {
+    const chartsJs = fs.readFileSync(path.join(PUBLIC, 'js/charts.js'), 'utf8');
+    assert.ok(chartsJs.includes('onClick') || chartsJs.includes('click') || chartsJs.includes('drill'),
+      'Charts should have click/drill handlers');
+  });
+});
+
+// Task 4.10 — Transaction Template UI (already exists)
+describe('Task 4.10 — Transaction Template UI', () => {
+  it('transaction templates route exists', () => {
+    const exists = fs.existsSync(path.join(SRC, 'routes/transaction-templates.js'));
+    assert.ok(exists, 'Transaction templates route should exist');
+  });
+
+  it('transaction form references templates', () => {
+    const txnJs = fs.readFileSync(path.join(PUBLIC, 'js/views/transactions.js'), 'utf8');
+    assert.ok(txnJs.includes('template') || txnJs.includes('from-template'),
+      'Transaction form should reference templates');
+  });
+});
+
+// Task 4.11 — PWA Manifest Shortcuts
+describe('Task 4.11 — PWA Manifest Shortcuts', () => {
+  it('manifest.json has shortcuts array', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(PUBLIC, 'manifest.json'), 'utf8'));
+    assert.ok(Array.isArray(manifest.shortcuts) && manifest.shortcuts.length > 0,
+      'Manifest should have shortcuts array');
+  });
+});

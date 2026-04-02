@@ -38,6 +38,30 @@ module.exports = function createCategoryRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/categories/tree — hierarchical category list
+  router.get('/tree', (req, res, next) => {
+    try {
+      const all = db.prepare(
+        'SELECT * FROM categories WHERE user_id = ? ORDER BY position ASC, name ASC'
+      ).all(req.user.id);
+
+      const map = new Map();
+      const roots = [];
+      for (const cat of all) {
+        map.set(cat.id, { ...cat, children: [] });
+      }
+      for (const cat of all) {
+        const node = map.get(cat.id);
+        if (cat.parent_id && map.has(cat.parent_id)) {
+          map.get(cat.parent_id).children.push(node);
+        } else {
+          roots.push(node);
+        }
+      }
+      res.json({ tree: roots });
+    } catch (err) { next(err); }
+  });
+
   // GET /api/categories
   router.get('/', (req, res, next) => {
     try {

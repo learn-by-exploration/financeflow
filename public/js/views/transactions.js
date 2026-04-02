@@ -289,6 +289,31 @@ function showTxnForm(txn) {
 
   const form = el('form', { className: 'modal-form', onSubmit: (e) => handleSubmit(e, txn) }, [
     el('h3', { className: 'modal-title', textContent: isEdit ? 'Edit Transaction' : 'Add Transaction' }),
+    // From template button
+    ...(!isEdit ? [el('button', { type: 'button', className: 'btn btn-sm btn-secondary from-template-btn', textContent: 'From Template',
+      onClick: async () => {
+        try {
+          const data = await Api.get('/transaction-templates');
+          const templates = data.templates || [];
+          if (templates.length === 0) { toast.show('No templates saved yet', 'info'); return; }
+          const list = el('div', { className: 'template-list' });
+          for (const t of templates) {
+            list.appendChild(el('div', { className: 'template-item', textContent: `${t.name} (${t.type}: ₹${t.amount})`,
+              onClick: () => {
+                if (t.description) form.description.value = t.description;
+                if (t.amount) form.amount.value = t.amount;
+                if (t.type) form.type.value = t.type;
+                if (t.category_id) form.category_id.value = t.category_id;
+                if (t.account_id) form.account_id.value = t.account_id;
+                closeModal();
+                showTxnForm({ ...t, id: undefined });
+              }
+            }));
+          }
+          openModal(el('div', { className: 'modal-form' }, [el('h3', { textContent: 'Pick a Template' }), list]));
+        } catch { toast.show('Failed to load templates', 'error'); }
+      }
+    })] : []),
 
     formGroup('Type', (() => {
       const select = el('select', { name: 'type' });

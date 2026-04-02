@@ -65,6 +65,53 @@ module.exports = function createAccountRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // PUT /api/accounts/:id/archive — soft-delete (archive) an account
+  router.put('/:id/archive', (req, res, next) => {
+    try {
+      const account = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      if (!account) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Account not found' } });
+      db.prepare('UPDATE accounts SET is_active = 0, updated_at = datetime(\'now\') WHERE id = ? AND user_id = ?')
+        .run(req.params.id, req.user.id);
+      audit.log(req.user.id, 'account.archive', 'account', req.params.id);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
+      res.json({ ok: true, archived: true });
+    } catch (err) { next(err); }
+  });
+
+  // POST /api/accounts/:id/reconcile — mark transactions as reconciled
+  router.post('/:id/reconcile', (req, res, next) => {
+    try {
+      const account = db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(req.params.id, req.user.id);
+      if (!account) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Account not found' } });
+
+      const { statement_balance, transaction_ids } = req.body;
+      if (statement_balance === undefined || !Array.isArray(transaction_ids)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'statement_balance and transaction_ids array required' } });
+      }
+
+      const now = new Date().toISOString();
+      const stmt = db.prepare('UPDATE transactions SET reconciled_at = ? WHERE id = ? AND user_id = ? AND account_id = ?');
+      const reconcileAll = db.transaction(() => {
+        for (const txId of transaction_ids) {
+          stmt.run(now, txId, req.user.id, Number(req.params.id));
+        }
+      });
+      reconcileAll();
+
+      // Check if balance adjustment is needed
+      const reconciledTotal = db.prepare(`
+        SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE -amount END), 0) as total
+        FROM transactions WHERE user_id = ? AND account_id = ? AND reconciled_at IS NOT NULL
+      `).get(req.user.id, Number(req.params.id)).total;
+
+      const diff = Math.round((statement_balance - reconciledTotal) * 100) / 100;
+
+      audit.log(req.user.id, 'account.reconcile', 'account', req.params.id);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
+      res.json({ ok: true, reconciled_count: transaction_ids.length, balance_difference: diff });
+    } catch (err) { next(err); }
+  });
+
   // GET /api/accounts/:id/transactions
   router.get('/:id/transactions', (req, res, next) => {
     try {
