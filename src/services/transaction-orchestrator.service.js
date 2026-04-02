@@ -166,11 +166,55 @@ module.exports = function createTransactionOrchestrator({ db }) {
   }
 
   /**
+   * Generate contextual financialTip based on transaction context.
+   * Rules: rent > 28% income → 28/36 tip, subscriptions > 5% → awareness,
+   * vehicle purchase → 20/4/10 rule.
+   */
+  function financialTip(userId, { categoryId, amount, description }) {
+    try {
+      const incomeSetting = db.prepare(
+        "SELECT value FROM settings WHERE user_id = ? AND key = 'monthly_income'"
+      ).get(userId);
+      const monthlyIncome = incomeSetting ? Number(incomeSetting.value) : 0;
+      if (!monthlyIncome || monthlyIncome <= 0) return null;
+
+      const cat = categoryId ? db.prepare('SELECT name FROM categories WHERE id = ?').get(categoryId) : null;
+      const catName = cat ? cat.name.toLowerCase() : '';
+      const desc = (description || '').toLowerCase();
+
+      // Rent > 28% of income → 28/36 rule tip
+      if ((catName.includes('rent') || catName.includes('housing') || desc.includes('rent')) && amount > monthlyIncome * 0.28) {
+        return 'Your rent exceeds 28% of income. The 28/36 rule suggests keeping housing costs below 28% and total debt below 36%.';
+      }
+
+      // Vehicle purchase → 20/4/10 rule
+      if (desc.includes('car') || desc.includes('vehicle') || desc.includes('auto loan')) {
+        return 'Consider the 20/4/10 rule: 20% down payment, finance for no more than 4 years, total costs under 10% of gross income.';
+      }
+
+      // Subscription awareness
+      if (catName.includes('subscription') || desc.includes('subscription') || desc.includes('netflix') || desc.includes('spotify')) {
+        const subTotal = db.prepare(
+          "SELECT COALESCE(SUM(amount), 0) as total FROM subscriptions WHERE user_id = ? AND is_active = 1"
+        ).get(userId).total;
+        if (subTotal > monthlyIncome * 0.05) {
+          return `Your subscriptions total ₹${Math.round(subTotal)}/month (${Math.round(subTotal / monthlyIncome * 100)}% of income). Consider reviewing for unused services.`;
+        }
+      }
+
+      return null;
+    } catch { return null; }
+  }
+
+  /**
    * Run all post-creation side effects for a transaction.
    * Each effect is wrapped in try-catch so failures don't break the transaction.
    */
   function runPostCreationEffects(userId, transaction, { categoryId, type, amount, date, account_id, description }) {
-    const effects = { potential_duplicate: false, similar_transaction_id: null, auto_allocations: [] };
+    const effects = { potential_duplicate: false, similar_transaction_id: null, auto_allocations: [], tip: null };
+
+    // Contextual financial tip
+    try { effects.tip = financialTip(userId, { categoryId, amount, description }); } catch (_e) { /* non-critical */ }
 
     // Large transaction notification
     try { checkLargeTransaction(userId, transaction.id, amount); } catch (_e) { /* non-critical */ }
@@ -209,6 +253,7 @@ module.exports = function createTransactionOrchestrator({ db }) {
     checkBudgetThresholds,
     checkDuplicate,
     autoAllocateToGoals,
+    financialTip,
     runPostCreationEffects,
   };
 };

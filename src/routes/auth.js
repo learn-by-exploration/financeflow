@@ -115,6 +115,21 @@ module.exports = function createAuthRoutes({ db, audit }) {
       const now = new Date().toISOString();
       db.prepare('INSERT INTO sessions (user_id, token, expires_at, ip_address, user_agent, last_used_at) VALUES (?, ?, ?, ?, ?, ?)').run(user.id, tokenHash, expiresAt, ip, userAgent, now);
 
+      // New-IP login notification: check if this IP was seen in last 30 days
+      if (ip) {
+        const recentIp = db.prepare(
+          "SELECT id FROM sessions WHERE user_id = ? AND ip_address = ? AND id != last_insert_rowid() AND created_at >= datetime('now', '-30 days') LIMIT 1"
+        ).get(user.id, ip);
+        if (!recentIp) {
+          try {
+            db.prepare(
+              'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)'
+            ).run(user.id, 'new_ip_login', 'New login location',
+              `New login from IP ${ip} on ${now.slice(0, 10)}. If this wasn't you, change your password immediately.`);
+          } catch { /* non-critical */ }
+        }
+      }
+
       audit.log(user.id, 'user.login', 'user', user.id, null, { ip, userAgent });
       res.json({ token, user: { id: user.id, username: user.username, display_name: user.display_name } });
     } catch (err) { next(err); }

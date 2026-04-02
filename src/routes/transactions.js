@@ -155,6 +155,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
         potential_duplicate: effects.potential_duplicate,
         similar_transaction_id: effects.similar_transaction_id,
         auto_allocations: effects.auto_allocations.length > 0 ? effects.auto_allocations : undefined,
+        tip: effects.tip || undefined,
       });
     } catch (err) { next(err); }
   });

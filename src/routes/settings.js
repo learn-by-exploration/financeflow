@@ -3,7 +3,7 @@ const router = express.Router();
 
 module.exports = function createSettingsRoutes({ db, audit }) {
 
-  const ALLOWED_KEYS = ['default_currency', 'date_format', 'dashboard_layout', 'monthly_income', 'budget_methodology'];
+  const ALLOWED_KEYS = ['default_currency', 'date_format', 'dashboard_layout', 'monthly_income', 'budget_methodology', 'fiscal_year_start', 'inactivity_nudge_days'];
 
   // GET /api/settings
   router.get('/', (req, res, next) => {

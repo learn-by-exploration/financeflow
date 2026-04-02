@@ -113,6 +113,127 @@ module.exports = function createScheduler(db, logger) {
     }
   }
 
+  function runInactivityNudge() {
+    try {
+      const users = db.prepare('SELECT id FROM users').all();
+      for (const user of users) {
+        // Check configured nudge days (default 3)
+        const setting = db.prepare("SELECT value FROM settings WHERE user_id = ? AND key = 'inactivity_nudge_days'").get(user.id);
+        const nudgeDays = setting ? Number(setting.value) : 3;
+        if (nudgeDays <= 0) continue; // disabled
+
+        const latest = db.prepare(
+          'SELECT MAX(created_at) as last_txn FROM transactions WHERE user_id = ?'
+        ).get(user.id);
+        if (!latest || !latest.last_txn) continue;
+
+        const daysSince = Math.floor((Date.now() - new Date(latest.last_txn).getTime()) / 86400000);
+        if (daysSince >= nudgeDays) {
+          // Check we haven't already nudged recently
+          const recentNudge = db.prepare(
+            "SELECT id FROM notifications WHERE user_id = ? AND type = 'inactivity_nudge' AND created_at >= datetime('now', '-1 day')"
+          ).get(user.id);
+          if (!recentNudge) {
+            db.prepare(
+              'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)'
+            ).run(user.id, 'inactivity_nudge', 'Time to log!',
+              `It's been ${daysSince} days since your last transaction. Keeping records current helps track your finances accurately.`);
+            logger.info({ userId: user.id, daysSince }, 'Inactivity nudge sent');
+          }
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, 'Inactivity nudge job failed');
+    }
+  }
+
+  function runMonthlyDigest() {
+    try {
+      const users = db.prepare('SELECT id FROM users').all();
+      const now = new Date();
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      const fromDate = prevMonth.toISOString().slice(0, 10);
+      const toDate = prevMonthEnd.toISOString().slice(0, 10);
+      const monthLabel = prevMonth.toLocaleString('en', { month: 'long', year: 'numeric' });
+
+      for (const user of users) {
+        const income = db.prepare(
+          "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'income' AND date >= ? AND date <= ?"
+        ).get(user.id, fromDate, toDate).total;
+        const expenses = db.prepare(
+          "SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'expense' AND date >= ? AND date <= ?"
+        ).get(user.id, fromDate, toDate).total;
+        const savingsRate = income > 0 ? Math.round(((income - expenses) / income) * 100) : 0;
+
+        const topCats = db.prepare(`
+          SELECT c.name, SUM(t.amount) as total FROM transactions t
+          LEFT JOIN categories c ON t.category_id = c.id
+          WHERE t.user_id = ? AND t.type = 'expense' AND t.date >= ? AND t.date <= ?
+          GROUP BY t.category_id ORDER BY total DESC LIMIT 3
+        `).all(user.id, fromDate, toDate);
+
+        const topCatStr = topCats.map(c => `${c.name}: ₹${Math.round(c.total)}`).join(', ');
+
+        db.prepare(
+          'INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)'
+        ).run(user.id, 'monthly_digest', `${monthLabel} Summary`,
+          `Income: ₹${Math.round(income)} | Expenses: ₹${Math.round(expenses)} | Savings Rate: ${savingsRate}%. Top categories: ${topCatStr || 'None'}.`);
+
+        logger.info({ userId: user.id, monthLabel, income, expenses }, 'Monthly digest sent');
+      }
+    } catch (err) {
+      logger.error({ err }, 'Monthly digest job failed');
+    }
+  }
+
+  function runMilestoneCheck() {
+    try {
+      const users = db.prepare('SELECT id FROM users').all();
+      for (const user of users) {
+        // Net worth milestones (₹1L, 5L, 10L, 25L, 50L, 1Cr)
+        const nwRow = db.prepare(`
+          SELECT COALESCE(SUM(CASE WHEN type IN ('credit_card','loan') THEN -ABS(balance) ELSE balance END), 0) as net_worth
+          FROM accounts WHERE user_id = ? AND is_active = 1 AND include_in_net_worth = 1
+        `).get(user.id);
+        const nw = nwRow.net_worth;
+        const milestones = [100000, 500000, 1000000, 2500000, 5000000, 10000000];
+        for (const m of milestones) {
+          if (nw >= m) {
+            const label = m >= 10000000 ? `₹${m / 10000000}Cr` : `₹${m / 100000}L`;
+            const existing = db.prepare(
+              "SELECT id FROM notifications WHERE user_id = ? AND type = 'milestone' AND message LIKE ?"
+            ).get(user.id, `%net worth crossed ${label}%`);
+            if (!existing) {
+              db.prepare('INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)')
+                .run(user.id, 'milestone', 'Net Worth Milestone! 🎉',
+                  `Congratulations! Your net worth crossed ${label}!`);
+              logger.info({ userId: user.id, milestone: m }, 'Net worth milestone achieved');
+            }
+          }
+        }
+
+        // Transaction count milestones
+        const txCount = db.prepare('SELECT COUNT(*) as cnt FROM transactions WHERE user_id = ?').get(user.id).cnt;
+        const txMilestones = [100, 500, 1000, 5000];
+        for (const m of txMilestones) {
+          if (txCount >= m) {
+            const existing = db.prepare(
+              "SELECT id FROM notifications WHERE user_id = ? AND type = 'milestone' AND message LIKE ?"
+            ).get(user.id, `%${m}th transaction%`);
+            if (!existing) {
+              db.prepare('INSERT INTO notifications (user_id, type, title, message) VALUES (?, ?, ?, ?)')
+                .run(user.id, 'milestone', 'Transaction Milestone! 📊',
+                  `You've logged your ${m}th transaction! Consistent tracking is key to financial health.`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, 'Milestone check job failed');
+    }
+  }
+
   function runScheduledBackup() {
     const config = require('./config');
     const backupPath = require('path').join(config.dbDir, 'backups');
@@ -184,6 +305,9 @@ module.exports = function createScheduler(db, logger) {
     register('cleanup', 6 * 3600000, runCleanup);
     register('recurring-spawn', 3600000, spawnDueRecurring);
     register('net-worth-snapshot', 24 * 3600000, runNetWorthSnapshot);
+    register('inactivity-nudge', 24 * 3600000, runInactivityNudge);
+    register('monthly-digest', 24 * 3600000, runMonthlyDigest);
+    register('milestone-check', 6 * 3600000, runMilestoneCheck);
     register('rate-limit-cleanup', 3600000, runRateLimitCleanup);
     register('scheduled-backup', config.backup.intervalHours * 3600000, runScheduledBackup);
   }
