@@ -106,6 +106,67 @@ module.exports = function createBudgetRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // POST /api/budgets/from-template
+  const TEMPLATES = {
+    '50/30/20': { needs: 0.50, wants: 0.30, savings: 0.20 },
+    'zero-based': null, // equal split
+    'conscious-spending': { fixed: 0.55, savings: 0.10, investments: 0.10, spending: 0.25 },
+  };
+
+  router.post('/from-template', (req, res, next) => {
+    try {
+      const { template, income } = req.body;
+      if (!template || !Object.prototype.hasOwnProperty.call(TEMPLATES, template)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid template. Must be one of: 50/30/20, zero-based, conscious-spending' } });
+      }
+      if (!income || typeof income !== 'number' || income <= 0) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Income must be a positive number' } });
+      }
+
+      // Get user's expense categories
+      const categories = db.prepare(
+        "SELECT id, name FROM categories WHERE user_id = ? AND type = 'expense' ORDER BY name"
+      ).all(req.user.id);
+
+      // Build budget items from template
+      const items = [];
+      const catCount = categories.length || 1;
+
+      if (template === 'zero-based') {
+        const perCat = Math.round((income / catCount) * 100) / 100;
+        for (const cat of categories) {
+          items.push({ category_id: cat.id, amount: perCat, rollover: 0 });
+        }
+      } else {
+        const splits = TEMPLATES[template];
+        const buckets = Object.values(splits);
+        for (let i = 0; i < categories.length; i++) {
+          const bucketIdx = i % buckets.length;
+          const amount = Math.round((income * buckets[bucketIdx] / Math.ceil(catCount / buckets.length)) * 100) / 100;
+          items.push({ category_id: categories[i].id, amount, rollover: 0 });
+        }
+      }
+
+      // Current month date range
+      const now = new Date();
+      const start = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+      const budget = budgetRepo.create(req.user.id, {
+        name: `${template} Budget`,
+        period: 'monthly',
+        start_date: start,
+        end_date: end,
+        items,
+      });
+
+      audit.log(req.user.id, 'budget.create_from_template', 'budget', budget.id);
+      invalidateCache(req.user.id, CACHE_PATTERNS);
+      res.status(201).json({ id: budget.id, template });
+    } catch (err) { next(err); }
+  });
+
   // POST /api/budgets
   router.post('/', (req, res, next) => {
     try {

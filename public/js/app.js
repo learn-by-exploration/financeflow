@@ -404,24 +404,121 @@ function onboardingStep(num, emoji, title, desc, view) {
 function showOnboardingWizard(container) {
   container.innerHTML = '';
   const user = JSON.parse(localStorage.getItem('pfi_user') || sessionStorage.getItem('pfi_user') || '{}');
-  container.appendChild(el('div', { className: 'onboarding-wizard' }, [
-    el('div', { className: 'wizard-dots' }, [
-      el('span', { className: 'wizard-dot active' }),
-      el('span', { className: 'wizard-dot' }),
-      el('span', { className: 'wizard-dot' }),
-    ]),
-    el('h2', { textContent: `Welcome, ${user.display_name || user.username || 'there'}!` }),
-    el('p', { textContent: 'Let\'s set up your personal finance dashboard.' }),
-    el('div', { className: 'wizard-steps' }, [
-      onboardingStep('1', '🏦', 'Add an Account', 'Start by adding your bank account, credit card, or wallet.', 'accounts'),
-      onboardingStep('2', '📊', 'Create a Budget', 'Set monthly spending limits by category.', 'budgets'),
-      onboardingStep('3', '🎯', 'Set a Goal', 'Define a savings target to work toward.', 'goals'),
-    ]),
-    el('button', { className: 'btn btn-secondary', textContent: 'Skip', onClick: () => {
-      localStorage.setItem('pfi_onboarding_done', '1');
-      render();
-    }}),
-  ]));
+  let step = 1;
+  const wizardData = { currency: 'INR', income: '', methodology: '50/30/20' };
+
+  const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AUD', 'CAD', 'JPY', 'SGD', 'AED'];
+  const METHODS = [
+    { id: '50/30/20', label: '50/30/20 Rule', desc: '50% needs, 30% wants, 20% savings — by Elizabeth Warren' },
+    { id: 'zero-based', label: 'Zero-Based', desc: 'Every rupee gets a job — assign all income to categories' },
+    { id: 'just-track', label: 'Just Track', desc: 'No budget constraints — simply record and review spending' },
+  ];
+
+  function renderStep() {
+    container.innerHTML = '';
+    const dots = el('div', { className: 'wizard-dots' });
+    for (let i = 1; i <= 4; i++) {
+      dots.appendChild(el('span', { className: `wizard-dot${i === step ? ' active' : i < step ? ' done' : ''}` }));
+    }
+
+    const wizard = el('div', { className: 'onboarding-wizard' });
+    wizard.appendChild(dots);
+    wizard.appendChild(el('h2', { textContent: step === 1 ? `Welcome, ${user.display_name || user.username || 'there'}!` : ['', 'Income & Currency', 'Budget Method', 'First Account', 'You\'re All Set'][step] }));
+
+    if (step === 1) {
+      // Step 1: Income + Currency
+      wizard.appendChild(el('p', { textContent: 'Tell us about your finances to personalise your experience.' }));
+      const currencySelect = el('select', { id: 'wiz-currency', className: 'form-input' });
+      CURRENCIES.forEach(c => {
+        const opt = el('option', { value: c, textContent: c });
+        if (c === wizardData.currency) opt.selected = true;
+        currencySelect.appendChild(opt);
+      });
+      wizard.appendChild(el('div', { className: 'form-group' }, [
+        el('label', { textContent: 'Currency' }),
+        currencySelect,
+      ]));
+      wizard.appendChild(el('div', { className: 'form-group' }, [
+        el('label', { textContent: 'Monthly Income (approximate)' }),
+        el('input', { type: 'number', id: 'wiz-income', className: 'form-input', placeholder: 'e.g. 50000', value: wizardData.income }),
+      ]));
+      wizard.appendChild(el('div', { className: 'wizard-actions' }, [
+        el('button', { className: 'btn btn-secondary', textContent: 'Skip All', onClick: skipAll }),
+        el('button', { className: 'btn btn-primary', textContent: 'Next →', onClick: () => {
+          const sel = document.getElementById('wiz-currency');
+          wizardData.currency = sel ? sel.value : 'INR';
+          const inc = document.getElementById('wiz-income');
+          wizardData.income = inc ? inc.value : '';
+          step = 2;
+          renderStep();
+        }}),
+      ]));
+    } else if (step === 2) {
+      // Step 2: Methodology
+      wizard.appendChild(el('p', { textContent: 'Choose a budgeting approach. You can change this anytime.' }));
+      const methodList = el('div', { className: 'wizard-methods' });
+      for (const m of METHODS) {
+        const card = el('div', {
+          className: `card wizard-method-card${wizardData.methodology === m.id ? ' selected' : ''}`,
+          onClick: () => {
+            wizardData.methodology = m.id;
+            methodList.querySelectorAll('.wizard-method-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+          },
+        }, [
+          el('h4', { textContent: m.label }),
+          el('p', { className: 'text-muted', textContent: m.desc }),
+        ]);
+        methodList.appendChild(card);
+      }
+      wizard.appendChild(methodList);
+      wizard.appendChild(el('div', { className: 'wizard-actions' }, [
+        el('button', { className: 'btn btn-secondary', textContent: '← Back', onClick: () => { step = 1; renderStep(); } }),
+        el('button', { className: 'btn btn-primary', textContent: 'Next →', onClick: async () => {
+          // Save preferences
+          try {
+            await Api.put('/settings', { key: 'default_currency', value: wizardData.currency });
+            if (wizardData.income) {
+              await Api.put('/settings', { key: 'monthly_income', value: wizardData.income });
+            }
+            await Api.put('/settings', { key: 'budget_methodology', value: wizardData.methodology });
+          } catch { /* continue even if save fails */ }
+          step = 3;
+          renderStep();
+        }}),
+      ]));
+    } else if (step === 3) {
+      // Step 3: First account
+      wizard.appendChild(el('p', { textContent: 'Add your first account to start tracking.' }));
+      wizard.appendChild(el('div', { className: 'wizard-steps' }, [
+        onboardingStep('1', '🏦', 'Add an Account', 'Bank account, credit card, or cash wallet.', 'accounts'),
+      ]));
+      wizard.appendChild(el('div', { className: 'wizard-actions' }, [
+        el('button', { className: 'btn btn-secondary', textContent: '← Back', onClick: () => { step = 2; renderStep(); } }),
+        el('button', { className: 'btn btn-primary', textContent: 'Next →', onClick: () => { step = 4; renderStep(); } }),
+      ]));
+    } else if (step === 4) {
+      // Step 4: Optional group + done
+      wizard.appendChild(el('p', { textContent: 'You\'re ready! Here are optional next steps.' }));
+      wizard.appendChild(el('div', { className: 'wizard-steps' }, [
+        onboardingStep('1', '📊', 'Create a Budget', 'Set spending limits based on your methodology.', 'budgets'),
+        onboardingStep('2', '👥', 'Create a Group', 'Split expenses with friends or family.', 'groups'),
+        onboardingStep('3', '🎯', 'Set a Goal', 'Define a savings target to work toward.', 'goals'),
+      ]));
+      wizard.appendChild(el('div', { className: 'wizard-actions' }, [
+        el('button', { className: 'btn btn-primary', textContent: 'Go to Dashboard', onClick: skipAll }),
+      ]));
+    }
+    container.appendChild(wizard);
+  }
+
+  function skipAll() {
+    localStorage.setItem('pfi_onboarding_done', '1');
+    Api.put('/users/onboarding/dismiss').catch(() => {});
+    render();
+  }
+
+  renderStep();
 }
 
 // ─── Keyboard shortcuts ───

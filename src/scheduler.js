@@ -143,13 +143,50 @@ module.exports = function createScheduler(db, logger) {
       .catch(err => logger.error({ err }, 'Scheduled backup failed'));
   }
 
+  function runNetWorthSnapshot() {
+    try {
+      const users = db.prepare('SELECT id FROM users').all();
+      for (const user of users) {
+        const today = new Date().toISOString().slice(0, 10);
+        // Check if snapshot already exists today
+        const existing = db.prepare('SELECT id FROM net_worth_snapshots WHERE user_id = ? AND date = ?').get(user.id, today);
+        if (existing) continue;
+
+        const accounts = db.prepare(
+          'SELECT * FROM accounts WHERE user_id = ? AND is_active = 1 AND include_in_net_worth = 1'
+        ).all(user.id);
+
+        let totalAssets = 0;
+        let totalLiabilities = 0;
+        for (const a of accounts) {
+          if (a.type === 'credit_card' || a.type === 'loan') {
+            totalLiabilities += Math.abs(a.balance);
+          } else {
+            totalAssets += a.balance;
+          }
+        }
+        const netWorth = totalAssets - totalLiabilities;
+        const breakdown = JSON.stringify(accounts.map(a => ({ id: a.id, name: a.name, balance: a.balance })));
+
+        db.prepare(
+          'INSERT INTO net_worth_snapshots (user_id, date, total_assets, total_liabilities, net_worth, breakdown) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(user.id, today, totalAssets, totalLiabilities, netWorth, breakdown);
+
+        logger.info({ userId: user.id, netWorth }, 'Net worth snapshot recorded');
+      }
+    } catch (err) {
+      logger.error({ err }, 'Net worth snapshot job failed');
+    }
+  }
+
   function registerBuiltinJobs() {
     const config = require('./config');
     register('cleanup', 6 * 3600000, runCleanup);
     register('recurring-spawn', 3600000, spawnDueRecurring);
+    register('net-worth-snapshot', 24 * 3600000, runNetWorthSnapshot);
     register('rate-limit-cleanup', 3600000, runRateLimitCleanup);
     register('scheduled-backup', config.backup.intervalHours * 3600000, runScheduledBackup);
   }
 
-  return { register, registerBuiltinJobs, start, stop, spawnDueRecurring, runCleanup, advanceDate };
+  return { register, registerBuiltinJobs, start, stop, spawnDueRecurring, runCleanup, runNetWorthSnapshot, advanceDate };
 };

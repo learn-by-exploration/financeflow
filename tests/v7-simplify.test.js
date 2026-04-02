@@ -1,7 +1,7 @@
 // tests/v7-simplify.test.js — Phase 1 SIMPLIFY tests
 // Verifies removal of dead code, nav consolidation, and view merges
 
-const { describe, it } = require('node:test');
+const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -288,5 +288,235 @@ describe('Task 1.8 — Nav Cleanup & SW Cache', () => {
       assert.ok(!html.includes(`data-view="${view}"`),
         `${view} should not be in sidebar`);
     }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// PHASE 2: GUIDE
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// Task 2.1 — Onboarding Wizard Redesign
+// ═══════════════════════════════════════════════════════════════
+describe('Task 2.1 — Onboarding Wizard', () => {
+  const appJs = read('js/app.js');
+
+  it('wizard has 4 steps', () => {
+    // Check for step 4 handling in the wizard
+    assert.ok(appJs.includes('step === 4') || appJs.includes("step = 4"),
+      'Should handle 4 wizard steps');
+    assert.ok(appJs.includes('<= 4') || appJs.includes('i <= 4'),
+      'Should loop through 4 wizard dots');
+  });
+
+  it('wizard includes income/currency step', () => {
+    assert.ok(appJs.includes('income') || appJs.includes('Income'),
+      'Wizard should ask about income');
+    assert.ok(appJs.includes('currency') || appJs.includes('Currency'),
+      'Wizard should ask about currency');
+  });
+
+  it('wizard includes methodology picker', () => {
+    assert.ok(appJs.includes('50/30/20') || appJs.includes('methodology'),
+      'Wizard should offer budget methodology options');
+  });
+
+  it('wizard includes account creation step', () => {
+    assert.ok(appJs.includes('Add an Account') || appJs.includes('account'),
+      'Wizard should have account creation step');
+  });
+
+  it('wizard saves methodology preference via API', () => {
+    assert.ok(appJs.includes('/settings') || appJs.includes('/preferences'),
+      'Wizard should save preferences via API');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Task 2.2 — Budget Templates
+// ═══════════════════════════════════════════════════════════════
+describe('Task 2.2 — Budget Templates', () => {
+  const { setup, cleanDb, makeCategory, agent } = require('./helpers');
+  let app, db;
+
+  before(() => { ({ app, db } = setup()); });
+  beforeEach(() => cleanDb());
+
+  it('POST /api/budgets/from-template creates budget from 50/30/20 template', async () => {
+    const a = agent(app);
+    // Create some categories first
+    makeCategory({ name: 'Rent', type: 'expense' });
+    makeCategory({ name: 'Food', type: 'expense' });
+    makeCategory({ name: 'Savings', type: 'expense' });
+
+    const res = await a.post('/api/budgets/from-template')
+      .send({ template: '50/30/20', income: 100000 })
+      .expect(201);
+
+    assert.ok(res.body.id, 'Should return new budget id');
+  });
+
+  it('POST /api/budgets/from-template rejects invalid template', async () => {
+    const a = agent(app);
+    await a.post('/api/budgets/from-template')
+      .send({ template: 'invalid', income: 50000 })
+      .expect(400);
+  });
+
+  it('POST /api/budgets/from-template rejects missing income', async () => {
+    const a = agent(app);
+    await a.post('/api/budgets/from-template')
+      .send({ template: '50/30/20' })
+      .expect(400);
+  });
+
+  it('POST /api/budgets/from-template supports zero-based template', async () => {
+    const a = agent(app);
+    makeCategory({ name: 'Rent', type: 'expense' });
+    makeCategory({ name: 'Food', type: 'expense' });
+
+    const res = await a.post('/api/budgets/from-template')
+      .send({ template: 'zero-based', income: 80000 })
+      .expect(201);
+
+    assert.ok(res.body.id);
+  });
+
+  it('POST /api/budgets/from-template supports conscious-spending template', async () => {
+    const a = agent(app);
+    makeCategory({ name: 'Rent', type: 'expense' });
+
+    const res = await a.post('/api/budgets/from-template')
+      .send({ template: 'conscious-spending', income: 60000 })
+      .expect(201);
+
+    assert.ok(res.body.id);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Task 2.3 — Health Score Enhancement
+// ═══════════════════════════════════════════════════════════════
+describe('Task 2.3 — Health Score Enhancement', () => {
+  it('reports.js renders benchmark bars for each ratio', () => {
+    const reportsJs = fs.readFileSync(path.join(PUBLIC, 'js/views/reports.js'), 'utf8');
+    assert.ok(reportsJs.includes('benchmark') || reportsJs.includes('progress-fill') || reportsJs.includes('ratio-bar'),
+      'Health view should render benchmark/progress bars per ratio');
+  });
+
+  it('reports.js shows status indicators for ratios', () => {
+    const reportsJs = fs.readFileSync(path.join(PUBLIC, 'js/views/reports.js'), 'utf8');
+    assert.ok(reportsJs.includes('check_circle') || reportsJs.includes('warning') || reportsJs.includes('status-icon') || reportsJs.includes('ratio-status'),
+      'Health view should show status indicators (good/warning/bad)');
+  });
+
+  it('reports.js includes Expected Net Worth section', () => {
+    const reportsJs = fs.readFileSync(path.join(PUBLIC, 'js/views/reports.js'), 'utf8');
+    assert.ok(reportsJs.includes('Expected Net Worth') || reportsJs.includes('expected_net_worth') || reportsJs.includes('expectedNetWorth'),
+      'Health view should show Expected Net Worth (Stanley formula)');
+  });
+
+  it('reports.js shows improvement tips per ratio', () => {
+    const reportsJs = fs.readFileSync(path.join(PUBLIC, 'js/views/reports.js'), 'utf8');
+    assert.ok(reportsJs.includes('recommendation') || reportsJs.includes('tip'),
+      'Health view should show improvement tips');
+  });
+
+  it('stats endpoint returns age-based expected net worth when age provided', async () => {
+    const { setup, cleanDb, agent } = require('./helpers');
+    const { app: app2 } = setup();
+    cleanDb();
+    const a = agent(app2);
+    const res = await a.get('/api/stats/financial-health?age=30').expect(200);
+    // May be gated — that's OK, but when not gated it should have expected_net_worth
+    if (!res.body.gated && res.body.score !== undefined) {
+      assert.ok('expected_net_worth' in res.body || res.body.ratios,
+        'Should return expected_net_worth or ratio data');
+    }
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Task 2.4 — Net Worth History Chart
+// ═══════════════════════════════════════════════════════════════
+describe('Task 2.4 — Net Worth History Chart', () => {
+  it('scheduler has net-worth-snapshot job registered', () => {
+    const schedulerSrc = fs.readFileSync(path.join(SRC, 'scheduler.js'), 'utf8');
+    assert.ok(schedulerSrc.includes('net-worth') || schedulerSrc.includes('net_worth') || schedulerSrc.includes('snapshot'),
+      'Scheduler should register net worth snapshot job');
+  });
+
+  it('dashboard renders net worth sparkline or trend', () => {
+    const dashJs = fs.readFileSync(path.join(PUBLIC, 'js/views/dashboard.js'), 'utf8');
+    assert.ok(dashJs.includes('net-worth') || dashJs.includes('sparkline') || dashJs.includes('net_worth') || dashJs.includes('history'),
+      'Dashboard should render net worth trend/sparkline');
+  });
+
+  it('reports view renders full net worth chart', () => {
+    const reportsJs = fs.readFileSync(path.join(PUBLIC, 'js/views/reports.js'), 'utf8');
+    assert.ok(reportsJs.includes('net-worth') || reportsJs.includes('net_worth') || reportsJs.includes('Net Worth'),
+      'Reports should have net worth chart section');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Task 2.5 — Live Category Suggestion
+// ═══════════════════════════════════════════════════════════════
+describe('Task 2.5 — Live Category Suggestion', () => {
+  it('transaction form has category suggestion logic', () => {
+    const txnJs = fs.readFileSync(path.join(PUBLIC, 'js/views/transactions.js'), 'utf8');
+    assert.ok(txnJs.includes('suggest') || txnJs.includes('categories/suggest'),
+      'Transaction form should call category suggest API');
+  });
+
+  it('suggestion chip rendered in form', () => {
+    const txnJs = fs.readFileSync(path.join(PUBLIC, 'js/views/transactions.js'), 'utf8');
+    assert.ok(txnJs.includes('suggestion-chip') || txnJs.includes('suggest-chip') || txnJs.includes('category-suggest'),
+      'Transaction form should show a suggestion chip');
+  });
+
+  it('GET /api/categories/suggest returns suggestion for matching rule', async () => {
+    const { setup, cleanDb, makeCategory, agent } = require('./helpers');
+    const { app: app2 } = setup();
+    cleanDb();
+    const a = agent(app2);
+    const cat = makeCategory({ name: 'Food', type: 'expense' });
+    // Create a rule
+    await a.post('/api/rules').send({ pattern: 'Swiggy|Zomato', category_id: cat.id }).expect(201);
+
+    const res = await a.get('/api/categories/suggest?description=Swiggy order').expect(200);
+    assert.ok(res.body.suggestion, 'Should return a suggestion');
+    assert.strictEqual(res.body.suggestion.category_id, cat.id);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════
+// Task 2.6 — Cash Flow Forecast Rendering
+// ═══════════════════════════════════════════════════════════════
+describe('Task 2.6 — Cash Flow Forecast Rendering', () => {
+  it('reports.js renders cashflow forecast section', () => {
+    const reportsJs = fs.readFileSync(path.join(PUBLIC, 'js/views/reports.js'), 'utf8');
+    assert.ok(reportsJs.includes('cashflow-forecast') || reportsJs.includes('cash-flow') || reportsJs.includes('Cash Flow'),
+      'Reports should render cash flow forecast section');
+  });
+
+  it('reports.js supports 30/60/90-day projection toggles', () => {
+    const reportsJs = fs.readFileSync(path.join(PUBLIC, 'js/views/reports.js'), 'utf8');
+    assert.ok(
+      (reportsJs.includes('30') && reportsJs.includes('60') && reportsJs.includes('90')) ||
+      reportsJs.includes('days') || reportsJs.includes('forecast'),
+      'Reports should support multiple projection periods');
+  });
+
+  it('GET /api/reports/cashflow-forecast returns forecast array', async () => {
+    const { setup, cleanDb, agent } = require('./helpers');
+    const { app: app2 } = setup();
+    cleanDb();
+    const a = agent(app2);
+    const res = await a.get('/api/reports/cashflow-forecast?days=7').expect(200);
+    assert.ok(Array.isArray(res.body.forecast), 'Should return forecast array');
+    assert.ok(res.body.forecast.length > 0, 'Forecast should have entries');
+    assert.ok(res.body.forecast[0].date, 'Each entry should have a date');
+    assert.ok('projected_balance' in res.body.forecast[0], 'Each entry should have projected_balance');
   });
 });

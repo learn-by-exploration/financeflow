@@ -59,6 +59,7 @@ export async function renderDashboard(container) {
   const widgetGrid = el('div', { className: 'dashboard-grid' });
   widgetGrid.appendChild(await buildUpcomingWidget());
   widgetGrid.appendChild(await buildGroupBalancesWidget());
+  widgetGrid.appendChild(await buildNetWorthSparkline());
   container.appendChild(widgetGrid);
 
   // Subscription banner
@@ -209,6 +210,35 @@ async function buildGroupBalancesWidget() {
     }
   } catch {
     card.appendChild(el('p', { className: 'text-muted', textContent: 'Unable to load group balances.' }));
+  }
+  return card;
+}
+
+async function buildNetWorthSparkline() {
+  const card = el('div', { className: 'card net-worth-sparkline-widget' }, [
+    el('h3', { textContent: 'Net Worth Trend' }),
+  ]);
+  try {
+    const data = await Api.get('/net-worth/history?limit=6');
+    const snapshots = data.snapshots || [];
+    if (snapshots.length === 0) {
+      card.appendChild(el('p', { className: 'text-muted', textContent: 'No net worth history yet.' }));
+    } else {
+      const maxVal = Math.max(...snapshots.map(s => Math.abs(s.net_worth)), 1);
+      const sparkline = el('div', { className: 'sparkline-container' });
+      for (const s of snapshots) {
+        const pct = Math.abs(s.net_worth) / maxVal * 100;
+        const bar = el('div', { className: `sparkline-bar ${s.net_worth >= 0 ? 'positive' : 'negative'}` });
+        bar.style.height = `${pct}%`;
+        bar.title = `${s.date}: ${fmt(s.net_worth)}`;
+        sparkline.appendChild(bar);
+      }
+      card.appendChild(sparkline);
+      const latest = snapshots[snapshots.length - 1];
+      card.appendChild(el('p', { className: 'text-muted', textContent: `Latest: ${fmt(latest.net_worth)} (${latest.date})` }));
+    }
+  } catch {
+    card.appendChild(el('p', { className: 'text-muted', textContent: 'Unable to load net worth history.' }));
   }
   return card;
 }

@@ -302,7 +302,38 @@ function showTxnForm(txn) {
       return select;
     })()),
 
-    formGroup('Description', el('input', { type: 'text', name: 'description', required: 'true', value: txn?.description || '', placeholder: 'What did you spend on?' })),
+    formGroup('Description', (() => {
+      const descInput = el('input', { type: 'text', name: 'description', required: 'true', value: txn?.description || '', placeholder: 'What did you spend on?' });
+      const suggestChip = el('div', { className: 'category-suggest-chip', style: 'display:none' });
+
+      let suggestTimer;
+      descInput.addEventListener('input', () => {
+        clearTimeout(suggestTimer);
+        const val = descInput.value.trim();
+        if (val.length < 2) { suggestChip.style.display = 'none'; return; }
+        suggestTimer = setTimeout(async () => {
+          try {
+            const data = await Api.get(`/categories/suggest?description=${encodeURIComponent(val)}`);
+            if (data.suggestion) {
+              suggestChip.textContent = '';
+              suggestChip.style.display = '';
+              suggestChip.appendChild(el('span', { className: 'suggestion-chip', textContent: `Suggested: ${data.suggestion.category_name}`,
+                onClick: () => {
+                  const catSelect = form.querySelector('[name="category_id"]');
+                  if (catSelect) catSelect.value = String(data.suggestion.category_id);
+                  suggestChip.style.display = 'none';
+                }
+              }));
+            } else {
+              suggestChip.style.display = 'none';
+            }
+          } catch { suggestChip.style.display = 'none'; }
+        }, 300);
+      });
+
+      const wrapper = el('div', {}, [descInput, suggestChip]);
+      return wrapper;
+    })()),
 
     formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', required: 'true', value: txn?.amount ? String(txn.amount) : '' })),
 

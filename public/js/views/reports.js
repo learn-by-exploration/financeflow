@@ -30,8 +30,30 @@ export async function renderHealth(container) {
   ]);
   container.appendChild(scoreCard);
 
-  // Ratios
-  if (data.ratios) {
+  // Ratios with benchmark bars and status indicators
+  if (data.ratios && Array.isArray(data.ratios)) {
+    const ratiosCard = el('div', { className: 'card' }, [
+      el('h3', { textContent: 'Financial Ratios' }),
+      ...data.ratios.map(r => {
+        const pct = r.max > 0 ? Math.min(100, Math.round((r.score / r.max) * 100)) : 0;
+        const statusIcon = r.score >= r.max ? 'check_circle' : r.score > 0 ? 'warning' : 'cancel';
+        const statusClass = r.score >= r.max ? 'green' : r.score > 0 ? 'yellow' : 'red';
+        return el('div', { className: 'ratio-card' }, [
+          el('div', { className: 'ratio-header' }, [
+            el('span', { className: `material-icons-round ratio-status ${statusClass}`, textContent: statusIcon }),
+            el('span', { className: 'ratio-name', textContent: r.name }),
+            el('span', { className: 'ratio-score', textContent: `${r.score}/${r.max}` }),
+          ]),
+          el('div', { className: 'progress-bar ratio-bar' }, [
+            (() => { const fill = el('div', { className: 'progress-fill' }); fill.style.width = `${pct}%`; return fill; })(),
+          ]),
+          el('p', { className: 'ratio-tip text-muted', textContent: r.recommendation }),
+        ]);
+      }),
+    ]);
+    container.appendChild(ratiosCard);
+  } else if (data.ratios) {
+    // Fallback for flat object ratios
     const ratiosCard = el('div', { className: 'card' }, [
       el('h3', { textContent: 'Financial Ratios' }),
       ...Object.entries(data.ratios).map(([key, val]) => {
@@ -44,6 +66,37 @@ export async function renderHealth(container) {
       }),
     ]);
     container.appendChild(ratiosCard);
+  }
+
+  // Expected Net Worth (Stanley formula: Age × Annual Income / 10)
+  if (data.avg_monthly_income) {
+    const expectedNWCard = el('div', { className: 'card' }, [
+      el('h3', { textContent: 'Expected Net Worth' }),
+      el('p', { className: 'text-muted', textContent: 'Based on "The Millionaire Next Door" formula: Age × Annual Income ÷ 10' }),
+    ]);
+    const ageInput = el('input', { type: 'number', className: 'form-input', placeholder: 'Your age', min: '18', max: '100', style: 'width:120px;margin-right:8px' });
+    const calcBtn = el('button', { className: 'btn btn-primary btn-sm', textContent: 'Calculate' });
+    const resultDiv = el('div', { className: 'enw-result' });
+    const formRow = el('div', { className: 'form-inline', style: 'margin-top:8px' }, [ageInput, calcBtn]);
+    expectedNWCard.appendChild(formRow);
+    expectedNWCard.appendChild(resultDiv);
+    calcBtn.addEventListener('click', () => {
+      const age = parseInt(ageInput.value, 10);
+      if (!age || age < 18) return;
+      const annualIncome = data.avg_monthly_income * 12;
+      const expectedNW = (age * annualIncome) / 10;
+      const actualNW = data.net_worth || 0;
+      const ratio = expectedNW > 0 ? ((actualNW / expectedNW) * 100).toFixed(0) : 0;
+      const status = actualNW >= expectedNW ? 'Prodigious Accumulator' : actualNW >= expectedNW / 2 ? 'Average Accumulator' : 'Under Accumulator';
+      resultDiv.innerHTML = '';
+      resultDiv.appendChild(el('div', { className: 'stats-grid', style: 'margin-top:8px' }, [
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Expected' }), el('div', { className: 'stat-value', textContent: fmt(expectedNW) })]),
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Actual' }), el('div', { className: 'stat-value', textContent: fmt(actualNW) })]),
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Ratio' }), el('div', { className: 'stat-value', textContent: `${ratio}%` })]),
+        el('div', { className: 'stat-card' }, [el('div', { className: 'stat-label', textContent: 'Status' }), el('div', { className: 'stat-value', textContent: status })]),
+      ]));
+    });
+    container.appendChild(expectedNWCard);
   }
 
   // Recommendations
@@ -242,6 +295,30 @@ export async function renderReports(container) {
     container.appendChild(catCard);
   }
 
+  // ─── Net Worth History ───
+  try {
+    const nwData = await Api.get('/net-worth/history?limit=12');
+    if (nwData.snapshots && nwData.snapshots.length > 0) {
+      const maxNW = Math.max(...nwData.snapshots.map(s => Math.abs(s.net_worth)), 1);
+      const nwCard = el('div', { className: 'card' }, [
+        el('h3', { textContent: 'Net Worth History' }),
+        el('div', { className: 'trend-bars net-worth-chart' },
+          nwData.snapshots.map(s => {
+            const pct = (Math.abs(s.net_worth) / maxNW * 100).toFixed(1);
+            const barClass = s.net_worth >= 0 ? 'income-bar' : 'expense-bar';
+            return el('div', { className: 'trend-bar-group' }, [
+              el('div', { className: 'trend-bar-pair' }, [
+                (() => { const b = el('div', { className: `trend-bar ${barClass}` }); b.style.height = `${pct}%`; return b; })(),
+              ]),
+              el('span', { className: 'trend-bar-label', textContent: s.date.slice(5) }),
+            ]);
+          })
+        ),
+      ]);
+      container.appendChild(nwCard);
+    }
+  } catch { /* net worth history not available */ }
+
   // ─── Year in Review Section ───
   const yirCard = el('div', { className: 'card' }, [
     el('h3', { textContent: 'Year in Review' }),
@@ -286,4 +363,52 @@ export async function renderReports(container) {
   });
 
   container.appendChild(yirCard);
+
+  // ─── Cash Flow Forecast ───
+  const cfCard = el('div', { className: 'card' }, [
+    el('h3', { textContent: 'Cash Flow Forecast' }),
+    el('p', { className: 'text-muted', textContent: 'Projected balance based on recurring rules and subscriptions.' }),
+  ]);
+  const cfBtns = el('div', { className: 'btn-group', style: 'margin-bottom:8px' });
+  const cfResult = el('div', { className: 'cashflow-forecast-result' });
+
+  for (const days of [30, 60, 90]) {
+    const btn = el('button', { className: 'btn btn-sm', textContent: `${days} days` });
+    btn.addEventListener('click', async () => {
+      cfResult.textContent = 'Loading...';
+      try {
+        const data = await Api.get(`/reports/cashflow-forecast?days=${days}`);
+        cfResult.innerHTML = '';
+        if (!data.forecast || data.forecast.length === 0) {
+          cfResult.appendChild(el('p', { textContent: 'No forecast data available.' }));
+          return;
+        }
+        const maxBal = Math.max(...data.forecast.map(f => Math.abs(f.projected_balance)), 1);
+        const chartDiv = el('div', { className: 'trend-bars cash-flow-chart' });
+        // Show every Nth entry to avoid overcrowding
+        const step = Math.max(1, Math.floor(data.forecast.length / 15));
+        for (let i = 0; i < data.forecast.length; i += step) {
+          const f = data.forecast[i];
+          const pct = (Math.abs(f.projected_balance) / maxBal * 100).toFixed(1);
+          const barClass = f.projected_balance >= 0 ? 'income-bar' : 'expense-bar';
+          chartDiv.appendChild(el('div', { className: 'trend-bar-group' }, [
+            el('div', { className: 'trend-bar-pair' }, [
+              (() => { const b = el('div', { className: `trend-bar ${barClass}` }); b.style.height = `${pct}%`; return b; })(),
+            ]),
+            el('span', { className: 'trend-bar-label', textContent: f.date.slice(5) }),
+          ]));
+        }
+        cfResult.appendChild(chartDiv);
+        const last = data.forecast[data.forecast.length - 1];
+        cfResult.appendChild(el('p', { textContent: `Projected balance on ${last.date}: ${fmt(last.projected_balance)}` }));
+      } catch (err) {
+        cfResult.textContent = '';
+        cfResult.appendChild(el('p', { className: 'error', textContent: `Failed: ${err.message}` }));
+      }
+    });
+    cfBtns.appendChild(btn);
+  }
+  cfCard.appendChild(cfBtns);
+  cfCard.appendChild(cfResult);
+  container.appendChild(cfCard);
 }
