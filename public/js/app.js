@@ -46,7 +46,7 @@ if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
     if (data.demoMode) {
       const banner = document.getElementById('demo-banner');
       if (banner) {
-        banner.style.display = 'flex';
+        banner.classList.remove('hidden');
         const resetLink = document.getElementById('demo-reset-link');
         if (resetLink) {
           resetLink.addEventListener('click', async (e) => {
@@ -85,6 +85,12 @@ if (themeBtn) themeBtn.addEventListener('click', toggleTheme);
 
 // ─── Start notification polling ───
 startPolling();
+
+// ─── Apply saved text size ───
+const savedTextSize = localStorage.getItem('pfi_text_size');
+if (savedTextSize && savedTextSize !== 'default') {
+  document.documentElement.setAttribute('data-text-size', savedTextSize);
+}
 
 let currentView = 'dashboard';
 
@@ -156,13 +162,29 @@ function initSidebarCollapse() {
 }
 initSidebarCollapse();
 if (collapseBtn) {
-  collapseBtn.addEventListener('click', () => {
+  collapseBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
     sidebar.classList.toggle('collapsed');
     const isExpanded = !sidebar.classList.contains('collapsed');
     collapseBtn.setAttribute('aria-expanded', String(isExpanded));
     localStorage.setItem('pfi_sidebar', isExpanded ? 'expanded' : 'collapsed');
     const icon = collapseBtn.querySelector('.material-icons-round');
     if (icon) icon.textContent = isExpanded ? 'chevron_left' : 'chevron_right';
+  });
+}
+
+// ─── Sidebar home (logo click) ───
+const sidebarHome = document.getElementById('sidebar-home');
+if (sidebarHome) {
+  sidebarHome.addEventListener('click', (e) => {
+    if (e.target.closest('.sidebar-collapse-btn')) return;
+    navigateTo('dashboard');
+  });
+  sidebarHome.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.sidebar-collapse-btn')) {
+      e.preventDefault();
+      navigateTo('dashboard');
+    }
   });
 }
 
@@ -272,6 +294,7 @@ document.getElementById('btn-logout').addEventListener('click', async () => {
 });
 
 let currentSearchQuery = '';
+let viewBeforeSearch = 'dashboard';
 
 // ─── A11y: Announce to screen readers ───
 function announceToScreenReader(message) {
@@ -664,10 +687,13 @@ if (searchInput) {
     searchTimeout = setTimeout(() => {
       const q = searchInput.value.trim();
       if (q.length > 0) {
+        if (currentView !== 'search') viewBeforeSearch = currentView;
         currentSearchQuery = q;
         currentView = 'search';
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         render();
+      } else if (currentView === 'search') {
+        navigateTo(viewBeforeSearch);
       }
     }, 300);
   });
@@ -676,11 +702,17 @@ if (searchInput) {
       clearTimeout(searchTimeout);
       const q = searchInput.value.trim();
       if (q.length > 0) {
+        if (currentView !== 'search') viewBeforeSearch = currentView;
         currentSearchQuery = q;
         currentView = 'search';
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         render();
       }
+    }
+    if (e.key === 'Escape') {
+      searchInput.value = '';
+      searchInput.blur();
+      if (currentView === 'search') navigateTo(viewBeforeSearch);
     }
   });
 }
@@ -690,11 +722,11 @@ const offlineBanner = document.getElementById('offline-banner');
 if (offlineBanner) {
   const checkConnectivity = () => {
     fetch('/api/version', { method: 'HEAD', cache: 'no-store' })
-      .then(() => { offlineBanner.style.display = 'none'; })
-      .catch(() => { offlineBanner.style.display = 'flex'; });
+      .then(() => { offlineBanner.classList.add('hidden'); })
+      .catch(() => { offlineBanner.classList.remove('hidden'); });
   };
   window.addEventListener('offline', checkConnectivity);
-  window.addEventListener('online', () => { offlineBanner.style.display = 'none'; toast('Back online', 'success'); });
+  window.addEventListener('online', () => { offlineBanner.classList.add('hidden'); toast('Back online', 'success'); });
   checkConnectivity();
 }
 
@@ -712,13 +744,13 @@ history.replaceState({ view: currentView }, '', `/#/${currentView}`);
 render();
 
 // ─── Privacy banner ───
-if (!localStorage.getItem('pfi_privacy_accepted')) {
-  const privBanner = document.getElementById('privacy-banner');
-  if (privBanner) {
-    privBanner.style.display = 'flex';
+const privBanner = document.getElementById('privacy-banner');
+if (privBanner) {
+  if (!localStorage.getItem('pfi_privacy_accepted')) {
+    privBanner.classList.remove('hidden');
     document.getElementById('privacy-dismiss').addEventListener('click', () => {
       localStorage.setItem('pfi_privacy_accepted', '1');
-      privBanner.style.display = 'none';
+      privBanner.classList.add('hidden');
     });
   }
 }

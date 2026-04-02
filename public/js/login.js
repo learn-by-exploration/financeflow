@@ -18,11 +18,11 @@ document.querySelectorAll('.auth-tab').forEach(tab => {
     tab.setAttribute('aria-selected', 'true');
     btn.textContent = isLogin ? 'Sign In' : 'Register';
     subtitle.textContent = isLogin ? 'Your money. Your server. Your rules.' : 'Create your account';
-    groupDisplay.style.display = isLogin ? 'none' : 'block';
+    groupDisplay.classList.toggle('hidden', isLogin);
     errorMsg.textContent = '';
     const reqBox = document.getElementById('password-requirements');
     if (reqBox) {
-      reqBox.style.display = isLogin ? 'none' : 'block';
+      reqBox.classList.toggle('hidden', isLogin);
       if (!isLogin) reqBox.querySelectorAll('li').forEach(li => li.classList.remove('met'));
     }
     const pwInput = document.getElementById('password');
@@ -97,9 +97,9 @@ form.addEventListener('submit', async (e) => {
 if (localStorage.getItem('pfi_token')) window.location.href = '/app';
 
 // ─── Ensure correct initial state (handles stale SW cache) ───
-groupDisplay.style.display = 'none';
+groupDisplay.classList.add('hidden');
 const reqBoxInit = document.getElementById('password-requirements');
-if (reqBoxInit) reqBoxInit.style.display = 'none';
+if (reqBoxInit) reqBoxInit.classList.add('hidden');
 btn.textContent = 'Sign In';
 document.querySelectorAll('.auth-tab').forEach(t => {
   t.classList.toggle('active', t.dataset.mode === 'login');

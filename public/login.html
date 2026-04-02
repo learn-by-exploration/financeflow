@@ -19,7 +19,7 @@
       <button class="auth-tab" role="tab" aria-selected="false" data-mode="register">Register</button>
     </div>
     <form id="auth-form">
-      <div class="form-group" id="group-display" style="display:none">
+      <div class="form-group hidden" id="group-display">
         <label for="display_name">Display Name</label>
         <input type="text" id="display_name" name="display_name" autocomplete="name">
       </div>
@@ -32,10 +32,10 @@
         <div class="password-wrapper">
           <input type="password" id="password" name="password" required autocomplete="current-password">
           <button type="button" class="password-toggle" aria-label="Show password" tabindex="-1">
-            <span class="material-icons-round" style="font-size:20px">visibility</span>
+            <span class="material-icons-round">visibility</span>
           </button>
         </div>
-        <div id="password-requirements" class="password-requirements" style="display:none" aria-live="polite">
+        <div id="password-requirements" class="password-requirements hidden" aria-live="polite">
           Password must have:
           <ul>
             <li data-rule="length">At least 8 characters</li>

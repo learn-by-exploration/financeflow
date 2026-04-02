@@ -19,6 +19,7 @@ body { display: flex; justify-content: center; align-items: center; min-height: 
 .password-wrapper { position: relative; }
 .password-wrapper input { padding-right: 2.5rem; }
 .password-toggle { position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-muted, #a5b0c2); cursor: pointer; padding: 0.25rem; display: flex; align-items: center; }
+.password-toggle .material-icons-round { font-size: 20px; }
 .password-toggle:hover { color: var(--text-primary, #f1f5f9); }
 
 /* ─── Auth tabs ─── */

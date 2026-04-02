@@ -19,8 +19,11 @@
   <div id="app">
     <!-- Sidebar -->
     <nav id="sidebar" class="sidebar" aria-label="Main navigation">
-      <div class="sidebar-header">
-        <h1 class="logo">💰 FinanceFlow</h1>
+      <div class="sidebar-header" id="sidebar-home" role="button" tabindex="0" title="Go to Dashboard">
+        <h1 class="logo">💰 <span class="logo-text">FinanceFlow</span></h1>
+        <button id="sidebar-collapse" class="sidebar-collapse-btn" aria-label="Collapse sidebar" aria-expanded="true">
+          <span class="material-icons-round">chevron_left</span>
+        </button>
       </div>
       <div class="nav-list">
         <div class="nav-group" data-group="core">
@@ -29,19 +32,19 @@
             <span class="material-icons-round nav-group-chevron">expand_more</span>
           </div>
           <ul class="nav-group-items">
-            <li class="nav-item active" data-view="dashboard" tabindex="0" role="button">
+            <li class="nav-item active" data-view="dashboard" data-tooltip="Dashboard" tabindex="0" role="button">
               <span class="material-icons-round">dashboard</span>
               <span class="nav-label">Dashboard</span>
             </li>
-            <li class="nav-item" data-view="transactions" tabindex="0" role="button">
+            <li class="nav-item" data-view="transactions" data-tooltip="Transactions" tabindex="0" role="button">
               <span class="material-icons-round">receipt_long</span>
               <span class="nav-label">Transactions</span>
             </li>
-            <li class="nav-item" data-view="accounts" tabindex="0" role="button">
+            <li class="nav-item" data-view="accounts" data-tooltip="Accounts" tabindex="0" role="button">
               <span class="material-icons-round">account_balance</span>
               <span class="nav-label">Accounts</span>
             </li>
-            <li class="nav-item" data-view="categories" tabindex="0" role="button">
+            <li class="nav-item" data-view="categories" data-tooltip="Categories" tabindex="0" role="button">
               <span class="material-icons-round">category</span>
               <span class="nav-label">Categories</span>
             </li>
@@ -53,19 +56,19 @@
             <span class="material-icons-round nav-group-chevron">expand_more</span>
           </div>
           <ul class="nav-group-items">
-            <li class="nav-item" data-view="budgets" tabindex="0" role="button">
+            <li class="nav-item" data-view="budgets" data-tooltip="Budgets" tabindex="0" role="button">
               <span class="material-icons-round">pie_chart</span>
               <span class="nav-label">Budgets</span>
             </li>
-            <li class="nav-item" data-view="subscriptions" tabindex="0" role="button">
+            <li class="nav-item" data-view="subscriptions" data-tooltip="Subscriptions" tabindex="0" role="button">
               <span class="material-icons-round">autorenew</span>
               <span class="nav-label">Subscriptions</span>
             </li>
-            <li class="nav-item" data-view="goals" tabindex="0" role="button">
+            <li class="nav-item" data-view="goals" data-tooltip="Goals" tabindex="0" role="button">
               <span class="material-icons-round">flag</span>
               <span class="nav-label">Goals</span>
             </li>
-            <li class="nav-item" data-view="recurring" tabindex="0" role="button">
+            <li class="nav-item" data-view="recurring" data-tooltip="Recurring" tabindex="0" role="button">
               <span class="material-icons-round">repeat</span>
               <span class="nav-label">Recurring</span>
             </li>
@@ -77,11 +80,11 @@
             <span class="material-icons-round nav-group-chevron">expand_more</span>
           </div>
           <ul class="nav-group-items">
-            <li class="nav-item" data-view="groups" tabindex="0" role="button">
+            <li class="nav-item" data-view="groups" data-tooltip="Groups" tabindex="0" role="button">
               <span class="material-icons-round">group</span>
               <span class="nav-label">Groups</span>
             </li>
-            <li class="nav-item" data-view="splits" tabindex="0" role="button">
+            <li class="nav-item" data-view="splits" data-tooltip="Split Expenses" tabindex="0" role="button">
               <span class="material-icons-round">call_split</span>
               <span class="nav-label">Split Expenses</span>
             </li>
@@ -93,31 +96,31 @@
             <span class="material-icons-round nav-group-chevron">expand_more</span>
           </div>
           <ul class="nav-group-items">
-            <li class="nav-item" data-view="health" tabindex="0" role="button">
+            <li class="nav-item" data-view="health" data-tooltip="Financial Health" tabindex="0" role="button">
               <span class="material-icons-round">favorite</span>
               <span class="nav-label">Financial Health</span>
             </li>
-            <li class="nav-item" data-view="reports" tabindex="0" role="button">
+            <li class="nav-item" data-view="reports" data-tooltip="Reports" tabindex="0" role="button">
               <span class="material-icons-round">analytics</span>
               <span class="nav-label">Reports</span>
             </li>
-            <li class="nav-item" data-view="rules" tabindex="0" role="button">
+            <li class="nav-item" data-view="rules" data-tooltip="Auto Rules" tabindex="0" role="button">
               <span class="material-icons-round">auto_fix_high</span>
               <span class="nav-label">Auto Rules</span>
             </li>
-            <li class="nav-item" data-view="insights" tabindex="0" role="button">
+            <li class="nav-item" data-view="insights" data-tooltip="Insights" tabindex="0" role="button">
               <span class="material-icons-round">lightbulb</span>
               <span class="nav-label">Insights</span>
             </li>
-            <li class="nav-item" data-view="calendar" tabindex="0" role="button">
+            <li class="nav-item" data-view="calendar" data-tooltip="Calendar" tabindex="0" role="button">
               <span class="material-icons-round">calendar_month</span>
               <span class="nav-label">Calendar</span>
             </li>
-            <li class="nav-item" data-view="calculators" tabindex="0" role="button">
+            <li class="nav-item" data-view="calculators" data-tooltip="Calculators" tabindex="0" role="button">
               <span class="material-icons-round">calculate</span>
               <span class="nav-label">Calculators</span>
             </li>
-            <li class="nav-item" data-view="challenges" tabindex="0" role="button">
+            <li class="nav-item" data-view="challenges" data-tooltip="Challenges" tabindex="0" role="button">
               <span class="material-icons-round">emoji_events</span>
               <span class="nav-label">Challenges</span>
             </li>
@@ -129,11 +132,11 @@
             <span class="material-icons-round nav-group-chevron">expand_more</span>
           </div>
           <ul class="nav-group-items">
-            <li class="nav-item" data-view="export" tabindex="0" role="button">
+            <li class="nav-item" data-view="export" data-tooltip="Export" tabindex="0" role="button">
               <span class="material-icons-round">file_download</span>
               <span class="nav-label">Export</span>
             </li>
-            <li class="nav-item" data-view="whats-new" tabindex="0" role="button">
+            <li class="nav-item" data-view="whats-new" data-tooltip="What's New" tabindex="0" role="button">
               <span class="material-icons-round">new_releases</span>
               <span class="nav-label">What's New</span>
             </li>
@@ -141,19 +144,15 @@
         </div>
       </div>
       <div class="sidebar-footer">
-        <button id="sidebar-collapse" class="nav-item" aria-label="Collapse sidebar" aria-expanded="true">
-          <span class="material-icons-round">chevron_left</span>
-          <span class="nav-label">Collapse</span>
-        </button>
-        <button id="theme-toggle" class="nav-item theme-toggle-btn" aria-label="Toggle theme">
+        <button id="theme-toggle" class="nav-item theme-toggle-btn" data-tooltip="Toggle theme" aria-label="Toggle theme">
           <span class="material-icons-round">light_mode</span>
           <span class="nav-label">Light Mode</span>
         </button>
-        <button id="btn-settings" class="nav-item" data-view="settings">
+        <button id="btn-settings" class="nav-item" data-view="settings" data-tooltip="Settings">
           <span class="material-icons-round">settings</span>
           <span class="nav-label">Settings</span>
         </button>
-        <button id="btn-logout" class="nav-item">
+        <button id="btn-logout" class="nav-item" data-tooltip="Logout">
           <span class="material-icons-round">logout</span>
           <span class="nav-label">Logout</span>
         </button>
@@ -163,12 +162,12 @@
     <!-- Main content -->
     <main id="main-content" class="main-content" role="main">
       <!-- Demo mode banner -->
-      <div id="demo-banner" class="demo-banner" style="display:none;">
+      <div id="demo-banner" class="demo-banner hidden">
         <span class="material-icons-round">info</span>
         <span>Demo Mode — Sample data shown. <a href="#" id="demo-reset-link">Reset data</a></span>
       </div>
       <!-- Offline banner -->
-      <div id="offline-banner" class="offline-banner" style="display:none;">
+      <div id="offline-banner" class="offline-banner hidden">
         <span class="material-icons-round">cloud_off</span>
         <span>You're offline. Changes will not be saved.</span>
       </div>
@@ -215,7 +214,7 @@
   </button>
 
   <!-- Privacy banner -->
-  <div id="privacy-banner" class="privacy-banner" style="display:none">
+  <div id="privacy-banner" class="privacy-banner hidden">
     <span>Your data stays on your server. No cookies. No tracking.</span>
     <button class="btn btn-sm btn-secondary" id="privacy-dismiss">Got it</button>
   </div>
@@ -230,11 +229,11 @@
 
   <!-- Mobile bottom navigation -->
   <nav class="bottom-nav" aria-label="Mobile navigation">
-    <button class="bottom-nav-item" data-view="dashboard"><span class="material-icons-round">dashboard</span><span>Dashboard</span></button>
-    <button class="bottom-nav-item" data-view="transactions"><span class="material-icons-round">receipt_long</span><span>Transactions</span></button>
-    <button class="bottom-nav-item" data-view="accounts"><span class="material-icons-round">account_balance</span><span>Accounts</span></button>
-    <button class="bottom-nav-item" data-view="budgets"><span class="material-icons-round">pie_chart</span><span>Budgets</span></button>
-    <button class="bottom-nav-item" data-view="more"><span class="material-icons-round">more_horiz</span><span>More</span></button>
+    <button class="bottom-nav-item" data-view="dashboard" data-tooltip="Dashboard"><span class="material-icons-round">dashboard</span><span>Dashboard</span></button>
+    <button class="bottom-nav-item" data-view="transactions" data-tooltip="Transactions"><span class="material-icons-round">receipt_long</span><span>Transactions</span></button>
+    <button class="bottom-nav-item" data-view="accounts" data-tooltip="Accounts"><span class="material-icons-round">account_balance</span><span>Accounts</span></button>
+    <button class="bottom-nav-item" data-view="budgets" data-tooltip="Budgets"><span class="material-icons-round">pie_chart</span><span>Budgets</span></button>
+    <button class="bottom-nav-item" data-view="more" data-tooltip="More"><span class="material-icons-round">more_horiz</span><span>More</span></button>
   </nav>
 
   <!-- Bottom sheet for More menu -->

@@ -14,20 +14,22 @@ export async function renderSettings(container) {
   ]);
   container.appendChild(header);
 
+  const grid = el('div', { className: 'settings-grid' });
+  container.appendChild(grid);
+
   // Theme card (P16)
   const themes = [
-    { id: 'dark', label: 'Midnight', color: '#0f172a' },
-    { id: 'light', label: 'Light', color: '#f8fafc' },
-    { id: 'forest', label: 'Forest', color: '#1a2f1a' },
-    { id: 'ocean', label: 'Ocean', color: '#0d1b2a' },
-    { id: 'rose', label: 'Rose', color: '#2a1520' },
-    { id: 'nord', label: 'Nord', color: '#2e3440' },
+    { id: 'dark', label: 'Midnight', bg: '#0f172a', surface: '#1e293b', accent: '#6366f1', text: '#f1f5f9' },
+    { id: 'light', label: 'Light', bg: '#f8fafc', surface: '#ffffff', accent: '#4f46e5', text: '#0f172a' },
+    { id: 'forest', label: 'Forest', bg: '#1a2f1a', surface: '#243524', accent: '#4caf50', text: '#e8f5e9' },
+    { id: 'ocean', label: 'Ocean', bg: '#0d1b2a', surface: '#1b2838', accent: '#0097a7', text: '#e0f2f1' },
+    { id: 'rose', label: 'Rosé', bg: '#2a1520', surface: '#3d1f30', accent: '#e91e63', text: '#fce4ec' },
+    { id: 'nord', label: 'Nord', bg: '#2e3440', surface: '#3b4252', accent: '#88c0d0', text: '#eceff4' },
   ];
   const currentTheme = localStorage.getItem('pfi_theme') || 'dark';
   const themeSwatches = themes.map(t => {
     const swatch = el('button', {
       className: `color-swatch${currentTheme === t.id ? ' selected' : ''}`,
-      style: `background: ${t.color}`,
       title: t.label,
       'aria-label': `${t.label} theme`,
       onClick: () => {
@@ -37,18 +39,33 @@ export async function renderSettings(container) {
         swatch.classList.add('selected');
         toast(`Theme set to ${t.label}`, 'success');
       },
-    });
+    }, [
+      el('div', { className: 'swatch-preview', style: `background:${t.bg}` }, [
+        el('div', { className: 'swatch-preview-bar', style: `background:${t.accent}` }),
+      ]),
+      el('div', { className: 'swatch-label', style: `background:${t.surface};color:${t.text}` }, [
+        document.createTextNode(t.label),
+      ]),
+    ]);
     return swatch;
   });
   const themeCard = el('div', { className: 'card settings-section' }, [
-    el('h3', { textContent: 'Theme' }),
+    el('h3', {}, [
+      el('span', { className: 'material-icons-round', textContent: 'palette' }),
+      document.createTextNode('Theme'),
+    ]),
+    el('p', { className: 'settings-section-desc', textContent: 'Choose a color scheme that suits your preference.' }),
     el('div', { className: 'color-picker' }, themeSwatches),
   ]);
-  container.appendChild(themeCard);
+  grid.appendChild(themeCard);
 
   // User info card
   const userCard = el('div', { className: 'card settings-section' }, [
-    el('h3', { textContent: 'Account' }),
+    el('h3', {}, [
+      el('span', { className: 'material-icons-round', textContent: 'person' }),
+      document.createTextNode('Account'),
+    ]),
+    el('p', { className: 'settings-section-desc', textContent: 'Your account information.' }),
     el('div', { className: 'settings-row' }, [
       el('span', { className: 'settings-label', textContent: 'Username' }),
       el('span', { className: 'settings-value', textContent: user.username || '—' }),
@@ -58,15 +75,20 @@ export async function renderSettings(container) {
       el('span', { className: 'settings-value', textContent: user.display_name || '—' }),
     ]),
   ]);
-  container.appendChild(userCard);
+  grid.appendChild(userCard);
 
   // Preferences card
   const prefsCard = el('div', { className: 'card settings-section' }, [
-    el('h3', { textContent: 'Preferences' }),
+    el('h3', {}, [
+      el('span', { className: 'material-icons-round', textContent: 'tune' }),
+      document.createTextNode('Preferences'),
+    ]),
+    el('p', { className: 'settings-section-desc', textContent: 'Currency, date format and display options.' }),
     settingRow('Default Currency', 'default_currency', settings.default_currency, CURRENCIES),
     settingRow('Date Format', 'date_format', settings.date_format, DATE_FORMATS),
+    textSizeRow(),
   ]);
-  container.appendChild(prefsCard);
+  grid.appendChild(prefsCard);
 
   // Quick Setup Presets (P17)
   const presets = [
@@ -75,7 +97,11 @@ export async function renderSettings(container) {
     { label: '🇪🇺 EU', currency: 'EUR', date_format: 'DD.MM.YYYY' },
   ];
   const presetsCard = el('div', { className: 'card settings-section' }, [
-    el('h3', { textContent: 'Quick Setup' }),
+    el('h3', {}, [
+      el('span', { className: 'material-icons-round', textContent: 'bolt' }),
+      document.createTextNode('Quick Setup'),
+    ]),
+    el('p', { className: 'settings-section-desc', textContent: 'One-click presets for common regional defaults.' }),
     el('div', { style: 'display:flex;gap:0.5rem;flex-wrap:wrap' }, presets.map(p =>
       el('button', { className: 'btn btn-secondary', textContent: p.label, onClick: async () => {
         try {
@@ -86,13 +112,17 @@ export async function renderSettings(container) {
       }})
     )),
   ]);
-  container.appendChild(presetsCard);
+  grid.appendChild(presetsCard);
 
   // Keyboard Shortcuts (P26)
   const defaultShortcuts = { dashboard: 'd', transactions: 't', budgets: 'b', groups: 'g', quickAdd: 'n' };
   const savedShortcuts = JSON.parse(localStorage.getItem('pfi_shortcuts') || 'null') || defaultShortcuts;
   const shortcutsCard = el('div', { className: 'card settings-section' }, [
-    el('h3', { textContent: 'Keyboard Shortcuts' }),
+    el('h3', {}, [
+      el('span', { className: 'material-icons-round', textContent: 'keyboard' }),
+      document.createTextNode('Keyboard Shortcuts'),
+    ]),
+    el('p', { className: 'settings-section-desc', textContent: 'Navigate the app faster with keys.' }),
     ...Object.entries(savedShortcuts).map(([action, key]) => {
       const keyDisplay = el('span', { className: 'settings-value', textContent: key.toUpperCase(), style: 'font-family:monospace;background:var(--bg-tertiary);padding:0.125rem 0.375rem;border-radius:4px' });
       return el('div', { className: 'settings-row' }, [
@@ -105,7 +135,7 @@ export async function renderSettings(container) {
       toast('Shortcuts reset to defaults', 'success');
     }}),
   ]);
-  container.appendChild(shortcutsCard);
+  grid.appendChild(shortcutsCard);
 
   // Vim Mode Toggle (P27)
   const vimEnabled = localStorage.getItem('pfi_vim') === '1';
@@ -116,17 +146,24 @@ export async function renderSettings(container) {
     toast(vimToggle.checked ? 'Vim navigation enabled' : 'Vim navigation disabled', 'success');
   });
   const vimCard = el('div', { className: 'card settings-section' }, [
-    el('h3', { textContent: 'Vim Navigation' }),
+    el('h3', {}, [
+      el('span', { className: 'material-icons-round', textContent: 'code' }),
+      document.createTextNode('Vim Navigation'),
+    ]),
     el('div', { className: 'settings-row' }, [
       el('span', { className: 'settings-label', textContent: 'Enable J/K navigation' }),
-      el('label', { className: 'remember-label' }, [vimToggle, 'Enabled']),
+      el('label', { className: 'set-toggle' }, [vimToggle, el('span', { className: 'slider' })]),
     ]),
   ]);
-  container.appendChild(vimCard);
+  grid.appendChild(vimCard);
 
   // Data card
   const dataCard = el('div', { className: 'card settings-section' }, [
-    el('h3', { textContent: 'Data' }),
+    el('h3', {}, [
+      el('span', { className: 'material-icons-round', textContent: 'storage' }),
+      document.createTextNode('Data'),
+    ]),
+    el('p', { className: 'settings-section-desc', textContent: 'Export, import and manage your financial data.' }),
     el('div', { className: 'settings-row' }, [
       el('span', { className: 'settings-label', textContent: 'Export Data' }),
       el('button', { className: 'btn btn-secondary', textContent: 'Export JSON', onClick: exportData }),
@@ -144,11 +181,14 @@ export async function renderSettings(container) {
       el('button', { className: 'btn btn-secondary', textContent: 'Upload CSV', onClick: () => showCsvImportForm() }),
     ]),
   ]);
-  container.appendChild(dataCard);
+  grid.appendChild(dataCard);
 
   // App info
   const infoCard = el('div', { className: 'card settings-section' }, [
-    el('h3', { textContent: 'About' }),
+    el('h3', {}, [
+      el('span', { className: 'material-icons-round', textContent: 'info' }),
+      document.createTextNode('About'),
+    ]),
     el('div', { className: 'settings-row', id: 'version-row' }, [
       el('span', { className: 'settings-label', textContent: 'Version' }),
       el('span', { className: 'settings-value version-value', textContent: 'loading...' }),
@@ -162,7 +202,7 @@ export async function renderSettings(container) {
       el('span', { className: 'settings-value', textContent: 'serviceWorker' in navigator ? 'Installed' : 'Not supported' }),
     ]),
   ]);
-  container.appendChild(infoCard);
+  grid.appendChild(infoCard);
 
   // Fetch version from API
   try {
@@ -191,6 +231,35 @@ function settingRow(label, key, currentValue, options) {
 
   return el('div', { className: 'settings-row' }, [
     el('span', { className: 'settings-label', textContent: label }),
+    select,
+  ]);
+}
+
+function textSizeRow() {
+  const sizes = [
+    { value: 'small', label: 'Small' },
+    { value: 'default', label: 'Default' },
+    { value: 'large', label: 'Large' },
+  ];
+  const current = localStorage.getItem('pfi_text_size') || 'default';
+  const select = el('select', { className: 'settings-select' });
+  sizes.forEach(s => {
+    const opt = el('option', { value: s.value, textContent: s.label });
+    if (current === s.value) opt.selected = true;
+    select.appendChild(opt);
+  });
+  select.addEventListener('change', () => {
+    const val = select.value;
+    localStorage.setItem('pfi_text_size', val);
+    if (val === 'default') {
+      document.documentElement.removeAttribute('data-text-size');
+    } else {
+      document.documentElement.setAttribute('data-text-size', val);
+    }
+    toast(`Text size set to ${val}`, 'success');
+  });
+  return el('div', { className: 'settings-row' }, [
+    el('span', { className: 'settings-label', textContent: 'Text Size' }),
     select,
   ]);
 }
