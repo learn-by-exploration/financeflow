@@ -10,8 +10,23 @@ const path = require('path');
  * Or imported and called programmatically: seedDemoData(db)
  */
 
-function seedDemoData(db) {
+function seedDemoData(db, { force = false } = {}) {
   const now = new Date();
+
+  // Layer 5: _seed_completed marker — prevent re-seeding over existing seed
+  const seedMarker = db.prepare("SELECT value FROM _system_meta WHERE key = '_seed_completed'").get();
+  if (seedMarker && !force) {
+    return { skipped: true, reason: 'Already seeded (_seed_completed marker exists). Use force=true to re-seed.' };
+  }
+
+  // Layer 6: hasExistingData guard — refuse to seed if demo user has data (prevents re-seed corruption)
+  const existingDemo = db.prepare("SELECT id FROM users WHERE username = 'demo'").get();
+  if (existingDemo) {
+    const demoTxns = db.prepare('SELECT COUNT(*) as cnt FROM transactions WHERE user_id = ?').get(existingDemo.id).cnt;
+    if (demoTxns > 0 && !force) {
+      return { skipped: true, reason: `Demo user already has ${demoTxns} transactions. Use force=true to re-seed.` };
+    }
+  }
 
   // ─── Helper: date string N days ago ───
   function daysAgo(n) {
@@ -271,6 +286,9 @@ function seedDemoData(db) {
   insertTemplate.run(userId, 'Grocery Run', 'Weekly groceries', 2000, 'expense', groceriesCat.id, checkingId);
   insertTemplate.run(userId, 'Salary', 'Monthly salary credit', 75000, 'income', salaryCat.id, savingsId);
 
+  // Layer 5: Mark seed as completed
+  db.prepare("INSERT OR REPLACE INTO _system_meta (key, value, updated_at) VALUES ('_seed_completed', datetime('now'), datetime('now'))").run();
+
   return { userId, accounts, categories };
 }
 
@@ -283,7 +301,11 @@ if (require.main === module) {
 
   try {
     db.transaction(() => {
-      seedDemoData(db);
+      const result = seedDemoData(db, { force: process.argv.includes('--force') });
+      if (result && result.skipped) {
+        console.log('Seed skipped:', result.reason);
+        return;
+      }
     })();
     console.log('Demo data seeded successfully.');
   } catch (err) {

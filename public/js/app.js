@@ -154,10 +154,13 @@ backdrop.addEventListener('click', () => {
 // ─── Sidebar collapse ───
 const collapseBtn = document.getElementById('sidebar-collapse');
 function initSidebarCollapse() {
-  const collapsed = localStorage.getItem('pfi_sidebar') === 'collapsed';
-  if (collapsed) {
+  const sidebarState = localStorage.getItem('pfi_sidebar');
+  if (sidebarState === 'collapsed') {
     sidebar.classList.add('collapsed');
     if (collapseBtn) collapseBtn.setAttribute('aria-expanded', 'false');
+  } else if (!sidebarState) {
+    // First visit: explicitly default to expanded
+    localStorage.setItem('pfi_sidebar', 'expanded');
   }
 }
 initSidebarCollapse();

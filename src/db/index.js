@@ -11,6 +11,9 @@ function initDatabase(dbDir) {
   db.pragma('foreign_keys = ON');
   db.pragma('busy_timeout = 5000');
 
+  // Layer 2: WAL checkpoint on startup — recover any orphaned WAL data from crashes
+  db.pragma('wal_checkpoint(TRUNCATE)');
+
   // ─── Schema ───
 
   db.exec(`
@@ -335,6 +338,30 @@ function initDatabase(dbDir) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_log(user_id, created_at);
+
+    -- ═══════════════════════════════════════════
+    -- DATA WATERMARK (data loss detection)
+    -- ═══════════════════════════════════════════
+
+    CREATE TABLE IF NOT EXISTS _data_watermark (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      peak_users INTEGER NOT NULL DEFAULT 0,
+      peak_transactions INTEGER NOT NULL DEFAULT 0,
+      peak_accounts INTEGER NOT NULL DEFAULT 0,
+      last_updated TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    INSERT OR IGNORE INTO _data_watermark (id, peak_users, peak_transactions, peak_accounts) VALUES (1, 0, 0, 0);
+
+    -- ═══════════════════════════════════════════
+    -- SYSTEM METADATA (seed markers, etc.)
+    -- ═══════════════════════════════════════════
+
+    CREATE TABLE IF NOT EXISTS _system_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   logger.info(`Database initialized at ${dbPath}`);

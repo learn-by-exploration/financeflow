@@ -38,7 +38,7 @@ module.exports = function createDemoRoutes({ db, audit }) {
       }
 
       db.transaction(() => {
-        seedDemoData(db);
+        seedDemoData(db, { force: true });
       })();
 
       audit.log(0, 'demo.reset', 'system', null);

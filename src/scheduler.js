@@ -113,10 +113,42 @@ module.exports = function createScheduler(db, logger) {
     }
   }
 
+  function runScheduledBackup() {
+    const config = require('./config');
+    const backupPath = require('path').join(config.dbDir, 'backups');
+    const { createBackup, rotateBackups } = require('./services/backup');
+    createBackup(db, backupPath)
+      .then((result) => {
+        if (result && result.skipped) { logger.info({ reason: result.reason }, 'Scheduled backup skipped'); return; }
+        const deleted = rotateBackups(backupPath, config.backup.retainCount);
+        logger.info({ backup: result.filename, rotated: deleted.length }, 'Scheduled backup completed');
+
+        // Update data watermark after successful backup
+        try {
+          const users = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
+          const txns = db.prepare('SELECT COUNT(*) as cnt FROM transactions').get().cnt;
+          const accounts = db.prepare('SELECT COUNT(*) as cnt FROM accounts').get().cnt;
+          db.prepare(`
+            UPDATE _data_watermark SET
+              peak_users = MAX(peak_users, ?),
+              peak_transactions = MAX(peak_transactions, ?),
+              peak_accounts = MAX(peak_accounts, ?),
+              last_updated = datetime('now')
+            WHERE id = 1
+          `).run(users, txns, accounts);
+        } catch (err) {
+          logger.error({ err }, 'Failed to update data watermark');
+        }
+      })
+      .catch(err => logger.error({ err }, 'Scheduled backup failed'));
+  }
+
   function registerBuiltinJobs() {
+    const config = require('./config');
     register('cleanup', 6 * 3600000, runCleanup);
     register('recurring-spawn', 3600000, spawnDueRecurring);
     register('rate-limit-cleanup', 3600000, runRateLimitCleanup);
+    register('scheduled-backup', config.backup.intervalHours * 3600000, runScheduledBackup);
   }
 
   return { register, registerBuiltinJobs, start, stop, spawnDueRecurring, runCleanup, advanceDate };

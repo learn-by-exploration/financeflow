@@ -40,10 +40,10 @@ export async function renderSettings(container) {
         toast(`Theme set to ${t.label}`, 'success');
       },
     }, [
-      el('div', { className: 'swatch-preview', style: `background:${t.bg}` }, [
-        el('div', { className: 'swatch-preview-bar', style: `background:${t.accent}` }),
+      el('div', { className: `swatch-preview swatch-bg-${t.id}` }, [
+        el('div', { className: `swatch-preview-bar swatch-accent-${t.id}` }),
       ]),
-      el('div', { className: 'swatch-label', style: `background:${t.surface};color:${t.text}` }, [
+      el('div', { className: `swatch-label swatch-surface-${t.id}` }, [
         document.createTextNode(t.label),
       ]),
     ]);
@@ -102,7 +102,7 @@ export async function renderSettings(container) {
       document.createTextNode('Quick Setup'),
     ]),
     el('p', { className: 'settings-section-desc', textContent: 'One-click presets for common regional defaults.' }),
-    el('div', { style: 'display:flex;gap:0.5rem;flex-wrap:wrap' }, presets.map(p =>
+    el('div', { className: 'preset-buttons' }, presets.map(p =>
       el('button', { className: 'btn btn-secondary', textContent: p.label, onClick: async () => {
         try {
           await Api.put('/settings', { key: 'default_currency', value: p.currency });
@@ -124,13 +124,13 @@ export async function renderSettings(container) {
     ]),
     el('p', { className: 'settings-section-desc', textContent: 'Navigate the app faster with keys.' }),
     ...Object.entries(savedShortcuts).map(([action, key]) => {
-      const keyDisplay = el('span', { className: 'settings-value', textContent: key.toUpperCase(), style: 'font-family:monospace;background:var(--bg-tertiary);padding:0.125rem 0.375rem;border-radius:4px' });
+      const keyDisplay = el('span', { className: 'settings-value kbd-key', textContent: key.toUpperCase() });
       return el('div', { className: 'settings-row' }, [
         el('span', { className: 'settings-label', textContent: action }),
         keyDisplay,
       ]);
     }),
-    el('button', { className: 'btn btn-secondary', textContent: 'Reset to Defaults', style: 'margin-top:0.5rem', onClick: () => {
+    el('button', { className: 'btn btn-secondary shortcuts-reset-btn', textContent: 'Reset to Defaults', onClick: () => {
       localStorage.removeItem('pfi_shortcuts');
       toast('Shortcuts reset to defaults', 'success');
     }}),

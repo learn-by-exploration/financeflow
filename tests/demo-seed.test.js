@@ -40,6 +40,11 @@ describe('Demo Mode & Seed', () => {
   before(() => setup());
   after(() => teardown());
 
+  // Clear seed markers before each test so seed can run fresh
+  beforeEach(() => {
+    try { db.exec('DELETE FROM _system_meta'); } catch {}
+  });
+
   describe('Seed script', () => {
     beforeEach(() => {
       // Clean demo user before each seed test
@@ -47,6 +52,8 @@ describe('Demo Mode & Seed', () => {
       if (existing) {
         db.prepare('DELETE FROM users WHERE id = ?').run(existing.id);
       }
+      // Clear seed markers so seed can run fresh
+      try { db.exec('DELETE FROM _system_meta'); } catch {}
     });
 
     it('creates a demo user with correct credentials', () => {

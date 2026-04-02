@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const config = require('./config');
@@ -295,16 +296,104 @@ if (!config.isTest) {
   // ─── Startup validation ───
   validateStartup(config);
 
+  // ─── Layer 8: Auto-restore from backup if data loss detected ───
+  // ─── Layer 9: Data watermark check ───
+  const backupPath = path.join(config.dbDir, 'backups');
+  try {
+    const watermark = db.prepare('SELECT * FROM _data_watermark WHERE id = 1').get();
+    const currentUsers = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
+    const currentTxns = db.prepare('SELECT COUNT(*) as cnt FROM transactions').get().cnt;
+
+    if (watermark && watermark.peak_users > 0 && currentUsers === 0) {
+      // Data loss detected: had users before, now empty
+      logger.warn({ watermark, currentUsers, currentTxns }, 'DATA LOSS DETECTED: database is empty but watermark shows previous data');
+
+      const { listBackups, isEncryptedBackup, decryptBuffer, getEncryptionKey } = require('./services/backup');
+      const Database = require('better-sqlite3');
+      const backups = listBackups(backupPath);
+
+      let restored = false;
+      for (const backup of backups) {
+        const backupFile = path.join(backupPath, backup.filename);
+        try {
+          let dbPath;
+          if (isEncryptedBackup(backupFile)) {
+            const key = getEncryptionKey();
+            if (!key) { logger.warn('Encrypted backup found but no key configured, skipping'); continue; }
+            const encrypted = fs.readFileSync(backupFile);
+            const plaintext = decryptBuffer(encrypted, key);
+            dbPath = path.join(config.dbDir, '_restore_temp.db');
+            fs.writeFileSync(dbPath, plaintext);
+          } else {
+            dbPath = backupFile;
+          }
+
+          // Verify backup has data
+          const verifyDb = new Database(dbPath, { readonly: true });
+          const backupUsers = verifyDb.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
+          const integrityResult = verifyDb.pragma('integrity_check');
+          verifyDb.close();
+
+          if (backupUsers === 0 || !integrityResult || integrityResult[0]?.integrity_check !== 'ok') {
+            logger.warn({ backup: backup.filename, backupUsers }, 'Backup is empty or corrupt, trying next');
+            continue;
+          }
+
+          // Restore: close current db, copy backup over, reopen
+          const mainDbPath = path.join(config.dbDir, 'personalfi.db');
+          db.close();
+
+          if (isEncryptedBackup(backupFile)) {
+            fs.copyFileSync(path.join(config.dbDir, '_restore_temp.db'), mainDbPath);
+            fs.unlinkSync(path.join(config.dbDir, '_restore_temp.db'));
+          } else {
+            fs.copyFileSync(backupFile, mainDbPath);
+          }
+
+          logger.info({ backup: backup.filename }, 'DATABASE RESTORED from backup');
+          restored = true;
+          // Exit and let Docker restart with restored DB
+          process.exit(0);
+        } catch (err) {
+          logger.error({ err, backup: backup.filename }, 'Failed to restore from backup, trying next');
+        }
+      }
+
+      if (!restored) {
+        logger.error('AUTO-RESTORE FAILED: No valid backups found. Manual intervention required.');
+      }
+    }
+
+    // Update watermark with current peak values
+    if (currentUsers > 0 || currentTxns > 0) {
+      const currentAccounts = db.prepare('SELECT COUNT(*) as cnt FROM accounts').get().cnt;
+      db.prepare(`
+        UPDATE _data_watermark SET
+          peak_users = MAX(peak_users, ?),
+          peak_transactions = MAX(peak_transactions, ?),
+          peak_accounts = MAX(peak_accounts, ?),
+          last_updated = datetime('now')
+        WHERE id = 1
+      `).run(currentUsers, currentTxns, currentAccounts);
+      logger.info({ users: currentUsers, transactions: currentTxns, accounts: currentAccounts }, 'Data watermark updated');
+    }
+  } catch (err) {
+    logger.error({ err }, 'Data protection startup check failed');
+  }
+
   const scheduler = createScheduler(db, logger);
   scheduler.registerBuiltinJobs();
   scheduler.start();
 
   // Auto-backup on start
   if (config.backup.autoBackupOnStart) {
-    const backupPath = path.join(config.dbDir, 'backups');
     const { createBackup, rotateBackups } = require('./services/backup');
     createBackup(db, backupPath)
-      .then(() => { rotateBackups(backupPath, config.backup.maxBackups); logger.info('Auto-backup completed'); })
+      .then((result) => {
+        if (result && result.skipped) { logger.info(result.reason); return; }
+        rotateBackups(backupPath, config.backup.maxBackups);
+        logger.info('Auto-backup completed');
+      })
       .catch(err => logger.error('Auto-backup failed:', err.message));
   }
 
@@ -318,11 +407,20 @@ if (!config.isTest) {
     logger.info(`${signal} received, shutting down...`);
     scheduler.stop();
     server.close(() => {
+      // Layer 1: WAL checkpoint before close — flush all WAL data to main DB
+      try {
+        db.pragma('wal_checkpoint(TRUNCATE)');
+        logger.info('WAL checkpoint completed');
+      } catch (err) {
+        logger.error({ err }, 'WAL checkpoint failed during shutdown');
+      }
       db.close();
       logger.info('Server closed');
       process.exit(0);
     });
     setTimeout(() => {
+      // Even on forced shutdown, attempt WAL checkpoint
+      try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch (_e) { /* best effort */ }
       logger.error('Forced shutdown');
       process.exit(1);
     }, config.shutdownTimeoutMs);

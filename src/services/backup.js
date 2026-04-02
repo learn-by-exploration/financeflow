@@ -63,6 +63,13 @@ function isEncryptedBackup(filepath) {
 }
 
 async function createBackup(db, backupDir) {
+  // Layer 7: Empty-DB backup skip — refuse to overwrite good backups with empty data
+  const userCount = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
+  const txnCount = db.prepare('SELECT COUNT(*) as cnt FROM transactions').get().cnt;
+  if (userCount === 0 && txnCount === 0) {
+    return { skipped: true, reason: 'Database is empty — refusing to create backup that could mask data loss' };
+  }
+
   fs.mkdirSync(backupDir, { recursive: true });
   const filename = backupFilename();
   const dest = path.join(backupDir, filename);
@@ -74,6 +81,23 @@ async function createBackup(db, backupDir) {
     const plaintext = fs.readFileSync(dest);
     const encrypted = encryptBuffer(plaintext, key);
     fs.writeFileSync(dest, encrypted);
+  }
+
+  // Layer 12: Verify backup integrity (only for unencrypted backups)
+  if (!key) {
+    try {
+      const Database = require('better-sqlite3');
+      const verifyDb = new Database(dest, { readonly: true });
+      const result = verifyDb.pragma('integrity_check');
+      verifyDb.close();
+      if (!result || result[0]?.integrity_check !== 'ok') {
+        fs.unlinkSync(dest);
+        throw new AppError('BACKUP_CORRUPT', 'Backup integrity check failed — backup discarded', 500);
+      }
+    } catch (err) {
+      if (err.code === 'BACKUP_CORRUPT') throw err;
+      // If verification fails for other reasons (e.g. file access), log but keep backup
+    }
   }
 
   const stat = fs.statSync(dest);

@@ -10,9 +10,9 @@ services:
       - NODE_ENV=production
       - DB_DIR=/app/data
     restart: always
+    stop_grace_period: 30s
     security_opt:
       - no-new-privileges:true
-    read_only: true
     tmpfs:
       - /tmp
     healthcheck:
