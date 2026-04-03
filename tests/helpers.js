@@ -86,6 +86,7 @@ function cleanDb() {
   try { db.exec('DELETE FROM duplicate_dismissals'); } catch {}
   try { db.exec('DELETE FROM recurring_suggestion_dismissals'); } catch {}
   try { db.exec('DELETE FROM spending_limits'); } catch {}
+  try { db.exec("DELETE FROM _system_meta WHERE key = '_seed_completed'"); } catch {}
 }
 
 function teardown() {
