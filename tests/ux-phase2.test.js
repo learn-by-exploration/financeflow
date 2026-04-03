@@ -112,20 +112,20 @@ describe('P11 — Backdrop Blur on Top Bar', () => {
   });
 });
 
-describe('P12 — Expandable Stat Cards', () => {
+describe('P12 — Navigable Stat Cards', () => {
   const dashJs = read('js/views/dashboard.js');
   const css = read('styles.css');
 
-  it('dashboard.js stat cards have aria-expanded attribute', () => {
-    assert.ok(dashJs.includes('aria-expanded'));
+  it('dashboard.js stat cards have aria-label for accessibility', () => {
+    assert.ok(dashJs.includes('aria-label'));
   });
 
   it('styles.css has stat-detail class', () => {
     assert.ok(css.includes('.stat-detail'));
   });
 
-  it('stat card expansion toggles on click', () => {
-    assert.ok(dashJs.includes('expanded') || dashJs.includes('toggleExpand'));
+  it('stat cards navigate on click', () => {
+    assert.ok(dashJs.includes('nav-item') || dashJs.includes('navigateTo'));
   });
 
   it('expanded stat shows View all link', () => {

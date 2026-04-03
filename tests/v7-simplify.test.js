@@ -73,19 +73,14 @@ describe('Task 1.3 — Calculators Merged into Health', () => {
   const html = read('index.html');
   const appJs = read('js/app.js');
 
-  it('calculators.js view file no longer exists', () => {
-    assert.ok(!fs.existsSync(path.join(PUBLIC, 'js', 'views', 'calculators.js')),
-      'calculators.js should be removed — calculators are now in health view');
+  it('calculators.js standalone view exists', () => {
+    assert.ok(fs.existsSync(path.join(PUBLIC, 'js', 'views', 'calculators.js')),
+      'calculators.js standalone view should exist for direct access');
   });
 
-  it('calculators nav item removed from sidebar', () => {
-    assert.ok(!html.includes('data-view="calculators"'),
-      'calculators nav item should be removed from sidebar');
-  });
-
-  it('app.js does not register calculators view', () => {
-    assert.ok(!appJs.includes("calculators:"),
-      'calculators view should not be in app.js view registry');
+  it('calculators accessible via bottom sheet or app.js registry', () => {
+    assert.ok(appJs.includes('calculators'),
+      'calculators should be registered in app.js views');
   });
 
   it('health view (reports.js) contains calculator sections', () => {
@@ -110,19 +105,14 @@ describe('Task 1.4 — Challenges Merged into Goals', () => {
   const html = read('index.html');
   const appJs = read('js/app.js');
 
-  it('challenges.js view file no longer exists', () => {
-    assert.ok(!fs.existsSync(path.join(PUBLIC, 'js', 'views', 'challenges.js')),
-      'challenges.js should be removed — challenges are now in goals view');
+  it('challenges.js standalone view exists', () => {
+    assert.ok(fs.existsSync(path.join(PUBLIC, 'js', 'views', 'challenges.js')),
+      'challenges.js standalone view should exist for direct access');
   });
 
-  it('challenges nav item removed from sidebar', () => {
-    assert.ok(!html.includes('data-view="challenges"'),
-      'challenges nav item should be removed from sidebar');
-  });
-
-  it('app.js does not register challenges view', () => {
-    assert.ok(!appJs.includes('challenges:'),
-      'challenges view should not be in app.js view registry');
+  it('challenges accessible via app.js registry', () => {
+    assert.ok(appJs.includes('challenges'),
+      'challenges should be registered in app.js views');
   });
 
   it('goals view contains challenges section', () => {
@@ -141,19 +131,19 @@ describe('Task 1.4 — Challenges Merged into Goals', () => {
 // ═══════════════════════════════════════════════════════════════
 // Task 1.5 — Tags, Rules, Export Moved to Settings
 // ═══════════════════════════════════════════════════════════════
-describe('Task 1.5 — Tags/Rules/Export in Settings', () => {
+describe('Task 1.5 — Tags/Rules/Export in Tools Nav', () => {
   const html = read('index.html');
   const appJs = read('js/app.js');
   const settingsJs = read('js/views/settings.js');
 
-  it('rules nav item removed from sidebar', () => {
-    assert.ok(!html.includes('data-view="rules"'),
-      'rules nav should not be in sidebar');
+  it('rules nav item in Tools group', () => {
+    assert.ok(html.includes('data-view="rules"'),
+      'rules nav should be in Tools group');
   });
 
-  it('export nav item removed from sidebar', () => {
-    assert.ok(!html.includes('data-view="export"'),
-      'export nav should not be in sidebar');
+  it('export nav item in Tools group', () => {
+    assert.ok(html.includes('data-view="export"'),
+      'export nav should be in Tools group');
   });
 
   it('settings view lazy-loads tags module', () => {
@@ -214,19 +204,14 @@ describe('Task 1.7 — Calendar Merged into Dashboard', () => {
   const appJs = read('js/app.js');
   const dashJs = read('js/views/dashboard.js');
 
-  it('calendar.js view file no longer exists', () => {
-    assert.ok(!fs.existsSync(path.join(PUBLIC, 'js', 'views', 'calendar.js')),
-      'calendar.js should be removed — merged into dashboard widget');
+  it('calendar.js standalone view exists', () => {
+    assert.ok(fs.existsSync(path.join(PUBLIC, 'js', 'views', 'calendar.js')),
+      'calendar.js should exist as a standalone view');
   });
 
-  it('calendar nav item removed from sidebar', () => {
-    assert.ok(!html.includes('data-view="calendar"'),
-      'calendar nav should not be in sidebar');
-  });
-
-  it('app.js does not register calendar view', () => {
-    assert.ok(!appJs.includes("calendar:") || !appJs.includes("calendar.js"),
-      'calendar view should not be in app.js view registry');
+  it('calendar accessible via bottom sheet', () => {
+    assert.ok(appJs.includes('calendar'),
+      'calendar should be in app.js views registry');
   });
 
   it('dashboard has upcoming widget', () => {
@@ -252,7 +237,7 @@ describe('Task 1.8 — Nav Cleanup & SW Cache', () => {
   const html = read('index.html');
   const sw = fs.readFileSync(path.join(PUBLIC, 'sw.js'), 'utf8');
 
-  it('sidebar has exactly 13 nav items (down from 21)', () => {
+  it('sidebar has exactly 19 nav items (13 core + 6 tools)', () => {
     // Extract only sidebar nav items (before mobile bottom-nav section)
     const sidebarHtml = html.split('bottom-nav')[0];
     const navItems = (sidebarHtml.match(/data-view="[^"]+"/g) || [])
@@ -260,9 +245,10 @@ describe('Task 1.8 — Nav Cleanup & SW Cache', () => {
       .filter(v => v !== 'more' && v !== 'settings');
     // Expected: dashboard, transactions, accounts, categories,
     //   budgets, subscriptions, goals, recurring,
-    //   groups, splits, health, reports, insights
-    assert.equal(navItems.length, 13,
-      `Expected 13 nav items, got ${navItems.length}: ${navItems.join(', ')}`);
+    //   groups, splits, health, reports, insights,
+    //   calculators, calendar, challenges, tags, rules, export
+    assert.equal(navItems.length, 19,
+      `Expected 19 nav items, got ${navItems.length}: ${navItems.join(', ')}`);
   });
 
   it('empty System nav group is removed', () => {
@@ -271,22 +257,30 @@ describe('Task 1.8 — Nav Cleanup & SW Cache', () => {
   });
 
   it('SW cache name is updated to v7.3.0', () => {
-    assert.ok(sw.includes('financeflow-v7.3.0'),
-      'SW CACHE_NAME should be financeflow-v7.3.0');
+    assert.ok(sw.includes('financeflow-v7.3.'),
+      'SW CACHE_NAME should be financeflow-v7.3.x');
   });
 
-  it('SW does not reference removed view files', () => {
-    assert.ok(!sw.includes('calculators.js'), 'SW should not reference calculators.js');
-    assert.ok(!sw.includes('challenges.js'), 'SW should not reference challenges.js');
-    assert.ok(!sw.includes('calendar.js'), 'SW should not reference calendar.js');
+  it('SW caches standalone view files', () => {
+    assert.ok(sw.includes('calculators.js'), 'SW should cache calculators.js');
+    assert.ok(sw.includes('challenges.js'), 'SW should cache challenges.js');
+    assert.ok(sw.includes('calendar.js'), 'SW should cache calendar.js');
     assert.ok(!sw.includes('whats-new.js'), 'SW should not reference whats-new.js');
   });
 
   it('removed nav items are not in sidebar', () => {
-    const removed = ['calculators', 'challenges', 'calendar', 'whats-new', 'rules', 'export'];
+    const removed = ['whats-new'];
     for (const view of removed) {
       assert.ok(!html.includes(`data-view="${view}"`),
         `${view} should not be in sidebar`);
+    }
+  });
+
+  it('Tools group items are in sidebar', () => {
+    const tools = ['calculators', 'challenges', 'calendar', 'rules', 'export', 'tags'];
+    for (const view of tools) {
+      assert.ok(html.includes(`data-view="${view}"`),
+        `${view} should be in Tools nav group`);
     }
   });
 });

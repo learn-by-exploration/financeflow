@@ -114,6 +114,9 @@ const views = {
   recurring:     () => import('./views/recurring.js').then(m => m.renderRecurring),
   export:        () => import('./views/export.js').then(m => m.renderExport),
   tags:          () => import('./views/tags.js').then(m => m.renderTags),
+  calendar:      () => import('./views/calendar.js').then(m => m.renderCalendar),
+  calculators:   () => import('./views/calculators.js').then(m => m.renderCalculators),
+  challenges:    () => import('./views/challenges.js').then(m => m.renderChallenges),
 };
 
 function placeholder(title, desc) {
@@ -223,10 +226,13 @@ function toggleBottomSheet() {
     { view: 'groups', icon: 'group', label: 'Groups' },
     { view: 'splits', icon: 'call_split', label: 'Splits' },
     { view: 'categories', icon: 'category', label: 'Categories' },
-    { view: 'tags', icon: 'label', label: 'Tags' },
+    { view: 'health', icon: 'favorite', label: 'Health' },
     { view: 'reports', icon: 'analytics', label: 'Reports' },
     { view: 'insights', icon: 'lightbulb', label: 'Insights' },
+    { view: 'calculators', icon: 'calculate', label: 'Calculators' },
     { view: 'calendar', icon: 'calendar_month', label: 'Calendar' },
+    { view: 'challenges', icon: 'emoji_events', label: 'Challenges' },
+    { view: 'tags', icon: 'sell', label: 'Tags' },
     { view: 'rules', icon: 'auto_fix_high', label: 'Rules' },
     { view: 'export', icon: 'file_download', label: 'Export' },
     { view: 'settings', icon: 'settings', label: 'Settings' },

@@ -47,8 +47,8 @@ describe('v3 Frontend & QA (Iter 8)', () => {
       assert.ok(content.includes('lumpsum-calculator'), 'Should include Lumpsum');
     });
 
-    it('calculators.js standalone view file no longer exists', () => {
-      assert.ok(!fs.existsSync(path.join(__dirname, '..', 'public', 'js', 'views', 'calculators.js')));
+    it('calculators.js standalone view file exists for direct access', () => {
+      assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'js', 'views', 'calculators.js')));
     });
   });
 
@@ -64,31 +64,31 @@ describe('v3 Frontend & QA (Iter 8)', () => {
       assert.ok(content.includes('challenge-card'), 'Should have challenge cards in goals view');
     });
 
-    it('challenges.js standalone view file no longer exists', () => {
-      assert.ok(!fs.existsSync(path.join(__dirname, '..', 'public', 'js', 'views', 'challenges.js')));
+    it('challenges.js standalone view file exists for direct access', () => {
+      assert.ok(fs.existsSync(path.join(__dirname, '..', 'public', 'js', 'views', 'challenges.js')));
     });
   });
 
   // ─── Navigation integration ───
   describe('Navigation integration', () => {
-    it('calculators nav item removed (merged into health)', () => {
+    it('calculators nav item in Tools group', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-      assert.ok(!content.includes('data-view="calculators"'), 'Calculators nav should be removed');
+      assert.ok(content.includes('data-view="calculators"'), 'Calculators nav should be in Tools group');
     });
 
-    it('challenges nav item removed (merged into goals)', () => {
+    it('challenges nav item in Tools group', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'index.html'), 'utf8');
-      assert.ok(!content.includes('data-view="challenges"'), 'Challenges nav should be removed');
+      assert.ok(content.includes('data-view="challenges"'), 'Challenges nav should be in Tools group');
     });
 
-    it('app.js does not have calculators route (merged)', () => {
+    it('app.js has calculators route (standalone view)', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'app.js'), 'utf8');
-      assert.ok(!content.includes("calculators:"), 'calculators route should be removed');
+      assert.ok(content.includes('calculators'), 'calculators route should exist');
     });
 
-    it('app.js does not have challenges route (merged)', () => {
+    it('app.js has challenges route (standalone view)', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'app.js'), 'utf8');
-      assert.ok(!content.includes("challenges:"), 'challenges route should be removed');
+      assert.ok(content.includes('challenges'), 'challenges route should exist');
     });
 
     it('service worker caches reports.js (includes calculators)', () => {
