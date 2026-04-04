@@ -62,6 +62,20 @@ const config = Object.freeze({
   cache: {
     maxSize: parseInt(process.env.CACHE_MAX_SIZE, 10) || 200,
   },
+  thresholds: {
+    budgetWarningPct: parseFloat(process.env.BUDGET_WARNING_PCT) || 0.8,
+    budgetExceededPct: parseFloat(process.env.BUDGET_EXCEEDED_PCT) || 1.0,
+    unusualSpendingMultiplier: parseFloat(process.env.UNUSUAL_SPENDING_MULTIPLIER) || 3,
+    balanceAlertDedupHours: parseInt(process.env.BALANCE_ALERT_DEDUP_HOURS, 10) || 24,
+  },
+  ai: {
+    provider: process.env.AI_PROVIDER || 'template',
+    endpoint: process.env.AI_ENDPOINT || 'http://localhost:11434',
+    model: process.env.AI_MODEL || '',
+    apiKey: process.env.AI_API_KEY || '',
+    maxTokens: parseInt(process.env.AI_MAX_TOKENS, 10) || 2000,
+    timeoutMs: parseInt(process.env.AI_TIMEOUT_MS, 10) || 30000,
+  },
 });
 
 module.exports = config;

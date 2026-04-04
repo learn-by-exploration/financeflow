@@ -128,7 +128,8 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       const transaction = txRepo.create(req.user.id, {
         account_id, category_id: resolvedCategoryId, type, amount: finalAmount,
         currency: accountCurrency, description, note, date, payee, tag_ids, reference_id,
-        original_amount: originalAmount, original_currency: originalCurrency, exchange_rate_used: exchangeRateUsed
+        original_amount: originalAmount, original_currency: originalCurrency, exchange_rate_used: exchangeRateUsed,
+        payment_mode: parsed.data.payment_mode,
       });
 
       // Update account balance (in account currency)

@@ -103,5 +103,61 @@ module.exports = function createChartRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/charts/spending-heatmap?from=DATE&to=DATE
+  router.get('/spending-heatmap', (req, res, next) => {
+    try {
+      const range = validateDateRange(req, res);
+      if (!range) return;
+      const data = chartRepo.getSpendingHeatmap(req.user.id, range.from, range.to);
+      res.json(data);
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/charts/methodology-breakdown?from=DATE&to=DATE
+  router.get('/methodology-breakdown', (req, res, next) => {
+    try {
+      const range = validateDateRange(req, res);
+      if (!range) return;
+      const data = chartRepo.getMethodologyBreakdown(req.user.id, range.from, range.to);
+      res.json(data);
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/charts/savings-velocity?from=DATE&to=DATE
+  router.get('/savings-velocity', (req, res, next) => {
+    try {
+      const range = validateDateRange(req, res);
+      if (!range) return;
+      const data = chartRepo.getSavingsVelocity(req.user.id, range.from, range.to);
+      res.json(data);
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/charts/day-of-week?from=DATE&to=DATE
+  router.get('/day-of-week', (req, res, next) => {
+    try {
+      const range = validateDateRange(req, res);
+      if (!range) return;
+      const data = chartRepo.getDayOfWeek(req.user.id, range.from, range.to);
+      res.json(data);
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/charts/recurring-waterfall
+  router.get('/recurring-waterfall', (req, res, next) => {
+    try {
+      const data = chartRepo.getRecurringWaterfall(req.user.id);
+      res.json(data);
+    } catch (err) { next(err); }
+  });
+
+  // GET /api/charts/asset-allocation
+  router.get('/asset-allocation', (req, res, next) => {
+    try {
+      const data = chartRepo.getAssetAllocation(req.user.id);
+      res.json(data);
+    } catch (err) { next(err); }
+  });
+
   return router;
 };

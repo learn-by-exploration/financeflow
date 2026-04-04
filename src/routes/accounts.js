@@ -29,10 +29,9 @@ module.exports = function createAccountRoutes({ db, audit }) {
       if (!parsed.success) {
         throw new ValidationError(parsed.error.issues[0].message, parsed.error.issues);
       }
-      const { name, type, currency, balance, icon, color, institution, account_number_last4 } = parsed.data;
-      const account = accountRepo.create(req.user.id, {
-        name, type, currency: currency || req.user.defaultCurrency, balance, icon, color, institution, account_number_last4
-      });
+      const data = parsed.data;
+      if (!data.currency) data.currency = req.user.defaultCurrency;
+      const account = accountRepo.create(req.user.id, data);
       audit.log(req.user.id, 'account.create', 'account', account.id);
       invalidateCache(req.user.id, CACHE_PATTERNS);
       res.status(201).json({ account });

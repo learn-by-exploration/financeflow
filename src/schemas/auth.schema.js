@@ -30,4 +30,12 @@ const accountDeleteSchema = z.object({
   password: z.string().min(1),
 });
 
-module.exports = { registerSchema, loginSchema, passwordChangeSchema, accountDeleteSchema };
+const totpVerifySchema = z.object({
+  code: z.string().min(1, 'TOTP code is required').max(10),
+});
+
+const totpDisableSchema = z.object({
+  password: z.string().min(1, 'Password is required'),
+});
+
+module.exports = { registerSchema, loginSchema, passwordChangeSchema, accountDeleteSchema, totpVerifySchema, totpDisableSchema, passwordSchema };

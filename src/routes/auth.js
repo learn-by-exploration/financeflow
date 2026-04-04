@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const OTPAuth = require('otpauth');
 const router = express.Router();
-const { registerSchema, loginSchema, passwordChangeSchema } = require('../schemas/auth.schema');
+const { registerSchema, loginSchema, passwordChangeSchema, accountDeleteSchema, totpVerifySchema, totpDisableSchema } = require('../schemas/auth.schema');
 
 module.exports = function createAuthRoutes({ db, audit }) {
   const config = require('../config');
@@ -216,8 +216,9 @@ module.exports = function createAuthRoutes({ db, audit }) {
         return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Run TOTP setup first' } });
       }
       const { code } = req.body || {};
-      if (!code) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'TOTP code is required' } });
+      const parsed = totpVerifySchema.safeParse({ code });
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
       const totp = new OTPAuth.TOTP({
         issuer: 'PersonalFi',
@@ -243,10 +244,11 @@ module.exports = function createAuthRoutes({ db, audit }) {
       if (!session) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
       }
-      const { password } = req.body || {};
-      if (!password) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password is required' } });
+      const parsed = totpDisableSchema.safeParse(req.body || {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
+      const { password } = parsed.data;
       if (!bcrypt.compareSync(password, session.password_hash)) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Password is incorrect' } });
       }
@@ -303,10 +305,11 @@ module.exports = function createAuthRoutes({ db, audit }) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } });
       }
 
-      const { password } = req.body || {};
-      if (!password) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Password required for account deletion' } });
+      const parsed = accountDeleteSchema.safeParse(req.body || {});
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
+      const { password } = parsed.data;
 
       if (!bcrypt.compareSync(password, session.password_hash)) {
         return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Password is incorrect' } });
@@ -319,7 +322,7 @@ module.exports = function createAuthRoutes({ db, audit }) {
       const deleteTx = db.transaction(() => {
         // Tables without direct user FK cascade
         db.prepare('DELETE FROM audit_log WHERE user_id = ?').run(userId);
-        try { db.prepare('DELETE FROM category_rules WHERE user_id = ?').run(userId); } catch (_e) { /* table may not exist in older schemas */ }
+        db.prepare('DELETE FROM category_rules WHERE user_id = ?').run(userId);
         // Delete user — cascades to accounts, transactions, categories, sessions,
         // settings, budgets, goals, subscriptions, recurring_rules, tags,
         // groups (via created_by), group_members (via user_id),

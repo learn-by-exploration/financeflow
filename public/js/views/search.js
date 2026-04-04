@@ -5,7 +5,10 @@ export async function renderSearch(container, query) {
   container.innerHTML = '';
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Search Results' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon search', textContent: 'search' }),
+      el('span', { textContent: 'Search Results' }),
+    ]),
   ]);
   container.appendChild(header);
 

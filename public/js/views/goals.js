@@ -21,7 +21,10 @@ export async function renderGoals(container) {
   }
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Savings Goals' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon goal', textContent: 'flag' }),
+      el('span', { textContent: 'Savings Goals' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ New Goal', onClick: () => showGoalForm(null) }),
   ]);
   container.appendChild(header);
@@ -291,7 +294,7 @@ function challengeCard(ch, container, typeLabel) {
     ]),
     el('div', { className: 'challenge-progress' }, [
       el('span', { textContent: `${progress}% complete` }),
-      ch.target_amount > 0 ? el('span', { textContent: fmt.currency(ch.target_amount) + ' target' }) : null,
+      ch.target_amount > 0 ? el('span', { textContent: fmt(ch.target_amount) + ' target' }) : null,
     ].filter(Boolean)),
     isActive ? el('button', {
       className: 'btn btn-sm btn-danger',

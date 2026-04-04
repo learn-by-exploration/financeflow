@@ -10,7 +10,10 @@ export async function renderCategories(container) {
   const { categories } = await Api.get('/categories');
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Categories' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon category', textContent: 'category' }),
+      el('span', { textContent: 'Categories' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ Add Category', onClick: () => showCategoryForm(null) }),
   ]);
   container.appendChild(header);

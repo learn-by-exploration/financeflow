@@ -23,7 +23,10 @@ export async function renderBudgets(container) {
   }
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Budgets' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon budget', textContent: 'pie_chart' }),
+      el('span', { textContent: 'Budgets' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ New Budget', onClick: () => showBudgetForm() }),
   ]);
   container.appendChild(header);

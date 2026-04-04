@@ -10,7 +10,10 @@ export async function renderRules(container) {
   categories = catData.categories;
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Auto-Categorization Rules' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon rule', textContent: 'auto_fix_high' }),
+      el('span', { textContent: 'Auto-Categorization Rules' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ Add Rule', onClick: () => showRuleForm(null) }),
   ]);
   container.appendChild(header);

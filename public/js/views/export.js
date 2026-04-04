@@ -3,7 +3,10 @@ import { Api, el, fmt, toast } from '../utils.js';
 
 export async function renderExport(container) {
   container.innerHTML = '';
-  const header = el('div', { className: 'view-header' }, [el('h2', { textContent: 'Export Data' })]);
+  const header = el('div', { className: 'view-header' }, [el('h2', {}, [
+    el('span', { className: 'material-icons-round entity-icon export', textContent: 'file_download' }),
+    el('span', { textContent: 'Export Data' }),
+  ])]);
   container.appendChild(header);
 
   const card = el('div', { className: 'card' }, [
@@ -11,29 +14,31 @@ export async function renderExport(container) {
     el('p', { textContent: 'Download your transaction data as CSV or JSON.' }),
   ]);
 
-  const form = el('form', { className: 'form-grid' });
-  form.innerHTML = `
-    <div class="form-group">
-      <label for="export-format">Format</label>
-      <select id="export-format" class="form-input">
-        <option value="csv">CSV</option>
-        <option value="json">JSON</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="export-start">Start Date (optional)</label>
-      <input type="date" id="export-start" class="form-input" />
-    </div>
-    <div class="form-group">
-      <label for="export-end">End Date (optional)</label>
-      <input type="date" id="export-end" class="form-input" />
-    </div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">
-        <span class="material-icons-round">download</span> Download
-      </button>
-    </div>
-  `;
+  const form = el('form', { className: 'form-grid' }, [
+    el('div', { className: 'form-group' }, [
+      el('label', { for: 'export-format', textContent: 'Format' }),
+      (() => {
+        const select = el('select', { id: 'export-format', className: 'form-input' });
+        select.appendChild(el('option', { value: 'csv', textContent: 'CSV' }));
+        select.appendChild(el('option', { value: 'json', textContent: 'JSON' }));
+        return select;
+      })(),
+    ]),
+    el('div', { className: 'form-group' }, [
+      el('label', { for: 'export-start', textContent: 'Start Date (optional)' }),
+      el('input', { type: 'date', id: 'export-start', className: 'form-input' }),
+    ]),
+    el('div', { className: 'form-group' }, [
+      el('label', { for: 'export-end', textContent: 'End Date (optional)' }),
+      el('input', { type: 'date', id: 'export-end', className: 'form-input' }),
+    ]),
+    el('div', { className: 'form-actions' }, [
+      el('button', { type: 'submit', className: 'btn btn-primary' }, [
+        el('span', { className: 'material-icons-round', textContent: 'download' }),
+        document.createTextNode(' Download'),
+      ]),
+    ]),
+  ]);
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

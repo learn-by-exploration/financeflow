@@ -26,7 +26,10 @@ export async function renderRecurring(container) {
 
   // Header
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Recurring Transactions' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon recurring', textContent: 'repeat' }),
+      el('span', { textContent: 'Recurring Transactions' }),
+    ]),
   ]);
   container.appendChild(header);
 
@@ -178,7 +181,7 @@ function ruleCard(rule, container) {
       el('button', { className: 'btn-icon danger', title: 'Delete', onClick: async () => {
         if (await confirm('Delete this recurring rule?')) {
           try {
-            await Api.delete(`/recurring/${rule.id}`);
+            await Api.del(`/recurring/${rule.id}`);
             toast('Rule deleted', 'success');
             renderRecurring(container);
           } catch (err) { toast(err.message, 'error'); }

@@ -41,9 +41,9 @@ describe('Data Integrity', () => {
       }
     });
 
-    it('all 32 migrations are recorded in _migrations', () => {
+    it('all 40 migrations are recorded in _migrations', () => {
       const count = db.prepare('SELECT COUNT(*) as cnt FROM _migrations').get().cnt;
-      assert.equal(count, 32, 'should have exactly 32 migrations applied');
+      assert.equal(count, 41, 'should have exactly 41 migrations applied');
     });
 
     it('migration order is alphabetical (sorted by filename)', () => {
@@ -542,6 +542,118 @@ describe('Data Integrity', () => {
       const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf-8');
       assert.ok(serverSrc.includes('SIGTERM') || serverSrc.includes('SIGINT'), 'Server should handle termination signals');
       assert.ok(serverSrc.includes('shutdown') || serverSrc.includes('close'), 'Server should have shutdown logic');
+    });
+  });
+
+  // ─── Money Amount Validation Guards ───
+
+  describe('Money Amount Validation', () => {
+    it('rejects string amount on transaction template create', async () => {
+      const res = await agent().post('/api/transaction-templates')
+        .send({ name: 'Bad Template', amount: 'not-a-number' })
+        .expect(400);
+      assert.ok(res.body.error);
+    });
+
+    it('rejects negative amount on transaction template create', async () => {
+      const res = await agent().post('/api/transaction-templates')
+        .send({ name: 'Neg Template', amount: -500 })
+        .expect(400);
+      assert.ok(res.body.error);
+    });
+
+    it('rejects amount > 1e15 on transaction template create', async () => {
+      const res = await agent().post('/api/transaction-templates')
+        .send({ name: 'Huge Template', amount: 2e15 })
+        .expect(400);
+      assert.ok(res.body.error);
+    });
+
+    it('accepts valid amount on transaction template create', async () => {
+      const res = await agent().post('/api/transaction-templates')
+        .send({ name: 'Good Template', amount: 500.50 })
+        .expect(201);
+      assert.equal(res.body.template.amount, 500.50);
+    });
+
+    it('rejects amount > 1e15 on from-template', async () => {
+      const account = makeAccount();
+      const tmpl = db.prepare(
+        "INSERT INTO transaction_templates (user_id, name, amount, type, account_id) VALUES (1, 'Test', 100, 'expense', ?)"
+      ).run(account.id);
+      const res = await agent().post(`/api/transactions/from-template/${tmpl.lastInsertRowid}`)
+        .send({ amount: 2e15 })
+        .expect(400);
+      assert.ok(res.body.error);
+    });
+
+    it('rejects exchange rate > 1e10', async () => {
+      const res = await agent().post('/api/exchange-rates')
+        .send({ base_currency: 'USD', target_currency: 'INR', rate: 2e10, date: '2026-01-01' })
+        .expect(400);
+      assert.ok(res.body.error);
+    });
+
+    it('accepts valid exchange rate', async () => {
+      const res = await agent().post('/api/exchange-rates')
+        .send({ base_currency: 'USD', target_currency: 'INR', rate: 83.50, date: '2026-01-01' })
+        .expect(201);
+      assert.ok(res.body.rate || res.body.exchange_rate);
+    });
+
+    it('rejects negative amount on transaction create', async () => {
+      const account = makeAccount();
+      const res = await agent().post('/api/transactions')
+        .send({ account_id: account.id, type: 'expense', amount: -100, description: 'Negative', date: '2026-01-01', currency: 'INR' })
+        .expect(400);
+      assert.ok(res.body.error);
+    });
+
+    it('rejects zero amount on transaction create', async () => {
+      const account = makeAccount();
+      const res = await agent().post('/api/transactions')
+        .send({ account_id: account.id, type: 'expense', amount: 0, description: 'Zero', date: '2026-01-01', currency: 'INR' })
+        .expect(400);
+      assert.ok(res.body.error);
+    });
+
+    it('rejects amount > 1e15 on transaction create', async () => {
+      const account = makeAccount();
+      const res = await agent().post('/api/transactions')
+        .send({ account_id: account.id, type: 'expense', amount: 2e15, description: 'Huge', date: '2026-01-01', currency: 'INR' })
+        .expect(400);
+      assert.ok(res.body.error);
+    });
+
+    it('balance updates use ROUND(..., 2) in transaction repository', () => {
+      const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'repositories', 'transaction.repository.js'), 'utf-8');
+      assert.ok(src.includes('ROUND(balance'), 'Transaction repo must use SQL ROUND for balance updates');
+    });
+
+    it('balance updates use ROUND(..., 2) in account repository', () => {
+      const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'repositories', 'account.repository.js'), 'utf-8');
+      assert.ok(src.includes('ROUND(balance'), 'Account repo must use SQL ROUND for balance updates');
+    });
+
+    it('transfer service uses ROUND(..., 2) on both accounts', () => {
+      const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'transaction.service.js'), 'utf-8');
+      const roundMatches = src.match(/ROUND\(balance/g);
+      assert.ok(roundMatches && roundMatches.length >= 2, 'Transfer service must ROUND both source and destination balances');
+    });
+
+    it('currency utility uses Number.EPSILON for rounding', () => {
+      const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'utils', 'currency.js'), 'utf-8');
+      assert.ok(src.includes('Number.EPSILON'), 'Currency util must use Number.EPSILON to prevent floating-point drift');
+    });
+
+    it('split service remainder handling guarantees sum equals total', () => {
+      const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'split.service.js'), 'utf-8');
+      assert.ok(src.includes('distributeRemainder'), 'Split service must distribute remainder cents');
+    });
+
+    it('lending payment comparison rounds both sides', () => {
+      const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'routes', 'personal-lending.js'), 'utf-8');
+      assert.ok(src.includes('roundedPayment'), 'Lending payment comparison must round payment amount');
     });
   });
 });

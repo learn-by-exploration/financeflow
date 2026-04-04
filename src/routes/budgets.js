@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { createBudgetSchema, updateBudgetSchema } = require('../schemas/budget.schema');
+const { createBudgetSchema, updateBudgetSchema, budgetTemplateSchema } = require('../schemas/budget.schema');
 const createBudgetRepository = require('../repositories/budget.repository');
 const { invalidateCache } = require('../middleware/cache');
 
@@ -115,13 +115,11 @@ module.exports = function createBudgetRoutes({ db, audit }) {
 
   router.post('/from-template', (req, res, next) => {
     try {
-      const { template, income } = req.body;
-      if (!template || !Object.prototype.hasOwnProperty.call(TEMPLATES, template)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid template. Must be one of: 50/30/20, zero-based, conscious-spending' } });
+      const parsed = budgetTemplateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
-      if (!income || typeof income !== 'number' || income <= 0) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Income must be a positive number' } });
-      }
+      const { template, income } = parsed.data;
 
       // Get user's expense categories
       const categories = db.prepare(

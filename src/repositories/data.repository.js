@@ -9,7 +9,7 @@ module.exports = function createDataRepository({ db }) {
   function getExportData(userId) {
     const accounts = db.prepare('SELECT * FROM accounts WHERE user_id = ?').all(userId);
     const categories = db.prepare('SELECT * FROM categories WHERE user_id = ?').all(userId);
-    const transactions = db.prepare('SELECT * FROM transactions WHERE user_id = ?').all(userId);
+    const transactions = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC LIMIT 500000').all(userId);
     const recurringRules = db.prepare('SELECT * FROM recurring_rules WHERE user_id = ?').all(userId);
     const goals = db.prepare('SELECT * FROM savings_goals WHERE user_id = ?').all(userId);
     const subscriptions = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').all(userId);

@@ -7,17 +7,22 @@
 // - Goal auto-allocation on income
 
 const { safePatternTest } = require('../utils/safe-regex');
+const config = require('../config');
 
 module.exports = function createTransactionOrchestrator({ db }) {
   const createNotificationService = require('./notification.service');
   const createSpendingLimitRepository = require('../repositories/spending-limit.repository');
   const createGoalRepository = require('../repositories/goal.repository');
   const createDuplicateRepository = require('../repositories/duplicate.repository');
+  const createTagRuleRepository = require('../repositories/tag-rule.repository');
+  const createAutomationLogRepository = require('../repositories/automation-log.repository');
   const notifRepo = require('../repositories/notification.repository')({ db });
   const notifService = createNotificationService({ db });
   const spendingLimitRepo = createSpendingLimitRepository({ db });
   const goalRepo = createGoalRepository({ db });
   const dupRepo = createDuplicateRepository({ db });
+  const tagRuleRepo = createTagRuleRepository({ db });
+  const automationLog = createAutomationLogRepository({ db });
 
   /**
    * Resolve category from auto-categorization rules if no category was provided.
@@ -92,24 +97,22 @@ module.exports = function createTransactionOrchestrator({ db }) {
    */
   function checkBudgetThresholds(userId, categoryId, txDate) {
     const dateStr = txDate || new Date().toISOString().slice(0, 10);
+    // Single query: join budgets with spending totals to avoid N+1
     const budgets = db.prepare(`
-      SELECT b.id, b.name, b.start_date, b.end_date, bi.amount as allocated, bi.category_id
+      SELECT b.id, b.name, b.start_date, b.end_date, bi.amount as allocated, bi.category_id,
+        COALESCE((SELECT SUM(t.amount) FROM transactions t
+          WHERE t.user_id = ? AND t.type = 'expense' AND t.category_id = bi.category_id
+          AND t.date >= b.start_date AND t.date <= b.end_date), 0) as spent
       FROM budgets b
       JOIN budget_items bi ON bi.budget_id = b.id
       WHERE b.user_id = ? AND bi.category_id = ? AND b.is_active = 1
       AND b.start_date <= ? AND b.end_date >= ?
-    `).all(userId, categoryId, dateStr, dateStr);
+    `).all(userId, userId, categoryId, dateStr, dateStr);
 
     for (const budget of budgets) {
-      const spent = db.prepare(`
-        SELECT COALESCE(SUM(amount), 0) as total FROM transactions
-        WHERE user_id = ? AND type = 'expense' AND category_id = ?
-        AND date >= ? AND date <= ?
-      `).get(userId, budget.category_id, budget.start_date, budget.end_date).total;
+      const pct = budget.allocated > 0 ? budget.spent / budget.allocated : 0;
 
-      const pct = budget.allocated > 0 ? spent / budget.allocated : 0;
-
-      if (pct >= 1) {
+      if (pct >= config.thresholds.budgetExceededPct) {
         const existing = db.prepare(
           "SELECT id FROM notifications WHERE user_id = ? AND type = 'budget_exceeded' AND message LIKE ? AND created_at >= ?"
         ).get(userId, `%budget "${budget.name}"%category%${budget.category_id}%`, budget.start_date);
@@ -117,11 +120,11 @@ module.exports = function createTransactionOrchestrator({ db }) {
           notifRepo.create(userId, {
             type: 'budget_exceeded',
             title: 'Budget Exceeded',
-            message: `You have reached 100% of your budget "${budget.name}" for category ${budget.category_id}. Spent ₹${Math.round(spent * 100) / 100} of ₹${budget.allocated}.`,
+            message: `You have reached 100% of your budget "${budget.name}" for category ${budget.category_id}. Spent ₹${Math.round(budget.spent * 100) / 100} of ₹${budget.allocated}.`,
             link: `/budgets/${budget.id}`,
           });
         }
-      } else if (pct >= 0.8) {
+      } else if (pct >= config.thresholds.budgetWarningPct) {
         const existing = db.prepare(
           "SELECT id FROM notifications WHERE user_id = ? AND type = 'budget_warning' AND message LIKE ? AND created_at >= ?"
         ).get(userId, `%budget "${budget.name}"%category%${budget.category_id}%`, budget.start_date);
@@ -129,7 +132,7 @@ module.exports = function createTransactionOrchestrator({ db }) {
           notifRepo.create(userId, {
             type: 'budget_warning',
             title: 'Budget Warning',
-            message: `You have reached 80% of your budget "${budget.name}" for category ${budget.category_id}. Spent ₹${Math.round(spent * 100) / 100} of ₹${budget.allocated}.`,
+            message: `You have reached 80% of your budget "${budget.name}" for category ${budget.category_id}. Spent ₹${Math.round(budget.spent * 100) / 100} of ₹${budget.allocated}.`,
             link: `/budgets/${budget.id}`,
           });
         }
@@ -207,11 +210,94 @@ module.exports = function createTransactionOrchestrator({ db }) {
   }
 
   /**
+   * Auto-apply tag rules to a transaction based on description/amount matching.
+   */
+  function applyTagRules(userId, transactionId, { description, amount }) {
+    const rules = tagRuleRepo.getEnabledRules(userId);
+    const appliedTags = [];
+
+    for (const rule of rules) {
+      let matched = false;
+      if (rule.match_type === 'description' && description) {
+        matched = safePatternTest(rule.pattern, description);
+      } else if (rule.match_type === 'amount_above' && rule.match_value != null) {
+        matched = amount > rule.match_value;
+      } else if (rule.match_type === 'amount_below' && rule.match_value != null) {
+        matched = amount < rule.match_value;
+      }
+
+      if (matched) {
+        appliedTags.push(rule.tag);
+      }
+    }
+
+    if (appliedTags.length > 0) {
+      // Merge with existing tags
+      const txn = db.prepare('SELECT tags FROM transactions WHERE id = ? AND user_id = ?').get(transactionId, userId);
+      let existingTags = [];
+      try { existingTags = JSON.parse(txn?.tags || '[]'); } catch { /* empty */ }
+      const merged = [...new Set([...existingTags, ...appliedTags])];
+      db.prepare('UPDATE transactions SET tags = ? WHERE id = ? AND user_id = ?')
+        .run(JSON.stringify(merged), transactionId, userId);
+
+      try {
+        automationLog.log(userId, 'auto_tag', `Auto-tagged transaction with: ${appliedTags.join(', ')}`, { transaction_id: transactionId, tags: appliedTags });
+      } catch { /* non-critical */ }
+    }
+
+    return appliedTags;
+  }
+
+  /**
+   * Check balance alerts after a transaction changes an account balance.
+   */
+  function checkBalanceAlerts(userId, accountId) {
+    try {
+      const alerts = db.prepare(
+        'SELECT ba.*, a.balance as current_balance, a.name as account_name FROM balance_alerts ba JOIN accounts a ON ba.account_id = a.id WHERE ba.user_id = ? AND ba.account_id = ? AND ba.is_enabled = 1'
+      ).all(userId, accountId);
+
+      for (const alert of alerts) {
+        const triggered = alert.direction === 'below'
+          ? alert.current_balance < alert.threshold_amount
+          : alert.current_balance > alert.threshold_amount;
+
+        if (!triggered) continue;
+
+        // Dedup: don't re-trigger within configured hours
+        if (alert.last_triggered_at) {
+          const lastTriggered = new Date(alert.last_triggered_at).getTime();
+          if (Date.now() - lastTriggered < config.thresholds.balanceAlertDedupHours * 3600000) continue;
+        }
+
+        const dirLabel = alert.direction === 'below' ? 'dropped below' : 'exceeded';
+        notifRepo.create(userId, {
+          type: 'balance_alert',
+          title: '💰 Balance Alert',
+          message: `${alert.account_name} balance (₹${Math.round(alert.current_balance * 100) / 100}) has ${dirLabel} your threshold of ₹${alert.threshold_amount}.`,
+          link: '/accounts',
+        });
+
+        db.prepare("UPDATE balance_alerts SET last_triggered_at = datetime('now') WHERE id = ?").run(alert.id);
+      }
+    } catch { /* non-critical */ }
+  }
+
+  /**
+   * Log automation activity for any automated action on a transaction.
+   */
+  function logAutomation(userId, type, description, metadata) {
+    try {
+      automationLog.log(userId, type, description, metadata);
+    } catch { /* non-critical */ }
+  }
+
+  /**
    * Run all post-creation side effects for a transaction.
    * Each effect is wrapped in try-catch so failures don't break the transaction.
    */
   function runPostCreationEffects(userId, transaction, { categoryId, type, amount, date, account_id, description }) {
-    const effects = { potential_duplicate: false, similar_transaction_id: null, auto_allocations: [], tip: null };
+    const effects = { potential_duplicate: false, similar_transaction_id: null, auto_allocations: [], tip: null, auto_tags: [] };
 
     // Contextual financial tip
     try { effects.tip = financialTip(userId, { categoryId, amount, description }); } catch (_e) { /* non-critical */ }
@@ -243,6 +329,21 @@ module.exports = function createTransactionOrchestrator({ db }) {
       } catch (_e) { /* non-critical */ }
     }
 
+    // Auto-tagging via tag rules
+    try {
+      effects.auto_tags = applyTagRules(userId, transaction.id, { description, amount });
+    } catch (_e) { /* non-critical */ }
+
+    // Balance alerts (check after balance update)
+    try { checkBalanceAlerts(userId, account_id); } catch (_e) { /* non-critical */ }
+
+    // Log the transaction creation in automation log
+    try {
+      if (categoryId) {
+        logAutomation(userId, 'auto_categorize', `Auto-categorized transaction as category ${categoryId}`, { transaction_id: transaction.id });
+      }
+    } catch (_e) { /* non-critical */ }
+
     return effects;
   }
 
@@ -254,6 +355,9 @@ module.exports = function createTransactionOrchestrator({ db }) {
     checkDuplicate,
     autoAllocateToGoals,
     financialTip,
+    applyTagRules,
+    checkBalanceAlerts,
+    logAutomation,
     runPostCreationEffects,
   };
 };

@@ -22,22 +22,23 @@ module.exports = function createTransactionRepository({ db }) {
   }
 
   function create(userId, data) {
-    const { account_id, category_id, type, amount, currency, description, note, date, payee, tag_ids, reference_id, original_amount, original_currency, exchange_rate_used } = data;
+    const { account_id, category_id, type, amount, currency, description, note, date, payee, tag_ids, reference_id, original_amount, original_currency, exchange_rate_used, payment_mode } = data;
     const result = db.prepare(`
-      INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, note, date, payee, tags, reference_id, original_amount, original_currency, exchange_rate_used)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(userId, account_id, category_id || null, type, amount, currency, description, note || null, date, payee || null, JSON.stringify(tag_ids || []), reference_id || null, original_amount || null, original_currency || null, exchange_rate_used || null);
+      INSERT INTO transactions (user_id, account_id, category_id, type, amount, currency, description, note, date, payee, tags, reference_id, original_amount, original_currency, exchange_rate_used, payment_mode)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, account_id, category_id || null, type, amount, currency, description, note || null, date, payee || null, JSON.stringify(tag_ids || []), reference_id || null, original_amount || null, original_currency || null, exchange_rate_used || null, payment_mode || null);
     return db.prepare('SELECT * FROM transactions WHERE id = ?').get(result.lastInsertRowid);
   }
 
   function update(id, userId, data) {
-    const { category_id, description, note, date, payee, tags, amount, reference_id } = data;
+    const { category_id, description, note, date, payee, tags, amount, reference_id, payment_mode } = data;
     db.prepare(`
       UPDATE transactions SET category_id = COALESCE(?, category_id), description = COALESCE(?, description),
       note = COALESCE(?, note), date = COALESCE(?, date), payee = COALESCE(?, payee),
-      tags = COALESCE(?, tags), amount = COALESCE(?, amount), reference_id = COALESCE(?, reference_id), updated_at = datetime('now')
+      tags = COALESCE(?, tags), amount = COALESCE(?, amount), reference_id = COALESCE(?, reference_id),
+      payment_mode = COALESCE(?, payment_mode), updated_at = datetime('now')
       WHERE id = ? AND user_id = ?
-    `).run(category_id, description, note, date, payee, tags ? JSON.stringify(tags) : null, amount, reference_id !== undefined ? reference_id : null, id, userId);
+    `).run(category_id, description, note, date, payee, tags ? JSON.stringify(tags) : null, amount, reference_id !== undefined ? reference_id : null, payment_mode !== undefined ? payment_mode : null, id, userId);
     return db.prepare('SELECT * FROM transactions WHERE id = ?').get(id);
   }
 

@@ -228,11 +228,36 @@ module.exports = function createInsightRepository({ db }) {
     `).all(userId, from, to, limit);
   }
 
+  function getCategoryTrends(userId, months = 6) {
+    const rows = db.prepare(`
+      SELECT c.id AS category_id, c.name, c.icon, c.color,
+        strftime('%Y-%m', t.date) AS month,
+        ROUND(COALESCE(SUM(t.amount), 0), 2) AS total
+      FROM transactions t
+      JOIN categories c ON t.category_id = c.id
+      WHERE t.user_id = ? AND t.type = 'expense'
+        AND t.date >= date('now', '-' || ? || ' months', 'start of month')
+      GROUP BY c.id, month
+      ORDER BY c.name, month
+    `).all(userId, months);
+
+    const catMap = {};
+    for (const r of rows) {
+      if (!catMap[r.category_id]) {
+        catMap[r.category_id] = { id: r.category_id, name: r.name, icon: r.icon, color: r.color, months: [] };
+      }
+      catMap[r.category_id].months.push({ month: r.month, total: r.total });
+    }
+
+    return { categories: Object.values(catMap) };
+  }
+
   return {
     getSpendingTrends,
     getAnomalies,
     getSpendingVelocity,
     getCategoryChanges,
     getTopPayees,
+    getCategoryTrends,
   };
 };

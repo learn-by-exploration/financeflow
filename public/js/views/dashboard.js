@@ -1,6 +1,6 @@
 // PersonalFi — Dashboard View
 import { Api, fmt, el, getUser } from '../utils.js';
-import { initDashboardCharts, destroyCharts } from '../charts.js';
+import { initDashboardCharts, destroyCharts, createPeriodPicker, renderNetWorthTrend, renderCashFlow } from '../charts.js';
 import { showLoadingSkeleton, showError, hideStates } from '../ui-states.js';
 
 export async function renderDashboard(container) {
@@ -22,7 +22,10 @@ export async function renderDashboard(container) {
 
   // Header
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Dashboard' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon dashboard', textContent: 'dashboard' }),
+      el('span', { textContent: 'Dashboard' }),
+    ]),
     el('span', { className: 'greeting', textContent: `Hello, ${user.display_name || user.username} 👋` }),
   ]);
   container.appendChild(header);
@@ -36,11 +39,32 @@ export async function renderDashboard(container) {
   ]);
   container.appendChild(stats);
 
-  // Charts grid
+  // Money-left / budget-remaining widget
+  const budgetRemaining = data.month_income - data.month_expense;
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+  const dayOfMonth = new Date().getDate();
+  const daysLeft = daysInMonth - dayOfMonth;
+  const perDayLeft = daysLeft > 0 ? Math.round(budgetRemaining / daysLeft) : 0;
+  if (data.month_income > 0) {
+    const moneyLeftCard = el('div', { className: 'card budget-remaining money-left' }, [
+      el('div', { className: 'money-left-amount' }, [
+        el('span', { className: 'material-icons-round', textContent: budgetRemaining >= 0 ? 'account_balance_wallet' : 'warning' }),
+        el('span', { className: `money-left-value ${budgetRemaining >= 0 ? 'green' : 'red'}`, textContent: fmt(Math.abs(budgetRemaining)) }),
+      ]),
+      el('p', { className: 'money-left-label', textContent: budgetRemaining >= 0 ? `remaining this month · ${fmt(perDayLeft)}/day for ${daysLeft} days` : 'over budget this month' }),
+    ]);
+    container.appendChild(moneyLeftCard);
+  }
+
+  // Charts grid — hero + main charts
   const chartsGrid = el('div', { className: 'charts-grid' }, [
-    chartCard('Spending by Category', 'chart-spending', 'Doughnut chart showing spending breakdown by category this month'),
-    chartCard('Income vs Expense', 'chart-income-expense', 'Bar chart comparing income and expenses over the last 6 months'),
-    chartCard('Spending Trend (30 days)', 'chart-trend', 'Line chart showing daily spending over the last 30 days'),
+    chartCardV2('Net Worth Trend', 'chart-net-worth', 'Line chart showing net worth with assets and liabilities over time', true),
+    chartCardV2('Spending by Category', 'chart-spending', 'Doughnut chart showing spending breakdown by category this month'),
+    chartCardV2('Cash Flow', 'chart-cashflow', 'Bar chart showing income, expense and net cash flow'),
+    chartCardV2('Income vs Expense', 'chart-income-expense', 'Bar chart comparing income and expenses over the last 6 months'),
+    chartCardV2('Spending Trend (30 days)', 'chart-trend', 'Line chart showing daily spending over the last 30 days'),
+    chartCardV2('Budget Burn-Down', 'chart-budget-burndown', 'Line chart showing budget spending pace vs ideal', false),
+    chartCardV2('Cash Flow Forecast', 'chart-forecast', 'Line chart showing projected balance for the next 30 days', false),
   ]);
   container.appendChild(chartsGrid);
 
@@ -55,7 +79,6 @@ export async function renderDashboard(container) {
   const widgetGrid = el('div', { className: 'dashboard-grid' });
   widgetGrid.appendChild(await buildUpcomingWidget());
   widgetGrid.appendChild(await buildGroupBalancesWidget());
-  widgetGrid.appendChild(await buildNetWorthSparkline());
   container.appendChild(widgetGrid);
 
   // Subscription banner
@@ -71,12 +94,17 @@ export async function renderDashboard(container) {
   initDashboardCharts(container);
 }
 
-function chartCard(title, canvasId, ariaLabel) {
+function chartCardV2(title, canvasId, ariaLabel, isHero) {
   const canvas = el('canvas', { id: canvasId, role: 'img', 'aria-label': ariaLabel || title });
-  return el('div', { className: 'card chart-card' }, [
+  const header = el('div', { className: 'chart-card-header' }, [
     el('h3', { textContent: title }),
+    el('div', { className: 'chart-summary', textContent: '' }),
+  ]);
+  const card = el('div', { className: `card chart-card${isHero ? ' chart-card-hero' : ''}` }, [
+    header,
     el('div', { className: 'chart-wrapper' }, [canvas]),
   ]);
+  return card;
 }
 
 function statCard(label, value, color, targetView) {
@@ -198,35 +226,6 @@ async function buildGroupBalancesWidget() {
     }
   } catch {
     card.appendChild(el('p', { className: 'text-muted', textContent: 'Unable to load group balances.' }));
-  }
-  return card;
-}
-
-async function buildNetWorthSparkline() {
-  const card = el('div', { className: 'card net-worth-sparkline-widget' }, [
-    el('h3', { textContent: 'Net Worth Trend' }),
-  ]);
-  try {
-    const data = await Api.get('/net-worth/history?limit=6');
-    const snapshots = data.snapshots || [];
-    if (snapshots.length === 0) {
-      card.appendChild(el('p', { className: 'text-muted', textContent: 'No net worth history yet.' }));
-    } else {
-      const maxVal = Math.max(...snapshots.map(s => Math.abs(s.net_worth)), 1);
-      const sparkline = el('div', { className: 'sparkline-container' });
-      for (const s of snapshots) {
-        const pct = Math.abs(s.net_worth) / maxVal * 100;
-        const bar = el('div', { className: `sparkline-bar ${s.net_worth >= 0 ? 'positive' : 'negative'}` });
-        bar.style.height = `${pct}%`;
-        bar.title = `${s.date}: ${fmt(s.net_worth)}`;
-        sparkline.appendChild(bar);
-      }
-      card.appendChild(sparkline);
-      const latest = snapshots[snapshots.length - 1];
-      card.appendChild(el('p', { className: 'text-muted', textContent: `Latest: ${fmt(latest.net_worth)} (${latest.date})` }));
-    }
-  } catch {
-    card.appendChild(el('p', { className: 'text-muted', textContent: 'Unable to load net worth history.' }));
   }
   return card;
 }

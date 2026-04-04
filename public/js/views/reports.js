@@ -3,7 +3,10 @@ import { Api, fmt, el } from '../utils.js';
 
 export async function renderHealth(container) {
   container.innerHTML = '';
-  const header = el('div', { className: 'view-header' }, [el('h2', { textContent: 'Financial Health' })]);
+  const header = el('div', { className: 'view-header' }, [el('h2', {}, [
+    el('span', { className: 'material-icons-round entity-icon health', textContent: 'favorite' }),
+    el('span', { textContent: 'Financial Health' }),
+  ])]);
   container.appendChild(header);
 
   const data = await Api.get('/stats/financial-health');
@@ -179,7 +182,7 @@ function renderPlanningTools(container) {
               el('h4', { textContent: calc.label }),
               ...calc.resultKeys.map(k => {
                 const label = k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                const val = typeof data[k] === 'number' && !k.includes('multiple') ? fmt.currency(data[k]) : String(data[k]);
+                const val = typeof data[k] === 'number' && !k.includes('multiple') ? fmt(data[k]) : String(data[k]);
                 return el('div', { className: 'result-row' }, [
                   el('span', { className: 'result-label', textContent: label }),
                   el('span', { className: 'result-value', textContent: val }),

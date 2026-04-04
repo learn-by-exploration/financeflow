@@ -131,6 +131,12 @@ const createOnboardingRoutes = require('./routes/onboarding');
 const createGroupInviteRoutes = require('./routes/group-invites');
 const createExpenseCommentRoutes = require('./routes/expense-comments');
 const createTransactionTemplateRoutes = require('./routes/transaction-templates');
+const createFinancialTodoRoutes = require('./routes/financial-todos');
+const createPersonalLendingRoutes = require('./routes/personal-lending');
+const createBalanceAlertRoutes = require('./routes/balance-alerts');
+const createTagRuleRoutes = require('./routes/tag-rules');
+const createAutomationRoutes = require('./routes/automation');
+const createPlanRoutes = require('./routes/plans');
 
 // ─── Version endpoint (public) ───
 app.get('/api/version', (_req, res) => {
@@ -184,6 +190,12 @@ app.use('/api/export', requireAuth, createExportRoutes(deps));
 app.use('/api/preferences', requireAuth, createPreferencesRoutes(deps));
 app.use('/api/calendar', requireAuth, createCalendarRoutes(deps));
 app.use('/api/spending-limits', requireAuth, createSpendingLimitRoutes(deps));
+app.use('/api/financial-todos', requireAuth, createFinancialTodoRoutes(deps));
+app.use('/api/lending', requireAuth, createPersonalLendingRoutes(deps));
+app.use('/api/balance-alerts', requireAuth, createBalanceAlertRoutes(deps));
+app.use('/api/tag-rules', requireAuth, createTagRuleRoutes(deps));
+app.use('/api/automation', requireAuth, createAutomationRoutes(deps));
+app.use('/api/plans', requireAuth, createPlanRoutes(deps));
 app.use('/api/users', requireAuth, createOnboardingRoutes(deps));
 app.use('/api/admin', requireAuth, requireAdmin, createAdminRoutes(deps));
 

@@ -6,7 +6,10 @@ export async function renderCalculators(container) {
   container.innerHTML = '';
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Financial Calculators' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon calculator', textContent: 'calculate' }),
+      el('span', { textContent: 'Financial Calculators' }),
+    ]),
   ]);
   container.appendChild(header);
 
@@ -67,9 +70,9 @@ function renderSIPForm(container, resultArea) {
           resultArea.innerHTML = '';
           resultArea.appendChild(el('div', { className: 'result-card card' }, [
             el('h4', { textContent: 'SIP Projection' }),
-            resultRow('Total Invested', fmt.currency(data.total_invested)),
-            resultRow('Future Value', fmt.currency(data.future_value)),
-            resultRow('Total Returns', fmt.currency(data.total_returns)),
+            resultRow('Total Invested', fmt(data.total_invested)),
+            resultRow('Future Value', fmt(data.future_value)),
+            resultRow('Total Returns', fmt(data.total_returns)),
             resultRow('Return Multiple', `${data.return_multiple}x`),
           ]));
         } catch (err) { toast(err.message, 'error'); }
@@ -96,9 +99,9 @@ function renderLumpsumForm(container, resultArea) {
           resultArea.innerHTML = '';
           resultArea.appendChild(el('div', { className: 'result-card card' }, [
             el('h4', { textContent: 'Lumpsum Projection' }),
-            resultRow('Principal', fmt.currency(data.principal)),
-            resultRow('Future Value', fmt.currency(data.future_value)),
-            resultRow('Total Returns', fmt.currency(data.total_returns)),
+            resultRow('Principal', fmt(data.principal)),
+            resultRow('Future Value', fmt(data.future_value)),
+            resultRow('Total Returns', fmt(data.total_returns)),
           ]));
         } catch (err) { toast(err.message, 'error'); }
       },
@@ -124,9 +127,9 @@ function renderEMIForm(container, resultArea) {
           resultArea.innerHTML = '';
           resultArea.appendChild(el('div', { className: 'result-card card' }, [
             el('h4', { textContent: 'EMI Breakdown' }),
-            resultRow('Monthly EMI', fmt.currency(data.monthly_emi)),
-            resultRow('Total Payment', fmt.currency(data.total_payment)),
-            resultRow('Total Interest', fmt.currency(data.total_interest)),
+            resultRow('Monthly EMI', fmt(data.monthly_emi)),
+            resultRow('Total Payment', fmt(data.total_payment)),
+            resultRow('Total Interest', fmt(data.total_interest)),
           ]));
         } catch (err) { toast(err.message, 'error'); }
       },
@@ -140,22 +143,22 @@ function renderFIREForm(container, resultArea) {
     el('h3', { textContent: 'FIRE Calculator' }),
     el('p', { className: 'text-muted', textContent: 'Financial Independence, Retire Early' }),
     createInput('annual_expense', 'Annual Expenses (₹)', '600000', 'number'),
-    createInput('safe_withdrawal_rate', 'Safe Withdrawal Rate (%)', '4', 'number'),
+    createInput('withdrawal_rate', 'Safe Withdrawal Rate (%)', '4', 'number'),
     createInput('inflation', 'Inflation Rate (%)', '6', 'number'),
     createInput('years', 'Years to Retirement', '20', 'number'),
     el('button', {
       className: 'btn btn-primary',
       textContent: 'Calculate',
       onClick: async () => {
-        const params = getFormValues(['annual_expense', 'safe_withdrawal_rate', 'inflation', 'years']);
+        const params = getFormValues(['annual_expense', 'withdrawal_rate', 'inflation', 'years']);
         try {
-          const data = await Api.get(`/stats/fire-calculator?annual_expense=${params.annual_expense}&safe_withdrawal_rate=${params.safe_withdrawal_rate}&inflation_rate=${params.inflation}&years=${params.years}`);
+          const data = await Api.get(`/stats/fire-calculator?annual_expense=${params.annual_expense}&withdrawal_rate=${params.withdrawal_rate}&inflation_rate=${params.inflation}&years=${params.years}`);
           resultArea.innerHTML = '';
           resultArea.appendChild(el('div', { className: 'result-card card' }, [
             el('h4', { textContent: 'FIRE Number' }),
-            resultRow('FIRE Number', fmt.currency(data.fire_number)),
-            resultRow('Future Annual Expense', fmt.currency(data.future_annual_expense)),
-            resultRow('Monthly SIP Needed', fmt.currency(data.monthly_sip_needed)),
+            resultRow('FIRE Number', fmt(data.fire_number)),
+            resultRow('Future Annual Expense', fmt(data.future_annual_expense)),
+            resultRow('Monthly SIP Needed', fmt(data.monthly_sip_needed)),
           ]));
         } catch (err) { toast(err.message, 'error'); }
       },
@@ -169,7 +172,7 @@ function renderFIREForm(container, resultArea) {
 function createInput(name, label, placeholder, type) {
   return el('div', { className: 'form-group' }, [
     el('label', { textContent: label, htmlFor: `calc-${name}` }),
-    el('input', { type, id: `calc-${name}`, name, placeholder, className: 'form-input', value: placeholder }),
+    el('input', { type, id: `calc-${name}`, name, placeholder, className: 'input', value: placeholder }),
   ]);
 }
 

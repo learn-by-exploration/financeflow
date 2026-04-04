@@ -16,8 +16,8 @@ module.exports = function createTransactionTemplateRoutes({ db, audit }) {
       if (type && !VALID_TYPES.includes(type)) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'type must be income, expense, or transfer' } });
       }
-      if (amount !== undefined && amount !== null && (typeof amount !== 'number' || amount <= 0)) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'amount must be a positive number' } });
+      if (amount !== undefined && amount !== null && (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount > 1e15)) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'amount must be a positive number (max 1e15)' } });
       }
       const result = db.prepare(
         'INSERT INTO transaction_templates (user_id, name, description, amount, type, category_id, account_id) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -73,8 +73,8 @@ module.exports = function createTransactionTemplateRoutes({ db, audit }) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'type must be income or expense' } });
       }
       const numAmount = Number(amount);
-      if (isNaN(numAmount) || numAmount <= 0) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'amount must be a positive number' } });
+      if (!Number.isFinite(numAmount) || numAmount <= 0 || numAmount > 1e15) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'amount must be a positive number (max 1e15)' } });
       }
 
       const category_id = req.body.category_id !== null && req.body.category_id !== undefined ? req.body.category_id : template.category_id;

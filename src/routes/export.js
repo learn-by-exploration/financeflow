@@ -56,10 +56,21 @@ module.exports = function createExportRoutes({ db }) {
 
       const rows = db.prepare(sql).all(...params);
 
-      // Attach tags
-      for (const row of rows) {
-        const tags = db.prepare('SELECT tg.name FROM transaction_tags tt JOIN tags tg ON tt.tag_id = tg.id WHERE tt.transaction_id = ?').all(row.id);
-        row.tags = tags.map(t => t.name).join('; ');
+      // Batch load tags for all exported transactions (avoid N+1)
+      if (rows.length > 0) {
+        const rowIds = rows.map(r => r.id);
+        const placeholders = rowIds.map(() => '?').join(',');
+        const allTags = db.prepare(
+          `SELECT tt.transaction_id, tg.name FROM transaction_tags tt JOIN tags tg ON tt.tag_id = tg.id WHERE tt.transaction_id IN (${placeholders})`
+        ).all(...rowIds);
+        const tagsByTxn = {};
+        for (const t of allTags) {
+          if (!tagsByTxn[t.transaction_id]) tagsByTxn[t.transaction_id] = [];
+          tagsByTxn[t.transaction_id].push(t.name);
+        }
+        for (const row of rows) {
+          row.tags = (tagsByTxn[row.id] || []).join('; ');
+        }
       }
 
       if (format === 'json') {
@@ -97,12 +108,24 @@ module.exports = function createExportRoutes({ db }) {
       const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ? ORDER BY id ASC').all(userId);
 
       const rows = [];
-      for (const b of budgets) {
-        const items = db.prepare(
+      // Batch load all budget items (avoid N+1)
+      let itemsByBudget = {};
+      if (budgets.length > 0) {
+        const budgetIds = budgets.map(b => b.id);
+        const placeholders = budgetIds.map(() => '?').join(',');
+        const allItems = db.prepare(
           `SELECT bi.*, c.name AS category_name FROM budget_items bi
            LEFT JOIN categories c ON bi.category_id = c.id
-           WHERE bi.budget_id = ?`
-        ).all(b.id);
+           WHERE bi.budget_id IN (${placeholders})`
+        ).all(...budgetIds);
+        for (const item of allItems) {
+          if (!itemsByBudget[item.budget_id]) itemsByBudget[item.budget_id] = [];
+          itemsByBudget[item.budget_id].push(item);
+        }
+      }
+
+      for (const b of budgets) {
+        const items = itemsByBudget[b.id] || [];
 
         if (items.length === 0) {
           rows.push({
@@ -149,20 +172,31 @@ module.exports = function createExportRoutes({ db }) {
 
       const accounts = db.prepare('SELECT * FROM accounts WHERE user_id = ?').all(userId);
       const categories = db.prepare('SELECT * FROM categories WHERE user_id = ?').all(userId);
-      const transactions = db.prepare('SELECT * FROM transactions WHERE user_id = ?').all(userId);
+      const transactions = db.prepare('SELECT * FROM transactions WHERE user_id = ? ORDER BY date DESC LIMIT 500000').all(userId);
       const recurringRules = db.prepare('SELECT * FROM recurring_rules WHERE user_id = ?').all(userId);
       const goals = db.prepare('SELECT * FROM savings_goals WHERE user_id = ?').all(userId);
       const subscriptions = db.prepare('SELECT * FROM subscriptions WHERE user_id = ?').all(userId);
       const settings = db.prepare('SELECT * FROM settings WHERE user_id = ?').all(userId);
       const tags = db.prepare('SELECT * FROM tags WHERE user_id = ?').all(userId);
 
-      const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ?').all(userId).map(b => {
-        b.items = db.prepare('SELECT * FROM budget_items WHERE budget_id = ?').all(b.id);
-        return b;
-      });
+      const budgets = db.prepare('SELECT * FROM budgets WHERE user_id = ?').all(userId);
+      // Batch load budget items (avoid N+1)
+      if (budgets.length > 0) {
+        const budgetIds = budgets.map(b => b.id);
+        const placeholders = budgetIds.map(() => '?').join(',');
+        const allItems = db.prepare(`SELECT * FROM budget_items WHERE budget_id IN (${placeholders})`).all(...budgetIds);
+        const itemsByBudget = {};
+        for (const item of allItems) {
+          if (!itemsByBudget[item.budget_id]) itemsByBudget[item.budget_id] = [];
+          itemsByBudget[item.budget_id].push(item);
+        }
+        for (const b of budgets) {
+          b.items = itemsByBudget[b.id] || [];
+        }
+      }
 
       let rules = [];
-      try { rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ?').all(userId); } catch (_e) { /* category_rules may not exist in older schemas */ }
+      rules = db.prepare('SELECT * FROM category_rules WHERE user_id = ?').all(userId);
 
       res.json({
         exported_at: new Date().toISOString(),

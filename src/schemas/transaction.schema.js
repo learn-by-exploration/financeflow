@@ -1,6 +1,7 @@
 const { z } = require('zod');
 
 const VALID_TYPES = ['income', 'expense', 'transfer'];
+const VALID_PAYMENT_MODES = ['cash', 'debit_card', 'credit_card', 'upi', 'bank_transfer', 'wallet', 'cheque', 'other'];
 
 const createTransactionSchema = z.object({
   account_id: z.number().int().positive(),
@@ -16,6 +17,7 @@ const createTransactionSchema = z.object({
   tag_ids: z.array(z.number().int().positive()).optional(),
   reference_id: z.string().max(50).optional().nullable(),
   exchange_rate: z.number().positive('Exchange rate must be positive').max(1e10).optional(),
+  payment_mode: z.enum(VALID_PAYMENT_MODES).optional().nullable(),
 }).refine(
   (data) => !(data.type === 'transfer' && data.category_id),
   { message: 'Transfers should not have a category', path: ['category_id'] }
@@ -32,6 +34,7 @@ const updateTransactionSchema = z.object({
   date: z.string().optional(),
   payee: z.string().max(200).optional().nullable(),
   reference_id: z.string().max(50).optional().nullable(),
+  payment_mode: z.enum(VALID_PAYMENT_MODES).optional().nullable(),
 });
 
 const bulkIdsArray = z.array(z.number().int().positive()).min(1).max(100);
@@ -56,6 +59,6 @@ const bulkUntagSchema = z.object({
 });
 
 module.exports = {
-  createTransactionSchema, updateTransactionSchema, VALID_TYPES,
+  createTransactionSchema, updateTransactionSchema, VALID_TYPES, VALID_PAYMENT_MODES,
   bulkDeleteSchema, bulkCategorizeSchema, bulkTagSchema, bulkUntagSchema,
 };

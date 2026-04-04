@@ -10,7 +10,10 @@ export async function renderTags(container) {
   const { tags } = await Api.get('/tags');
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Tags' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon tag', textContent: 'sell' }),
+      el('span', { textContent: 'Tags' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ Add Tag', onClick: () => showTagForm(null) }),
   ]);
   container.appendChild(header);
@@ -117,14 +120,18 @@ function showTagForm(existingTag) {
     el('button', { type: 'submit', className: 'btn btn-primary', textContent: isEdit ? 'Save' : 'Create' }),
   ]);
 
-  openModal(title, form);
+  const wrapper = el('div', {}, [
+    el('h3', { className: 'modal-title', textContent: title }),
+    form,
+  ]);
+  openModal(wrapper);
 }
 
 async function deleteTag(tag) {
   const confirmed = await confirm(`Delete tag "${tag.name}"?`, 'This will remove the tag from all transactions.');
   if (!confirmed) return;
   try {
-    await Api.delete(`/tags/${tag.id}`);
+    await Api.del(`/tags/${tag.id}`);
     toast('Tag deleted');
     if (onRefresh) onRefresh();
   } catch (err) {

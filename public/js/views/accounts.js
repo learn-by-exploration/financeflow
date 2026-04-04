@@ -35,7 +35,10 @@ export async function renderAccounts(container) {
 
   // Header with add button
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Accounts' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon account', textContent: 'account_balance' }),
+      el('span', { textContent: 'Accounts' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ Add Account', onClick: () => showAccountForm(null) }),
   ]);
   container.appendChild(header);

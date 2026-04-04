@@ -3,7 +3,21 @@ const router = express.Router();
 
 module.exports = function createSettingsRoutes({ db, audit }) {
 
-  const ALLOWED_KEYS = ['default_currency', 'date_format', 'dashboard_layout', 'monthly_income', 'budget_methodology', 'fiscal_year_start', 'inactivity_nudge_days'];
+  const ALLOWED_KEYS = [
+    // Core
+    'default_currency', 'date_format', 'dashboard_layout', 'monthly_income', 'budget_methodology', 'fiscal_year_start', 'inactivity_nudge_days',
+    // Financial ratio thresholds
+    'max_needs_ratio', 'max_emi_ratio', 'min_savings_ratio', 'min_investment_ratio', 'max_wants_ratio',
+    'emergency_fund_months_target', 'saving_fund_months_target', 'sip_months_target',
+    // Alert thresholds
+    'large_transaction_threshold', 'unusual_spending_multiplier',
+    // Notification preferences (per-type on/off)
+    'notify_budget_overspend', 'notify_goal_completed', 'notify_bill_upcoming', 'notify_large_transaction',
+    'notify_spending_warning', 'notify_unusual_spending', 'notify_inactivity_nudge', 'notify_monthly_digest',
+    'notify_milestone', 'notify_new_ip_login', 'notify_financial_tip', 'notify_split_reminder',
+    // AI planner settings
+    'ai_provider', 'ai_endpoint', 'ai_model', 'ai_api_key',
+  ];
 
   // GET /api/settings
   router.get('/', (req, res, next) => {
@@ -11,7 +25,12 @@ module.exports = function createSettingsRoutes({ db, audit }) {
       const rows = db.prepare('SELECT key, value FROM settings WHERE user_id = ?').all(req.user.id);
       const settings = {};
       for (const row of rows) {
-        settings[row.key] = row.value;
+        // Mask sensitive keys — never return raw API keys
+        if (row.key === 'ai_api_key' && row.value) {
+          settings[row.key] = row.value.length > 8 ? row.value.slice(0, 4) + '••••' + row.value.slice(-4) : '••••••••';
+        } else {
+          settings[row.key] = row.value;
+        }
       }
       // Apply defaults
       if (!settings.default_currency) settings.default_currency = 'INR';

@@ -17,7 +17,10 @@ export async function renderSubscriptions(container) {
   categories = catData.categories.filter(c => c.type === 'expense');
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Subscriptions' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon subscription', textContent: 'autorenew' }),
+      el('span', { textContent: 'Subscriptions' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ Add Subscription', onClick: () => showSubForm(null) }),
   ]);
   container.appendChild(header);

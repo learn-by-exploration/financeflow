@@ -50,11 +50,11 @@ function cleanDb() {
   db.exec('DELETE FROM expense_splits');
   db.exec('DELETE FROM settlements');
   db.exec('DELETE FROM shared_expenses');
-  try { db.exec('DELETE FROM expense_comments'); } catch {}
+  db.exec('DELETE FROM expense_comments');
   db.exec('DELETE FROM shared_budget_items');
   db.exec('DELETE FROM shared_budgets');
-  try { db.exec('DELETE FROM group_activities'); } catch {}
-  try { db.exec('DELETE FROM group_invites'); } catch {}
+  db.exec('DELETE FROM group_activities');
+  db.exec('DELETE FROM group_invites');
   db.exec('DELETE FROM group_members');
   db.exec('DELETE FROM groups');
   db.exec('DELETE FROM financial_health_scores');
@@ -62,9 +62,9 @@ function cleanDb() {
   db.exec('DELETE FROM budget_items');
   db.exec('DELETE FROM budgets');
   db.exec('DELETE FROM transactions');
-  try { db.exec('DELETE FROM goal_transactions'); } catch {}
-  try { db.exec('DELETE FROM transaction_tags'); } catch {}
-  try { db.exec('DELETE FROM bill_reminders'); } catch {}
+  db.exec('DELETE FROM goal_transactions');
+  db.exec('DELETE FROM transaction_tags');
+  db.exec('DELETE FROM bill_reminders');
   db.exec('DELETE FROM recurring_rules');
   db.exec('DELETE FROM subscriptions');
   db.exec('DELETE FROM savings_goals');
@@ -73,20 +73,30 @@ function cleanDb() {
   db.exec('DELETE FROM tags');
   db.exec('DELETE FROM settings');
   db.exec('DELETE FROM audit_log');
-  // Reset onboarding for test user
-  try { db.exec('UPDATE users SET onboarding_completed = 0'); } catch {}
+  db.exec('UPDATE users SET onboarding_completed = 0');
   // Don't delete users/sessions — test user stays
-  try { db.exec('DELETE FROM savings_challenges'); } catch {}
-  try { db.exec('DELETE FROM exchange_rates'); } catch {}
-  try { db.exec('DELETE FROM category_rules'); } catch {}
-  try { db.exec('DELETE FROM transaction_templates'); } catch {}
-  try { db.exec('DELETE FROM api_tokens'); } catch {}
-  try { db.exec('DELETE FROM attachments'); } catch {}
-  try { db.exec('DELETE FROM notifications'); } catch {}
-  try { db.exec('DELETE FROM duplicate_dismissals'); } catch {}
-  try { db.exec('DELETE FROM recurring_suggestion_dismissals'); } catch {}
-  try { db.exec('DELETE FROM spending_limits'); } catch {}
-  try { db.exec("DELETE FROM _system_meta WHERE key = '_seed_completed'"); } catch {}
+  db.exec('DELETE FROM savings_challenges');
+  db.exec('DELETE FROM exchange_rates');
+  db.exec('DELETE FROM category_rules');
+  db.exec('DELETE FROM transaction_templates');
+  db.exec('DELETE FROM api_tokens');
+  db.exec('DELETE FROM attachments');
+  db.exec('DELETE FROM notifications');
+  db.exec('DELETE FROM duplicate_dismissals');
+  db.exec('DELETE FROM recurring_suggestion_dismissals');
+  db.exec('DELETE FROM spending_limits');
+  db.exec('DELETE FROM lending_payments');
+  db.exec('DELETE FROM personal_lending');
+  db.exec('DELETE FROM financial_todos');
+  db.exec('DELETE FROM balance_alerts');
+  db.exec('DELETE FROM tag_rules');
+  db.exec('DELETE FROM automation_log');
+  db.exec('DELETE FROM plan_ai_log');
+  db.exec('DELETE FROM plan_milestones');
+  db.exec('DELETE FROM plan_scenarios');
+  db.exec('DELETE FROM financial_plans');
+  db.exec('DELETE FROM streak_tracking');
+  db.exec("DELETE FROM _system_meta WHERE key = '_seed_completed'");
 }
 
 function teardown() {
@@ -341,12 +351,32 @@ function makeReminder(overrides = {}) {
   return db.prepare('SELECT * FROM bill_reminders WHERE id = ?').get(r.lastInsertRowid);
 }
 
+function makePlan(overrides = {}) {
+  const { db } = setup();
+  const o = {
+    name: 'Test Plan', goal_type: 'emergency_fund', target_amount: 300000,
+    target_date: daysFromNow(365), current_saved: 0, status: 'active',
+    selected_scenario: 'moderate', risk_tolerance: 'moderate',
+    monthly_savings_target: 25000, ...overrides,
+  };
+  const r = db.prepare(`
+    INSERT INTO financial_plans (user_id, name, goal_type, target_amount, target_date, current_saved,
+      status, selected_scenario, risk_tolerance, monthly_savings_target, constraints, plan_data, ai_narrative, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(_testUserId, o.name, o.goal_type, o.target_amount, o.target_date, o.current_saved,
+    o.status, o.selected_scenario, o.risk_tolerance, o.monthly_savings_target,
+    o.constraints ? JSON.stringify(o.constraints) : null,
+    o.plan_data ? JSON.stringify(o.plan_data) : null,
+    o.ai_narrative || null, o.notes || null);
+  return db.prepare('SELECT * FROM financial_plans WHERE id = ?').get(r.lastInsertRowid);
+}
+
 module.exports = {
   setup, cleanDb, teardown,
   makeAccount, makeCategory, makeTransaction, makeBudget,
   makeSubscription, makeGoal, makeGroup, makeGroupMember,
   makeSharedExpense, makeRecurringRule, makeSecondUser,
   makeTag, makeExchangeRate, makeNotification, makeRule,
-  makeTemplate, makeSpendingLimit, makeApiToken, makeReminder,
+  makeTemplate, makeSpendingLimit, makeApiToken, makeReminder, makePlan,
   agent, rawAgent, today, daysFromNow,
 };

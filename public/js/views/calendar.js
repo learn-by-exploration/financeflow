@@ -5,15 +5,17 @@ import { showLoading, showError, hideStates } from '../ui-states.js';
 export async function renderCalendar(container) {
   container.innerHTML = '';
 
-  const header = el('div', { className: 'page-header' });
-  const title = el('h1', {}, 'Calendar');
-  header.appendChild(title);
+  const header = el('div', { className: 'view-header' });
+  header.appendChild(el('h2', {}, [
+    el('span', { className: 'material-icons-round entity-icon', textContent: 'calendar_month' }),
+    el('span', { textContent: 'Calendar' }),
+  ]));
   container.appendChild(header);
 
-  const navRow = el('div', { className: 'calendar-nav', style: 'display:flex;align-items:center;gap:1rem;margin-bottom:1rem;' });
-  const prevBtn = el('button', { className: 'btn btn-ghost', textContent: '◀' });
-  const nextBtn = el('button', { className: 'btn btn-ghost', textContent: '▶' });
-  const monthLabel = el('span', { style: 'font-size:1.1rem;font-weight:600;min-width:140px;text-align:center;' });
+  const navRow = el('div', { className: 'calendar-nav' });
+  const prevBtn = el('button', { className: 'btn btn-ghost', textContent: '◀', 'aria-label': 'Previous month' });
+  const nextBtn = el('button', { className: 'btn btn-ghost', textContent: '▶', 'aria-label': 'Next month' });
+  const monthLabel = el('h2', { className: 'calendar-month-label' });
   navRow.append(prevBtn, monthLabel, nextBtn);
   container.appendChild(navRow);
 
@@ -34,7 +36,7 @@ export async function renderCalendar(container) {
 
     showLoading(grid);
     try {
-      const data = await Api.get(`/api/calendar?month=${key}`);
+      const data = await Api.get(`/calendar?month=${key}`);
       hideStates(grid);
       renderGrid(grid, data, year, month);
     } catch (err) {
@@ -45,17 +47,14 @@ export async function renderCalendar(container) {
   function renderGrid(target, data, yr, mo) {
     target.innerHTML = '';
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const headerRow = el('div', { className: 'calendar-header', style: 'display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-weight:600;margin-bottom:4px;' });
-    dayNames.forEach(d => headerRow.appendChild(el('div', { textContent: d, style: 'padding:0.25rem;' })));
-    target.appendChild(headerRow);
+    dayNames.forEach(d => target.appendChild(el('div', { className: 'calendar-weekday', textContent: d })));
 
     const firstDay = new Date(yr, mo - 1, 1).getDay();
     const lastDay = new Date(yr, mo, 0).getDate();
-    const body = el('div', { style: 'display:grid;grid-template-columns:repeat(7,1fr);gap:2px;' });
 
     // Empty cells before first day
     for (let i = 0; i < firstDay; i++) {
-      body.appendChild(el('div', { className: 'calendar-cell empty', style: 'min-height:60px;' }));
+      target.appendChild(el('div', { className: 'calendar-day empty' }));
     }
 
     for (let d = 1; d <= lastDay; d++) {
@@ -67,33 +66,35 @@ export async function renderCalendar(container) {
       const isToday = dateStr === new Date().toISOString().slice(0, 10);
 
       const cell = el('div', {
-        className: 'calendar-cell' + (isToday ? ' today' : '') + (total > 0 ? ' has-events' : ''),
-        style: 'min-height:60px;padding:4px;border-radius:var(--radius-sm);border:1px solid var(--border-color);cursor:pointer;position:relative;',
+        className: 'calendar-day' + (isToday ? ' today' : '') + (total > 0 ? ' has-items' : ''),
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': `${dateStr}, ${total} item${total !== 1 ? 's' : ''}`,
       });
 
-      const dayNum = el('div', { textContent: String(d), style: 'font-weight:600;font-size:0.85rem;' });
-      cell.appendChild(dayNum);
+      cell.appendChild(el('div', { className: 'calendar-day-num', textContent: String(d) }));
 
       if (txCount > 0) {
         const expense = dayData.transactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
         const income = dayData.transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-        if (expense > 0) {
-          cell.appendChild(el('div', { textContent: `-${fmt(expense)}`, style: 'font-size:0.65rem;color:var(--danger);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' }));
-        }
-        if (income > 0) {
-          cell.appendChild(el('div', { textContent: `+${fmt(income)}`, style: 'font-size:0.65rem;color:var(--success);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;' }));
-        }
+        const dots = el('div', { className: 'calendar-dots' });
+        if (expense > 0) dots.appendChild(el('span', { className: 'calendar-dot expense', title: `-${fmt(expense)}` }));
+        if (income > 0) dots.appendChild(el('span', { className: 'calendar-dot income', title: `+${fmt(income)}` }));
+        cell.appendChild(dots);
       }
 
       if (recCount > 0) {
-        const dot = el('div', { style: 'position:absolute;top:4px;right:4px;width:6px;height:6px;background:var(--primary);border-radius:50%;', title: `${recCount} recurring` });
-        cell.appendChild(dot);
+        cell.appendChild(el('span', { className: 'calendar-dot recurring', title: `${recCount} recurring` }));
+      }
+
+      if (total > 0) {
+        cell.appendChild(el('div', { className: 'calendar-day-count', textContent: `${total} item${total !== 1 ? 's' : ''}` }));
       }
 
       cell.addEventListener('click', () => showDayDetail(dayData, dateStr));
-      body.appendChild(cell);
+      cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showDayDetail(dayData, dateStr); } });
+      target.appendChild(cell);
     }
-    target.appendChild(body);
   }
 
   function showDayDetail(dayData, dateStr) {
@@ -105,22 +106,26 @@ export async function renderCalendar(container) {
       ...dayData.recurring.map(r => ({ ...r, _kind: 'recurring' })),
     ];
 
-    if (allItems.length === 0) return;
+    const detail = el('div', { className: 'calendar-detail' });
+    detail.appendChild(el('h3', { className: 'detail-date', textContent: dateStr }));
 
-    const detail = el('div', { className: 'calendar-detail card', style: 'margin-top:1rem;padding:1rem;' });
-    detail.appendChild(el('h3', { textContent: dateStr, style: 'margin-bottom:0.5rem;' }));
+    if (allItems.length === 0) {
+      detail.appendChild(el('p', { className: 'detail-empty', textContent: 'No transactions on this day' }));
+      container.appendChild(detail);
+      return;
+    }
 
-    const list = el('div', { className: 'transaction-list' });
+    const list = el('div', { className: 'detail-list' });
     for (const item of allItems) {
-      const row = el('div', { style: 'display:flex;justify-content:space-between;align-items:center;padding:0.5rem 0;border-bottom:1px solid var(--border-color);' });
-      const left = el('div');
-      left.appendChild(el('div', { textContent: item.description || 'Recurring', style: 'font-weight:500;' }));
+      const row = el('div', { className: 'detail-item' });
+      const left = el('div', { className: 'detail-item-info' });
+      left.appendChild(el('div', { className: 'detail-item-desc', textContent: item.description || 'Recurring' }));
       if (item._kind === 'recurring') {
-        left.appendChild(el('div', { textContent: `↻ ${item.frequency}`, style: 'font-size:0.75rem;opacity:0.7;' }));
+        left.appendChild(el('div', { className: 'detail-item-meta', textContent: `↻ ${item.frequency}` }));
       }
       const right = el('div', {
+        className: `detail-item-amount ${item.type}`,
         textContent: (item.type === 'expense' ? '-' : '+') + fmt(item.amount),
-        style: `font-weight:600;color:var(--${item.type === 'expense' ? 'danger' : 'success'});`,
       });
       row.append(left, right);
       list.appendChild(row);

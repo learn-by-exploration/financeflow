@@ -8,7 +8,10 @@ export async function renderGroups(container) {
   const { groups } = await Api.get('/groups');
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Groups' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon group', textContent: 'group' }),
+      el('span', { textContent: 'Groups' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ Create Group', onClick: () => showGroupForm() }),
   ]);
   container.appendChild(header);

@@ -26,25 +26,40 @@ module.exports = function createAccountRepository({ db }) {
     return db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(id, userId);
   }
 
+  const ENRICHMENT_COLS = ['interest_rate', 'credit_limit', 'loan_amount', 'tenure_months', 'emi_amount', 'emi_day', 'start_date', 'maturity_date', 'closure_amount', 'repayment_account_id', 'priority', 'account_notes', 'expected_return', 'investment_type'];
+
   function create(userId, data) {
     const { name, type, currency, balance, icon, color, institution, account_number_last4 } = data;
     const result = db.prepare(`
       INSERT INTO accounts (user_id, name, type, currency, balance, icon, color, institution, account_number_last4, position)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM accounts WHERE user_id = ?))
     `).run(userId, name, type, currency, balance || 0, icon || '🏦', color || '#6366f1', institution || null, account_number_last4 || null, userId);
-    return db.prepare('SELECT * FROM accounts WHERE id = ?').get(result.lastInsertRowid);
+    const id = result.lastInsertRowid;
+    // Apply enrichment fields if provided
+    const sets = [];
+    const vals = [];
+    for (const col of ENRICHMENT_COLS) {
+      if (data[col] !== undefined) { sets.push(`${col} = ?`); vals.push(data[col]); }
+    }
+    if (sets.length > 0) {
+      db.prepare(`UPDATE accounts SET ${sets.join(', ')}, updated_at = datetime('now') WHERE id = ?`).run(...vals, id);
+    }
+    return db.prepare('SELECT * FROM accounts WHERE id = ?').get(id);
   }
 
   function update(id, userId, data) {
     const { name, type, currency, balance, icon, color, institution, account_number_last4, is_active, include_in_net_worth } = data;
-    db.prepare(`
-      UPDATE accounts SET name = COALESCE(?, name), type = COALESCE(?, type), currency = COALESCE(?, currency),
-      balance = COALESCE(?, balance), icon = COALESCE(?, icon), color = COALESCE(?, color),
-      institution = COALESCE(?, institution), account_number_last4 = COALESCE(?, account_number_last4),
-      is_active = COALESCE(?, is_active), include_in_net_worth = COALESCE(?, include_in_net_worth),
-      updated_at = datetime('now')
-      WHERE id = ? AND user_id = ?
-    `).run(name, type, currency, balance, icon, color, institution, account_number_last4, is_active, include_in_net_worth, id, userId);
+    const sets = ['name = COALESCE(?, name)', 'type = COALESCE(?, type)', 'currency = COALESCE(?, currency)',
+      'balance = COALESCE(?, balance)', 'icon = COALESCE(?, icon)', 'color = COALESCE(?, color)',
+      'institution = COALESCE(?, institution)', 'account_number_last4 = COALESCE(?, account_number_last4)',
+      'is_active = COALESCE(?, is_active)', 'include_in_net_worth = COALESCE(?, include_in_net_worth)'];
+    const vals = [name, type, currency, balance, icon, color, institution, account_number_last4, is_active, include_in_net_worth];
+    // Enrichment fields — use explicit null set (not COALESCE) so they can be cleared
+    for (const col of ENRICHMENT_COLS) {
+      if (data[col] !== undefined) { sets.push(`${col} = ?`); vals.push(data[col]); }
+    }
+    sets.push("updated_at = datetime('now')");
+    db.prepare(`UPDATE accounts SET ${sets.join(', ')} WHERE id = ? AND user_id = ?`).run(...vals, id, userId);
     return db.prepare('SELECT * FROM accounts WHERE id = ? AND user_id = ?').get(id, userId);
   }
 

@@ -18,7 +18,10 @@ export async function renderChallenges(container) {
   }
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Savings Challenges' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon challenge', textContent: 'emoji_events' }),
+      el('span', { textContent: 'Savings Challenges' }),
+    ]),
     el('button', { className: 'btn btn-primary', textContent: '+ New Challenge', onClick: () => showChallengeForm(container) }),
   ]);
   container.appendChild(header);
@@ -77,7 +80,7 @@ function challengeCard(ch, container) {
     ]),
     el('div', { className: 'challenge-progress' }, [
       el('span', { textContent: `${progress}% complete` }),
-      ch.target_amount > 0 ? el('span', { textContent: fmt.currency(ch.target_amount) + ' target' }) : null,
+      ch.target_amount > 0 ? el('span', { textContent: fmt(ch.target_amount) + ' target' }) : null,
     ].filter(Boolean)),
     isActive ? el('button', {
       className: 'btn btn-sm btn-danger',
@@ -85,7 +88,7 @@ function challengeCard(ch, container) {
       onClick: async () => {
         if (await confirm('Delete this challenge?')) {
           try {
-            await Api.delete(`/stats/challenges/${ch.id}`);
+            await Api.del(`/stats/challenges/${ch.id}`);
             toast('Challenge deleted', 'success');
             renderChallenges(container);
           } catch (err) { toast(err.message, 'error'); }

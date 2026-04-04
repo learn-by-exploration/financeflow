@@ -861,6 +861,313 @@ module.exports = function createStatsRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // ─── Age of Money ───
+  // How many days income sits before being spent (avgBalance / avgDailyExpense)
+  router.get('/age-of-money', (req, res, next) => {
+    try {
+      const months = Math.min(Number(req.query.months) || 3, 24);
+      const avgBalance = db.prepare(
+        "SELECT COALESCE(AVG(balance), 0) as avg FROM accounts WHERE user_id = ? AND is_active = 1 AND type IN ('checking', 'savings', 'cash', 'wallet')"
+      ).get(req.user.id).avg;
+      const expenseData = db.prepare(
+        `SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'expense' AND date >= date('now', '-' || ? || ' months')`
+      ).get(req.user.id, months);
+      const days = months * 30;
+      const avgDailyExpense = days > 0 ? expenseData.total / days : 0;
+      const createHealthService = require('../services/health.service');
+      const healthService = createHealthService();
+      const ageOfMoney = healthService.calculateAgeOfMoney({ avgBalance, avgDailyExpense });
+      res.json({ age_of_money_days: ageOfMoney, avg_balance: Math.round(avgBalance), avg_daily_expense: Math.round(avgDailyExpense * 100) / 100 });
+    } catch (err) { next(err); }
+  });
+
+  // ─── Expected Net Worth + PAW/UAW Classification ───
+  router.get('/expected-net-worth', (req, res, next) => {
+    try {
+      const age = Number(req.query.age);
+      if (!age || age < 18 || age > 120) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'age query param required (18-120)' } });
+      // Annual income: last 12 months
+      const income = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'income' AND date >= date('now', '-12 months')").get(req.user.id).total;
+      // Net worth
+      const accounts = db.prepare('SELECT * FROM accounts WHERE user_id = ? AND is_active = 1 AND include_in_net_worth = 1').all(req.user.id);
+      let assets = 0, liabilities = 0;
+      for (const a of accounts) {
+        if (a.type === 'credit_card' || a.type === 'loan') liabilities += Math.abs(a.balance);
+        else assets += a.balance;
+      }
+      const createHealthService = require('../services/health.service');
+      const healthService = createHealthService();
+      const result = healthService.calculateExpectedNetWorth({ age, annualIncome: income, actualNetWorth: assets - liabilities });
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
+  // ─── Debt Freedom Date Projection ───
+  router.get('/debt-freedom-date', (req, res, next) => {
+    try {
+      const extraMonthly = Number(req.query.extra) || 0;
+      const debtAccounts = db.prepare(
+        "SELECT * FROM accounts WHERE user_id = ? AND is_active = 1 AND type IN ('loan', 'credit_card') AND balance < 0"
+      ).all(req.user.id);
+      if (debtAccounts.length === 0) return res.json({ debt_free: true, message: 'No debt — you are debt free!' });
+
+      const projections = debtAccounts.map(a => {
+        const balance = Math.abs(a.balance);
+        const rate = (a.interest_rate || (a.type === 'credit_card' ? 36 : 12)) / 100 / 12;
+        const emi = a.emi_amount || Math.max(balance * 0.02, 500);
+        const totalEmi = emi + (extraMonthly / debtAccounts.length);
+        let remaining = balance;
+        let months = 0;
+        const maxMonths = 600;
+        while (remaining > 0 && months < maxMonths) {
+          const interest = remaining * rate;
+          remaining = remaining + interest - totalEmi;
+          months++;
+        }
+        const freedomDate = new Date();
+        freedomDate.setMonth(freedomDate.getMonth() + months);
+        return {
+          account: a.name, balance, interest_rate: a.interest_rate || (a.type === 'credit_card' ? 36 : 12),
+          monthly_payment: Math.round(totalEmi), months_remaining: months,
+          projected_freedom_date: months < maxMonths ? freedomDate.toISOString().slice(0, 10) : null,
+          total_interest: Math.round(Math.max(0, (totalEmi * months) - balance)),
+        };
+      });
+      const maxMonths = Math.max(...projections.map(p => p.months_remaining));
+      const overallDate = new Date();
+      overallDate.setMonth(overallDate.getMonth() + maxMonths);
+      res.json({
+        debt_free: false,
+        total_debt: Math.round(debtAccounts.reduce((s, a) => s + Math.abs(a.balance), 0)),
+        projections,
+        overall_freedom_date: maxMonths < 600 ? overallDate.toISOString().slice(0, 10) : null,
+        overall_months: maxMonths,
+      });
+    } catch (err) { next(err); }
+  });
+
+  // ─── Credit Utilization ───
+  router.get('/credit-utilization', (req, res, next) => {
+    try {
+      const cards = db.prepare(
+        "SELECT name, balance, credit_limit FROM accounts WHERE user_id = ? AND type = 'credit_card' AND is_active = 1"
+      ).all(req.user.id);
+      const items = cards.map(c => ({
+        name: c.name,
+        balance: Math.abs(c.balance),
+        limit: c.credit_limit || 0,
+        utilization: c.credit_limit > 0 ? Math.round((Math.abs(c.balance) / c.credit_limit) * 10000) / 100 : null,
+      }));
+      const totalBalance = items.reduce((s, i) => s + i.balance, 0);
+      const totalLimit = items.reduce((s, i) => s + i.limit, 0);
+      const overallUtilization = totalLimit > 0 ? Math.round((totalBalance / totalLimit) * 10000) / 100 : null;
+      let status = 'unknown';
+      if (overallUtilization !== null) {
+        if (overallUtilization <= 10) status = 'excellent';
+        else if (overallUtilization <= 30) status = 'good';
+        else if (overallUtilization <= 50) status = 'fair';
+        else status = 'high';
+      }
+      res.json({ cards: items, total_balance: totalBalance, total_limit: totalLimit, overall_utilization: overallUtilization, status });
+    } catch (err) { next(err); }
+  });
+
+  // ─── FIRE Progress (actual vs target) ───
+  router.get('/fire-progress', (req, res, next) => {
+    try {
+      const annualExpense = Number(req.query.annual_expense) || 0;
+      const withdrawalRate = Number(req.query.withdrawal_rate) || 4;
+      // Use actual annual expense from data if not provided
+      let actualAnnualExpense = annualExpense;
+      if (!annualExpense) {
+        actualAnnualExpense = db.prepare("SELECT COALESCE(SUM(amount), 0) as total FROM transactions WHERE user_id = ? AND type = 'expense' AND date >= date('now', '-12 months')").get(req.user.id).total;
+      }
+      const fireNumber = (actualAnnualExpense / (withdrawalRate / 100));
+      // Current investable assets
+      const accounts = db.prepare("SELECT * FROM accounts WHERE user_id = ? AND is_active = 1 AND type IN ('savings', 'investment') AND include_in_net_worth = 1").all(req.user.id);
+      const currentAssets = accounts.reduce((s, a) => s + a.balance, 0);
+      const progress = fireNumber > 0 ? Math.round((currentAssets / fireNumber) * 10000) / 100 : 0;
+      // Monthly savings rate
+      const income12 = db.prepare("SELECT COALESCE(SUM(amount), 0) as t FROM transactions WHERE user_id = ? AND type = 'income' AND date >= date('now', '-12 months')").get(req.user.id).t;
+      const monthlyIncome = income12 / 12;
+      const monthlyExpense = actualAnnualExpense / 12;
+      const monthlySavings = monthlyIncome - monthlyExpense;
+      // Years to FIRE
+      let yearsToFire = null;
+      if (monthlySavings > 0) {
+        const realReturn = 0.07; // 7% real return assumption
+        const gap = fireNumber - currentAssets;
+        if (gap <= 0) yearsToFire = 0;
+        else yearsToFire = Math.round(Math.log(1 + (gap * realReturn) / (monthlySavings * 12)) / Math.log(1 + realReturn) * 10) / 10;
+      }
+      res.json({
+        fire_number: Math.round(fireNumber),
+        current_assets: Math.round(currentAssets),
+        progress_percent: progress,
+        annual_expense: Math.round(actualAnnualExpense),
+        withdrawal_rate: withdrawalRate,
+        monthly_savings: Math.round(monthlySavings),
+        years_to_fire: yearsToFire,
+        fire_reached: currentAssets >= fireNumber,
+      });
+    } catch (err) { next(err); }
+  });
+
+  // ─── Weekly Spending Summary ───
+  router.get('/weekly-summary', (req, res, next) => {
+    try {
+      const weeks = Math.min(Number(req.query.weeks) || 4, 52);
+      const results = [];
+      for (let w = 0; w < weeks; w++) {
+        const startOffset = w * 7;
+        const endOffset = (w + 1) * 7;
+        const row = db.prepare(`
+          SELECT COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as expense,
+                 COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income,
+                 COUNT(*) as transaction_count
+          FROM transactions WHERE user_id = ? AND date >= date('now', '-' || ? || ' days') AND date < date('now', '-' || ? || ' days')
+        `).get(req.user.id, endOffset, startOffset);
+        const weekStart = new Date(); weekStart.setDate(weekStart.getDate() - endOffset);
+        results.push({
+          week_start: weekStart.toISOString().slice(0, 10),
+          expense: Math.round(row.expense * 100) / 100,
+          income: Math.round(row.income * 100) / 100,
+          savings: Math.round((row.income - row.expense) * 100) / 100,
+          transaction_count: row.transaction_count,
+        });
+      }
+      results.reverse();
+      res.json({ weeks: results });
+    } catch (err) { next(err); }
+  });
+
+  // ─── Net Worth Projection ───
+  router.get('/net-worth-projection', (req, res, next) => {
+    try {
+      const years = Math.min(Number(req.query.years) || 5, 30);
+      const growthRate = (Number(req.query.growth_rate) || 7) / 100;
+      // Current NW
+      const accounts = db.prepare('SELECT * FROM accounts WHERE user_id = ? AND is_active = 1 AND include_in_net_worth = 1').all(req.user.id);
+      let assets = 0, liabilities = 0;
+      for (const a of accounts) {
+        if (a.type === 'credit_card' || a.type === 'loan') liabilities += Math.abs(a.balance);
+        else assets += a.balance;
+      }
+      const currentNW = assets - liabilities;
+      // Monthly savings (last 6 months)
+      const income6 = db.prepare("SELECT COALESCE(SUM(amount), 0) as t FROM transactions WHERE user_id = ? AND type = 'income' AND date >= date('now', '-6 months')").get(req.user.id).t;
+      const expense6 = db.prepare("SELECT COALESCE(SUM(amount), 0) as t FROM transactions WHERE user_id = ? AND type = 'expense' AND date >= date('now', '-6 months')").get(req.user.id).t;
+      const monthlySavings = (income6 - expense6) / 6;
+      const projection = [];
+      let nw = currentNW;
+      for (let y = 1; y <= years; y++) {
+        nw = (nw + monthlySavings * 12) * (1 + growthRate);
+        projection.push({ year: y, projected_net_worth: Math.round(nw) });
+      }
+      res.json({
+        current_net_worth: Math.round(currentNW),
+        monthly_savings: Math.round(monthlySavings),
+        growth_rate_percent: growthRate * 100,
+        projection,
+      });
+    } catch (err) { next(err); }
+  });
+
+  // ─── Priority Payment Queue ───
+  router.get('/payment-queue', (req, res, next) => {
+    try {
+      const queue = [];
+      // 1. Overdue/high-priority lending
+      const lending = db.prepare(
+        "SELECT person_name, outstanding, priority, expected_end_date, type FROM personal_lending WHERE user_id = ? AND is_settled = 0 ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END"
+      ).all(req.user.id);
+      for (const l of lending) {
+        queue.push({ source: 'lending', name: `${l.type === 'borrowed' ? 'Repay' : 'Collect from'}: ${l.person_name}`, amount: l.outstanding, priority: l.priority, due: l.expected_end_date });
+      }
+      // 2. Upcoming subscriptions (7 days)
+      const subs = db.prepare(
+        "SELECT name, amount, next_billing_date FROM subscriptions WHERE user_id = ? AND is_active = 1 AND next_billing_date <= date('now', '+7 days') AND next_billing_date >= date('now') ORDER BY next_billing_date"
+      ).all(req.user.id);
+      for (const s of subs) {
+        queue.push({ source: 'subscription', name: s.name, amount: s.amount, priority: 'medium', due: s.next_billing_date });
+      }
+      // 3. Upcoming EMIs from loan accounts
+      const loanAccounts = db.prepare(
+        "SELECT name, emi_amount, emi_day, priority FROM accounts WHERE user_id = ? AND type = 'loan' AND is_active = 1 AND emi_amount > 0"
+      ).all(req.user.id);
+      for (const la of loanAccounts) {
+        queue.push({ source: 'loan_emi', name: `EMI: ${la.name}`, amount: la.emi_amount, priority: la.priority || 'high', due: la.emi_day ? `Day ${la.emi_day}` : null });
+      }
+      res.json({ queue, total: Math.round(queue.reduce((s, q) => s + (q.amount || 0), 0)) });
+    } catch (err) { next(err); }
+  });
+
+  // ─── Detailed Health Score (3-axis model) ───
+  router.get('/financial-health-detailed', (req, res, next) => {
+    try {
+      const createHealthService = require('../services/health.service');
+      const healthService = createHealthService();
+      // Load user settings for thresholds
+      const settingsRows = db.prepare('SELECT key, value FROM settings WHERE user_id = ?').all(req.user.id);
+      const userSettings = {};
+      for (const r of settingsRows) userSettings[r.key] = r.value;
+
+      const salary = Number(userSettings.monthly_income) || 0;
+      if (salary <= 0) return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Set monthly_income in settings first' } });
+
+      // Last month data
+      const income = db.prepare("SELECT COALESCE(SUM(amount), 0) as t FROM transactions WHERE user_id = ? AND type = 'income' AND date >= date('now', '-1 month')").get(req.user.id).t;
+      const extraIncome = Math.max(0, income - salary);
+
+      // Expenses by category nature
+      const expensesByNature = db.prepare(`
+        SELECT c.nature, COALESCE(SUM(t.amount), 0) as total
+        FROM transactions t LEFT JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = ? AND t.type = 'expense' AND t.date >= date('now', '-1 month')
+        GROUP BY c.nature
+      `).all(req.user.id);
+      let fixedExpenses = 0, variableExpenses = 0, emiTotal = 0;
+      for (const e of expensesByNature) {
+        if (e.nature === 'need') fixedExpenses += e.total;
+        else if (e.nature === 'want' || e.nature === 'luxury') variableExpenses += e.total;
+        else fixedExpenses += e.total; // uncategorized defaults to fixed
+      }
+      // EMI from loan accounts
+      const emiAccounts = db.prepare("SELECT COALESCE(SUM(emi_amount), 0) as total FROM accounts WHERE user_id = ? AND type = 'loan' AND is_active = 1 AND emi_amount > 0").get(req.user.id);
+      emiTotal = emiAccounts.total;
+
+      // Savings & investments
+      const totalExpense = db.prepare("SELECT COALESCE(SUM(amount), 0) as t FROM transactions WHERE user_id = ? AND type = 'expense' AND date >= date('now', '-1 month')").get(req.user.id).t;
+      const monthlySavings = income - totalExpense;
+      const investmentAccounts = db.prepare("SELECT COALESCE(SUM(balance), 0) as t FROM accounts WHERE user_id = ? AND type = 'investment' AND is_active = 1").get(req.user.id);
+      const monthlyInvestments = Number(userSettings.min_investment_ratio || 0.1) * salary; // Use setting as proxy
+
+      // Funds
+      const savingsAccounts = db.prepare("SELECT COALESCE(SUM(balance), 0) as t FROM accounts WHERE user_id = ? AND type = 'savings' AND is_active = 1").get(req.user.id);
+      const emergencyFund = savingsAccounts.t;
+      const savingFund = 0; // User can set via goals
+      const sipTotal = investmentAccounts.t;
+
+      const detailed = healthService.calculateDetailedScore({
+        salary, extraIncome, fixedExpenses, variableExpenses, emiTotal,
+        monthlySavings, monthlyInvestments, emergencyFund, savingFund, sipTotal,
+        userSettings,
+      });
+      res.json(detailed);
+    } catch (err) { next(err); }
+  });
+
+  // ─── Health Score History ───
+  router.get('/health-score-history', (req, res, next) => {
+    try {
+      const months = Math.min(Number(req.query.months) || 12, 60);
+      const scores = db.prepare(
+        'SELECT date, overall_score, savings_rate, debt_to_income, emergency_fund_months, budget_adherence FROM financial_health_scores WHERE user_id = ? AND date >= date(\'now\', \'-\' || ? || \' months\') ORDER BY date'
+      ).all(req.user.id, months);
+      res.json({ scores });
+    } catch (err) { next(err); }
+  });
+
   return router;
 };
 

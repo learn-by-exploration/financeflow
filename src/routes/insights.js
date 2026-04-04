@@ -54,5 +54,14 @@ module.exports = function createInsightRoutes({ db }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/insights/category-trends?months=6
+  router.get('/category-trends', (req, res, next) => {
+    try {
+      const months = Math.min(Math.max(parseInt(req.query.months) || 6, 1), 24);
+      const result = insightRepo.getCategoryTrends(req.user.id, months);
+      res.json(result);
+    } catch (err) { next(err); }
+  });
+
   return router;
 };

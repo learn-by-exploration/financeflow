@@ -30,7 +30,10 @@ export async function renderTransactions(container) {
 
   // Header
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Transactions' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon transaction', textContent: 'receipt_long' }),
+      el('span', { textContent: 'Transactions' }),
+    ]),
     el('div', { className: 'view-header-actions' }, [
       el('button', { className: 'btn btn-secondary', textContent: 'Select', title: 'Enter multi-select mode (m)', 'aria-label': 'Select transactions for bulk actions', onClick: () => document.dispatchEvent(new CustomEvent('toggle-multi-select')) }),
       el('button', { className: 'btn btn-primary', textContent: '+ Add Transaction', onClick: () => showTxnForm(null) }),

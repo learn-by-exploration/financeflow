@@ -2,6 +2,18 @@ const { describe, it, before, after, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { setup, teardown, cleanDb, agent, rawAgent, makeSubscription, makeRecurringRule, makeAccount, daysFromNow, today } = require('./helpers');
 
+function createScheduler(db) {
+  const logs = [];
+  const mockLogger = {
+    info: (obj, msg) => logs.push({ level: 'info', obj, msg }),
+    error: (obj, msg) => logs.push({ level: 'error', obj, msg }),
+    debug: () => {},
+    warn: () => {},
+  };
+  const scheduler = require('../src/scheduler')(db, mockLogger);
+  return { scheduler, logs };
+}
+
 describe('Bill Reminders & Upcoming Expenses', () => {
   let account;
   before(() => setup());
@@ -201,6 +213,125 @@ describe('Bill Reminders & Upcoming Expenses', () => {
       makeSubscription({ name: 'Netflix', amount: 199, frequency: 'monthly', next_billing_date: daysFromNow(5) });
       const res = await agent().get('/api/reminders/upcoming').expect(200);
       assert.ok(Array.isArray(res.body.upcoming));
+    });
+  });
+
+  // ─── Scheduler: Auto-Notifications ───
+
+  describe('runBillReminderNotifications (scheduler job)', () => {
+    let db;
+    before(() => { ({ db } = setup()); });
+
+    it('creates bill_upcoming notification when due_date - days_before <= today (subscription)', () => {
+      const sub = makeSubscription({ name: 'Netflix', amount: 199, frequency: 'monthly', next_billing_date: daysFromNow(3) });
+      db.prepare('INSERT INTO bill_reminders (user_id, subscription_id, days_before, is_enabled) VALUES (1, ?, 5, 1)').run(sub.id);
+
+      const { scheduler } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+
+      const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 1 AND type = 'bill_upcoming'").all();
+      assert.ok(notifs.length >= 1, 'Should create a bill_upcoming notification');
+      assert.ok(notifs[0].title.includes('Netflix'));
+      assert.ok(notifs[0].message.includes('199'));
+    });
+
+    it('creates bill_upcoming notification for recurring rule', () => {
+      const rule = makeRecurringRule(account.id, { description: 'Office Rent', amount: 25000, frequency: 'monthly', next_date: daysFromNow(2) });
+      db.prepare('INSERT INTO bill_reminders (user_id, recurring_rule_id, days_before, is_enabled) VALUES (1, ?, 5, 1)').run(rule.id);
+
+      const { scheduler } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+
+      const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 1 AND type = 'bill_upcoming'").all();
+      assert.ok(notifs.length >= 1);
+      assert.ok(notifs[0].title.includes('Office Rent'));
+      assert.ok(notifs[0].message.includes('25000'));
+    });
+
+    it('skips disabled reminders (is_enabled = 0)', () => {
+      const sub = makeSubscription({ name: 'Disabled Sub', amount: 500, frequency: 'monthly', next_billing_date: daysFromNow(2) });
+      db.prepare('INSERT INTO bill_reminders (user_id, subscription_id, days_before, is_enabled) VALUES (1, ?, 5, 0)').run(sub.id);
+
+      const { scheduler } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+
+      const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 1 AND type = 'bill_upcoming' AND title LIKE '%Disabled Sub%'").all();
+      assert.equal(notifs.length, 0, 'Should not notify for disabled reminders');
+    });
+
+    it('skips items where due_date - days_before > today (not yet in window)', () => {
+      const sub = makeSubscription({ name: 'FarAway Sub', amount: 999, frequency: 'monthly', next_billing_date: daysFromNow(20) });
+      db.prepare('INSERT INTO bill_reminders (user_id, subscription_id, days_before, is_enabled) VALUES (1, ?, 3, 1)').run(sub.id);
+
+      const { scheduler } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+
+      const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 1 AND type = 'bill_upcoming' AND title LIKE '%FarAway Sub%'").all();
+      assert.equal(notifs.length, 0, 'Should not notify when outside reminder window');
+    });
+
+    it('does not create duplicate notification on same day', () => {
+      const sub = makeSubscription({ name: 'DupTest', amount: 300, frequency: 'monthly', next_billing_date: daysFromNow(1) });
+      db.prepare('INSERT INTO bill_reminders (user_id, subscription_id, days_before, is_enabled) VALUES (1, ?, 3, 1)').run(sub.id);
+
+      const { scheduler } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+      scheduler.runBillReminderNotifications(); // run again
+
+      const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 1 AND type = 'bill_upcoming' AND title LIKE '%DupTest%'").all();
+      assert.equal(notifs.length, 1, 'Should not duplicate notifications on re-run');
+    });
+
+    it('skips inactive subscriptions', () => {
+      const sub = makeSubscription({ name: 'Inactive Sub', amount: 200, frequency: 'monthly', next_billing_date: daysFromNow(2), is_active: 0 });
+      db.prepare('INSERT INTO bill_reminders (user_id, subscription_id, days_before, is_enabled) VALUES (1, ?, 5, 1)').run(sub.id);
+
+      const { scheduler } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+
+      const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 1 AND type = 'bill_upcoming' AND title LIKE '%Inactive Sub%'").all();
+      assert.equal(notifs.length, 0, 'Should not notify for inactive subscriptions');
+    });
+
+    it('skips inactive recurring rules', () => {
+      const rule = makeRecurringRule(account.id, { description: 'Inactive Rule', amount: 5000, frequency: 'monthly', next_date: daysFromNow(2), is_active: 0 });
+      db.prepare('INSERT INTO bill_reminders (user_id, recurring_rule_id, days_before, is_enabled) VALUES (1, ?, 5, 1)').run(rule.id);
+
+      const { scheduler } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+
+      const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 1 AND type = 'bill_upcoming' AND title LIKE '%Inactive Rule%'").all();
+      assert.equal(notifs.length, 0, 'Should not notify for inactive recurring rules');
+    });
+
+    it('handles items due today (days_before = 0)', () => {
+      const sub = makeSubscription({ name: 'Today Bill', amount: 750, frequency: 'monthly', next_billing_date: today() });
+      db.prepare('INSERT INTO bill_reminders (user_id, subscription_id, days_before, is_enabled) VALUES (1, ?, 0, 1)').run(sub.id);
+
+      const { scheduler } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+
+      const notifs = db.prepare("SELECT * FROM notifications WHERE user_id = 1 AND type = 'bill_upcoming' AND title LIKE '%Today Bill%'").all();
+      assert.ok(notifs.length >= 1, 'Should notify for items due today with days_before=0');
+    });
+
+    it('does not crash on database error', () => {
+      const brokenDb = {
+        prepare: () => { throw new Error('DB connection lost'); },
+      };
+      const { scheduler } = createScheduler(brokenDb);
+      assert.doesNotThrow(() => scheduler.runBillReminderNotifications());
+    });
+
+    it('logs info when notifications are created', () => {
+      const sub = makeSubscription({ name: 'LogTest', amount: 100, frequency: 'monthly', next_billing_date: daysFromNow(1) });
+      db.prepare('INSERT INTO bill_reminders (user_id, subscription_id, days_before, is_enabled) VALUES (1, ?, 3, 1)').run(sub.id);
+
+      const { scheduler, logs } = createScheduler(db);
+      scheduler.runBillReminderNotifications();
+
+      const infoLogs = logs.filter(l => l.level === 'info');
+      assert.ok(infoLogs.length > 0, 'Should log when bill reminder notification is created');
     });
   });
 });

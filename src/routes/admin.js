@@ -4,7 +4,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const config = require('../config');
 const { createBackup, listBackups, deleteBackup, rotateBackups, resolveBackupPath, isEncryptedBackup, decryptBuffer, getEncryptionKey } = require('../services/backup');
-const { backupFilenameSchema } = require('../schemas/admin.schema');
+const { backupFilenameSchema, adminPasswordResetSchema } = require('../schemas/admin.schema');
 const createAuditRetention = require('../services/audit-retention');
 
 module.exports = function createAdminRoutes({ db }) {
@@ -23,13 +23,16 @@ module.exports = function createAdminRoutes({ db }) {
         return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'User not found' } });
       }
       const { newPassword } = req.body || {};
-      if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
-        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'newPassword must be at least 8 characters' } });
+      const parsed = adminPasswordResetSchema.safeParse({ newPassword });
+      if (!parsed.success) {
+        return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: parsed.error.issues[0].message } });
       }
-      const hash = bcrypt.hashSync(newPassword, config.auth.saltRounds);
-      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, userId);
-      // Invalidate all sessions for the target user
-      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+      const hash = bcrypt.hashSync(parsed.data.newPassword, config.auth.saltRounds);
+      // Atomic: update password + invalidate sessions
+      db.transaction(() => {
+        db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, userId);
+        db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+      })();
       res.json({ ok: true, message: 'Password reset successfully' });
     } catch (err) { next(err); }
   });

@@ -26,4 +26,9 @@ const updateBudgetSchema = budgetBaseSchema.partial().omit({ items: true }).exte
   { message: 'start_date must be before or equal to end_date', path: ['end_date'] }
 );
 
-module.exports = { createBudgetSchema, updateBudgetSchema };
+const budgetTemplateSchema = z.object({
+  template: z.enum(['50/30/20', 'zero-based', 'conscious-spending']),
+  income: z.number().positive('Income must be a positive number').max(1e15),
+});
+
+module.exports = { createBudgetSchema, updateBudgetSchema, budgetTemplateSchema };

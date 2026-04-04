@@ -1,6 +1,7 @@
 const { z } = require('zod');
 
 const VALID_TYPES = ['income', 'expense', 'transfer'];
+const VALID_NATURES = ['need', 'want', 'luxury', 'goal'];
 
 const createCategorySchema = z.object({
   name: z.string().min(1, 'Category name is required').max(100),
@@ -8,8 +9,9 @@ const createCategorySchema = z.object({
   color: z.string().max(20).optional(),
   type: z.enum(VALID_TYPES),
   parent_id: z.number().int().positive().optional().nullable(),
+  nature: z.enum(VALID_NATURES).optional().nullable(),
 });
 
 const updateCategorySchema = createCategorySchema.partial();
 
-module.exports = { createCategorySchema, updateCategorySchema };
+module.exports = { createCategorySchema, updateCategorySchema, VALID_NATURES };

@@ -12,7 +12,10 @@ export async function renderSplits(container) {
   groups = groupData.groups;
 
   const header = el('div', { className: 'view-header' }, [
-    el('h2', { textContent: 'Split Expenses' }),
+    el('h2', {}, [
+      el('span', { className: 'material-icons-round entity-icon split', textContent: 'call_split' }),
+      el('span', { textContent: 'Split Expenses' }),
+    ]),
   ]);
   container.appendChild(header);
 

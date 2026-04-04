@@ -52,7 +52,7 @@ describe('Issue 3: Service worker caches all views', () => {
   const viewFiles = [
     'categories', 'subscriptions', 'groups', 'splits',
     'recurring', 'insights', 'rules', 'export',
-    'calendar', 'calculators', 'challenges',
+    'calendar', 'calculators', 'challenges', 'automation',
   ];
   for (const view of viewFiles) {
     it(`sw.js caches /js/views/${view}.js`, () => {
@@ -63,10 +63,10 @@ describe('Issue 3: Service worker caches all views', () => {
       );
     });
   }
-  it('sw.js CACHE_NAME is bumped to v7.3.1', () => {
+  it('sw.js CACHE_NAME is bumped to v7.5.0', () => {
     const sw = read('sw.js');
     assert.ok(
-      sw.includes('financeflow-v7.3.1'),
+      sw.includes('financeflow-v7.5.0'),
       'CACHE_NAME should be bumped after changes'
     );
   });

@@ -237,7 +237,7 @@ describe('Task 1.8 — Nav Cleanup & SW Cache', () => {
   const html = read('index.html');
   const sw = fs.readFileSync(path.join(PUBLIC, 'sw.js'), 'utf8');
 
-  it('sidebar has exactly 19 nav items (13 core + 6 tools)', () => {
+  it('sidebar has exactly 21 nav items (14 core + 7 tools)', () => {
     // Extract only sidebar nav items (before mobile bottom-nav section)
     const sidebarHtml = html.split('bottom-nav')[0];
     const navItems = (sidebarHtml.match(/data-view="[^"]+"/g) || [])
@@ -245,10 +245,10 @@ describe('Task 1.8 — Nav Cleanup & SW Cache', () => {
       .filter(v => v !== 'more' && v !== 'settings');
     // Expected: dashboard, transactions, accounts, categories,
     //   budgets, subscriptions, goals, recurring,
-    //   groups, splits, health, reports, insights,
-    //   calculators, calendar, challenges, tags, rules, export
-    assert.equal(navItems.length, 19,
-      `Expected 19 nav items, got ${navItems.length}: ${navItems.join(', ')}`);
+    //   groups, splits, health, reports, insights, plans,
+    //   calculators, calendar, challenges, tags, rules, automation, export
+    assert.equal(navItems.length, 21,
+      `Expected 21 nav items, got ${navItems.length}: ${navItems.join(', ')}`);
   });
 
   it('empty System nav group is removed', () => {
@@ -256,9 +256,9 @@ describe('Task 1.8 — Nav Cleanup & SW Cache', () => {
       'Empty System nav group should be removed');
   });
 
-  it('SW cache name is updated to v7.3.0', () => {
-    assert.ok(sw.includes('financeflow-v7.3.'),
-      'SW CACHE_NAME should be financeflow-v7.3.x');
+  it('SW cache name is updated to v7.4.0', () => {
+    assert.ok(sw.includes('financeflow-v7.'),
+      'SW CACHE_NAME should be financeflow-v7.x');
   });
 
   it('SW caches standalone view files', () => {

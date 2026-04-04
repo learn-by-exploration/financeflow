@@ -77,5 +77,146 @@ module.exports = function createHealthService() {
     return interpretation;
   }
 
-  return { calculateRatios, calculateScore, calculateScoreBreakdown, generateInterpretation };
+  // ─── 3-Axis Detailed Scoring (from Excel Current Status model) ───
+
+  const DEFAULT_THRESHOLDS = {
+    max_needs_ratio: 0.4,
+    max_emi_ratio: 0.3,
+    min_savings_ratio: 0.2,
+    min_investment_ratio: 0.1,
+    max_wants_ratio: 0.15,
+    emergency_fund_months_target: 6,
+    saving_fund_months_target: 3,
+    sip_months_target: 12,
+  };
+
+  function getUserThresholds(userSettings) {
+    const t = { ...DEFAULT_THRESHOLDS };
+    if (userSettings) {
+      for (const key of Object.keys(DEFAULT_THRESHOLDS)) {
+        if (userSettings[key] !== undefined && userSettings[key] !== null) {
+          t[key] = Number(userSettings[key]);
+        }
+      }
+    }
+    return t;
+  }
+
+  /**
+   * 3-axis scoring model:
+   * - Investment Score: how well savings + investments + extra income meet targets
+   * - Expenditure Score: how well fixed + variable + EMI expenses stay under caps
+   * - Funds Score: how adequate emergency/saving/SIP funds are vs targets
+   *
+   * Each axis returns a raw score (can be negative or > 100).
+   * Overall = average of all 3, clamped to 0-100.
+   */
+  function calculateDetailedScore({
+    salary, extraIncome = 0,
+    fixedExpenses, variableExpenses, emiTotal,
+    monthlySavings, monthlyInvestments,
+    emergencyFund, savingFund, sipTotal,
+    userSettings,
+  }) {
+    const t = getUserThresholds(userSettings);
+    const income = salary + extraIncome;
+    if (income <= 0) return { investment_score: 0, expenditure_score: 0, funds_score: 0, overall: 0 };
+
+    // Compute target amounts
+    const minSavingsAmt = t.min_savings_ratio * salary;
+    const minInvestmentAmt = t.min_investment_ratio * salary + t.min_investment_ratio * 3 * extraIncome;
+    const maxNeedsAmt = t.max_needs_ratio * salary;
+    const maxWantsAmt = 0.7 * extraIncome + salary * t.max_wants_ratio / 3;
+    const maxEmiAmt = t.max_emi_ratio * salary;
+    const minEmergency = t.emergency_fund_months_target * salary;
+    const minSaving = t.saving_fund_months_target * salary;
+    const minSip = t.sip_months_target * salary;
+
+    // Investment Score: ((savings/target) + (investment/target) + (extraIncome/salary)) × 100/3
+    const savingsRatio = minSavingsAmt > 0 ? monthlySavings / minSavingsAmt : 0;
+    const investRatio = minInvestmentAmt > 0 ? monthlyInvestments / minInvestmentAmt : 0;
+    const extraIncomeRatio = salary > 0 ? extraIncome / salary : 0;
+    const investmentScore = ((savingsRatio + investRatio + extraIncomeRatio) * 100) / 3;
+
+    // Expenditure Score: (2 - (fixed/maxNeeds + variable/maxWants + emi/maxEmi)) × 100/3
+    const needsRatio = maxNeedsAmt > 0 ? fixedExpenses / maxNeedsAmt : 0;
+    const wantsRatio = maxWantsAmt > 0 ? variableExpenses / maxWantsAmt : 0;
+    const emiRatio = maxEmiAmt > 0 ? emiTotal / maxEmiAmt : 0;
+    const expenditureScore = ((2 - (needsRatio + wantsRatio + emiRatio)) * 100) / 3;
+
+    // Funds Score: ((emergency/target) + (saving/target) + (sip/target)) × 100/3
+    const efRatio = minEmergency > 0 ? emergencyFund / minEmergency : 0;
+    const sfRatio = minSaving > 0 ? savingFund / minSaving : 0;
+    const sipRatio = minSip > 0 ? sipTotal / minSip : 0;
+    const fundsScore = ((efRatio + sfRatio + sipRatio) * 100) / 3;
+
+    // Overall = average of 3 axes, clamped 0-100
+    const rawOverall = (investmentScore + expenditureScore + fundsScore) / 3;
+    const overall = Math.min(100, Math.max(0, Math.round(rawOverall)));
+
+    return {
+      investment_score: Math.round(investmentScore * 10) / 10,
+      expenditure_score: Math.round(expenditureScore * 10) / 10,
+      funds_score: Math.round(fundsScore * 10) / 10,
+      overall,
+      thresholds: t,
+      // Sub-ratios for transparency
+      sub_ratios: {
+        savings_to_target: Math.round(savingsRatio * 100) / 100,
+        investment_to_target: Math.round(investRatio * 100) / 100,
+        needs_to_cap: Math.round(needsRatio * 100) / 100,
+        wants_to_cap: Math.round(wantsRatio * 100) / 100,
+        emi_to_cap: Math.round(emiRatio * 100) / 100,
+        emergency_to_target: Math.round(efRatio * 100) / 100,
+        saving_to_target: Math.round(sfRatio * 100) / 100,
+        sip_to_target: Math.round(sipRatio * 100) / 100,
+      },
+    };
+  }
+
+  /**
+   * Calculate budget adherence: how well user sticks to their budget allocations.
+   * Returns 0-100 percentage. 100 = all spending within budget.
+   */
+  function calculateBudgetAdherence(budgetItems) {
+    if (!budgetItems || budgetItems.length === 0) return null;
+    let withinBudget = 0;
+    for (const item of budgetItems) {
+      if (item.allocated > 0 && item.spent <= item.allocated) withinBudget++;
+    }
+    return Math.round((withinBudget / budgetItems.length) * 100);
+  }
+
+  /**
+   * Age of Money: average days between income receipt and money being spent.
+   * Approximation: average balance / average daily spending.
+   */
+  function calculateAgeOfMoney({ avgBalance, avgDailyExpense }) {
+    if (avgDailyExpense <= 0) return null;
+    return Math.round(avgBalance / avgDailyExpense);
+  }
+
+  /**
+   * Expected Net Worth (Millionaire Next Door formula): Age × Annual Income ÷ 10
+   * PAW = net worth ≥ 2× expected, UAW = ≤ 0.5× expected
+   */
+  function calculateExpectedNetWorth({ age, annualIncome, actualNetWorth }) {
+    if (!age || !annualIncome) return null;
+    const expected = (age * annualIncome) / 10;
+    let classification = 'AAW'; // Average Accumulator
+    if (actualNetWorth >= 2 * expected) classification = 'PAW'; // Prodigious
+    else if (actualNetWorth <= 0.5 * expected) classification = 'UAW'; // Under
+    return {
+      expected_net_worth: Math.round(expected),
+      actual_net_worth: Math.round(actualNetWorth),
+      ratio: expected > 0 ? Math.round((actualNetWorth / expected) * 100) / 100 : 0,
+      classification,
+    };
+  }
+
+  return {
+    calculateRatios, calculateScore, calculateScoreBreakdown, generateInterpretation,
+    calculateDetailedScore, calculateBudgetAdherence, calculateAgeOfMoney, calculateExpectedNetWorth,
+    getUserThresholds, DEFAULT_THRESHOLDS,
+  };
 };
