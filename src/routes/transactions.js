@@ -127,7 +127,7 @@ module.exports = function createTransactionRoutes({ db, audit }) {
       // Regular income/expense — use converted amount in account currency
       const transaction = txRepo.create(req.user.id, {
         account_id, category_id: resolvedCategoryId, type, amount: finalAmount,
-        currency: accountCurrency, description, note, date, payee, tag_ids, reference_id,
+        currency: accountCurrency, description, note, date, time: parsed.data.time, payee, tag_ids, reference_id,
         original_amount: originalAmount, original_currency: originalCurrency, exchange_rate_used: exchangeRateUsed,
         payment_mode: parsed.data.payment_mode,
       });

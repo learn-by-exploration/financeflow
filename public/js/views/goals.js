@@ -3,6 +3,7 @@ import { Api, fmt, el, toast, openModal, closeModal, confirm, withLoading } from
 import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 
 const GOAL_ICONS = ['🎯', '🏠', '🚗', '✈️', '💍', '📱', '🎓', '🏥', '💰', '🎁'];
+let accounts = [];
 let onRefresh = null;
 
 export async function renderGoals(container) {
@@ -11,8 +12,9 @@ export async function renderGoals(container) {
 
   let goals;
   try {
-    const data = await Api.get('/goals');
+    const [data, acctData] = await Promise.all([Api.get('/goals'), Api.get('/accounts')]);
     goals = data.goals;
+    accounts = acctData.accounts;
     hideStates(container);
   } catch (err) {
     container.innerHTML = '';
@@ -80,7 +82,10 @@ function goalCard(goal) {
     el('div', { className: 'goal-card-header' }, [
       el('span', { className: 'goal-icon', textContent: goal.icon || '🎯' }),
       el('div', { className: 'goal-info' }, [
-        el('div', { className: 'goal-name', textContent: goal.name }),
+        el('div', { className: 'goal-name' }, [
+          el('span', { textContent: goal.name }),
+          goal.currency && goal.currency !== 'INR' ? el('span', { className: 'badge badge-accent', textContent: goal.currency, style: 'margin-left:6px' }) : null,
+        ].filter(Boolean)),
         projectedText ? el('div', { className: 'goal-deadline', textContent: projectedText }) : null,
       ].filter(Boolean)),
       el('div', { className: 'account-card-actions' }, [
@@ -95,7 +100,7 @@ function goalCard(goal) {
     ]),
     el('div', { className: 'goal-progress' }, [
       el('div', { className: 'budget-progress-info' }, [
-        el('span', { textContent: `${fmt(goal.current_amount)} of ${fmt(goal.target_amount)}` }),
+        el('span', { textContent: `${fmt(goal.current_amount, goal.currency)} of ${fmt(goal.target_amount, goal.currency)}` }),
         el('span', { className: 'budget-pct', textContent: `${pct}%` }),
       ]),
       (() => {
@@ -113,7 +118,7 @@ function goalCard(goal) {
         bar.appendChild(fill);
         return bar;
       })(),
-      remaining > 0 ? el('div', { className: 'goal-remaining', textContent: `${fmt(remaining)} to go` }) : null,
+      remaining > 0 ? el('div', { className: 'goal-remaining', textContent: `${fmt(remaining, goal.currency)} to go` }) : null,
     ].filter(Boolean)),
   ]);
 
@@ -125,9 +130,20 @@ function showGoalForm(goal) {
   const isEdit = !!goal;
   const form = el('form', { className: 'modal-form', onSubmit: (e) => handleGoalSubmit(e, goal) }, [
     el('h3', { className: 'modal-title', textContent: isEdit ? 'Edit Goal' : 'New Savings Goal' }),
-    formGroup('Name', el('input', { type: 'text', name: 'name', required: 'true', value: goal?.name || '', placeholder: 'e.g. Emergency Fund' })),
-    formGroup('Target Amount', el('input', { type: 'number', name: 'target_amount', step: '0.01', min: '1', required: 'true', value: goal?.target_amount ? String(goal.target_amount) : '' })),
-    isEdit ? formGroup('Current Amount', el('input', { type: 'number', name: 'current_amount', step: '0.01', min: '0', value: String(goal?.current_amount ?? 0) })) : null,
+    formGroup('Name', el('input', { type: 'text', name: 'name', required: true, value: goal?.name || '', placeholder: 'e.g. Emergency Fund', maxLength: '100', 'aria-label': 'Goal name' })),
+    formGroup('Target Amount', el('input', { type: 'number', name: 'target_amount', step: '0.01', min: '1', max: '9999999', required: true, value: goal?.target_amount ? String(goal.target_amount) : '', inputMode: 'decimal', 'aria-label': 'Target amount' })),
+    isEdit ? formGroup('Current Amount', el('input', { type: 'number', name: 'current_amount', step: '0.01', min: '0', max: '9999999', value: String(goal?.current_amount ?? 0), inputMode: 'decimal', 'aria-label': 'Current amount' })) : null,
+    formGroup('Currency', (() => {
+      const currencies = [...new Set(accounts.map(a => a.currency))].sort();
+      if (!currencies.includes('INR')) currencies.unshift('INR');
+      const s = el('select', { name: 'currency' });
+      currencies.forEach(c => {
+        const opt = el('option', { value: c, textContent: c });
+        if ((goal?.currency || 'INR') === c) opt.selected = true;
+        s.appendChild(opt);
+      });
+      return s;
+    })()),
     formGroup('Deadline', el('input', { type: 'date', name: 'deadline', value: goal?.deadline || '' })),
     formGroup('Icon', (() => {
       const w = el('div', { className: 'icon-picker' });
@@ -138,7 +154,7 @@ function showGoalForm(goal) {
       })));
       return w;
     })()),
-    formGroup('Color', el('input', { type: 'color', name: 'color', value: goal?.color || '#10b981' })),
+    formGroup('Color', el('input', { type: 'color', name: 'color', value: goal?.color || '#10b981', 'aria-label': 'Goal color' })),
     el('div', { className: 'form-actions' }, [
       el('button', { type: 'button', className: 'btn btn-secondary', textContent: 'Cancel', onClick: closeModal }),
       el('button', { type: 'submit', className: 'btn btn-primary', textContent: isEdit ? 'Save' : 'Create Goal' }),
@@ -156,7 +172,7 @@ function showContribute(goal) {
     await withLoading(btn, async () => {
       try {
         await Api.put(`/goals/${goal.id}`, { current_amount: goal.current_amount + amount });
-        toast(`Added ${fmt(amount)} to ${goal.name}`, 'success');
+        toast(`Added ${fmt(amount, goal.currency)} to ${goal.name}`, 'success');
         closeModal();
         if (onRefresh) onRefresh();
       } catch (err) {
@@ -167,7 +183,7 @@ function showContribute(goal) {
     });
   }}, [
     el('h3', { className: 'modal-title', textContent: `Add to "${goal.name}"` }),
-    el('p', { textContent: `Current: ${fmt(goal.current_amount)} / ${fmt(goal.target_amount)}` }),
+    el('p', { textContent: `Current: ${fmt(goal.current_amount, goal.currency)} / ${fmt(goal.target_amount, goal.currency)}` }),
     formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', required: 'true', placeholder: '0.00' })),
     el('div', { className: 'form-actions' }, [
       el('button', { type: 'button', className: 'btn btn-secondary', textContent: 'Cancel', onClick: closeModal }),
@@ -184,6 +200,7 @@ async function handleGoalSubmit(e, existing) {
   const body = {
     name: f.name.value.trim(),
     target_amount: parseFloat(f.target_amount.value),
+    currency: f.currency.value,
     icon: selectedIcon?.textContent || '🎯',
     color: f.color.value,
     deadline: f.deadline.value || null,

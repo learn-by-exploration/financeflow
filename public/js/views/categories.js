@@ -1,5 +1,5 @@
 // PersonalFi — Categories View
-import { Api, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 
 const CATEGORY_ICONS = ['🍕', '🛒', '🏠', '🚗', '💊', '🎬', '✈️', '📚', '👕', '💇', '🎁', '💰', '📱', '⚡', '💳', '🏦', '📁', '🎯', '🎮', '🎵'];
 
@@ -74,7 +74,7 @@ function showCategoryForm(cat) {
   const form = el('form', { className: 'modal-form', onSubmit: (e) => handleSubmit(e, cat) }, [
     el('h3', { className: 'modal-title', textContent: isEdit ? 'Edit Category' : 'Add Category' }),
 
-    formGroup('Name', el('input', { type: 'text', name: 'name', required: 'true', value: cat?.name || '' })),
+    formGroup('Name', el('input', { type: 'text', name: 'name', required: true, value: cat?.name || '', placeholder: 'e.g. Food & Dining', maxLength: '100', 'aria-label': 'Category name' })),
 
     !isEdit ? formGroup('Type', (() => {
       const select = el('select', { name: 'type' });
@@ -96,7 +96,7 @@ function showCategoryForm(cat) {
       return wrapper;
     })()),
 
-    formGroup('Color', el('input', { type: 'color', name: 'color', value: cat?.color || '#8b5cf6' })),
+    formGroup('Color', el('input', { type: 'color', name: 'color', value: cat?.color || '#8b5cf6', 'aria-label': 'Category color' })),
 
     el('div', { className: 'form-actions' }, [
       el('button', { type: 'button', className: 'btn btn-secondary', textContent: 'Cancel', onClick: closeModal }),
@@ -121,19 +121,23 @@ async function handleSubmit(e, existing) {
     color: f.color.value,
   };
   if (!existing) body.type = f.type.value;
-
+  const submitBtn = f.querySelector('button[type="submit"]');
   try {
-    if (existing) {
-      await Api.put(`/categories/${existing.id}`, body);
-      toast('Category updated', 'success');
-    } else {
-      await Api.post('/categories', body);
-      toast('Category added', 'success');
-    }
-    closeModal();
-    if (onRefresh) onRefresh();
+    await withLoading(submitBtn, async () => {
+      if (existing) {
+        await Api.put(`/categories/${existing.id}`, body);
+        toast('Category updated', 'success');
+      } else {
+        await Api.post('/categories', body);
+        toast('Category added', 'success');
+      }
+      closeModal();
+      if (onRefresh) onRefresh();
+    });
   } catch (err) {
-    toast(err.message, 'error');
+    let errDiv = f.querySelector('.modal-error');
+    if (!errDiv) { errDiv = el('div', { className: 'modal-error' }); f.prepend(errDiv); }
+    errDiv.textContent = err.message;
   }
 }
 

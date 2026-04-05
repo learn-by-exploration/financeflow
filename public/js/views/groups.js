@@ -1,5 +1,5 @@
 // PersonalFi — Groups View
-import { Api, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 
 let onRefresh = null;
 
@@ -72,21 +72,28 @@ async function groupCard(group) {
 function showGroupForm() {
   const form = el('form', { className: 'modal-form', onSubmit: async (e) => {
     e.preventDefault();
+    const submitBtn = e.target.querySelector('button[type="submit"]');
     try {
-      await Api.post('/groups', {
-        name: e.target.name.value.trim(),
-        icon: e.target.icon.value || '👥',
-        color: e.target.color.value,
+      await withLoading(submitBtn, async () => {
+        await Api.post('/groups', {
+          name: e.target.name.value.trim(),
+          icon: e.target.icon.value || '👥',
+          color: e.target.color.value,
+        });
+        toast('Group created', 'success');
+        closeModal();
+        if (onRefresh) onRefresh();
       });
-      toast('Group created', 'success');
-      closeModal();
-      if (onRefresh) onRefresh();
-    } catch (err) { toast(err.message, 'error'); }
+    } catch (err) {
+      let errDiv = e.target.querySelector('.modal-error');
+      if (!errDiv) { errDiv = el('div', { className: 'modal-error' }); e.target.prepend(errDiv); }
+      errDiv.textContent = err.message;
+    }
   }}, [
     el('h3', { className: 'modal-title', textContent: 'Create Group' }),
-    formGroup('Name', el('input', { type: 'text', name: 'name', required: 'true', placeholder: 'e.g. Roommates' })),
-    formGroup('Icon', el('input', { type: 'text', name: 'icon', value: '👥', placeholder: 'Emoji' })),
-    formGroup('Color', el('input', { type: 'color', name: 'color', value: '#f59e0b' })),
+    formGroup('Name', el('input', { type: 'text', name: 'name', required: true, placeholder: 'e.g. Roommates', maxLength: '100', 'aria-label': 'Group name' })),
+    formGroup('Icon', el('input', { type: 'text', name: 'icon', value: '👥', placeholder: 'Emoji', maxLength: '10', 'aria-label': 'Group icon' })),
+    formGroup('Color', el('input', { type: 'color', name: 'color', value: '#f59e0b', 'aria-label': 'Group color' })),
     el('div', { className: 'form-actions' }, [
       el('button', { type: 'button', className: 'btn btn-secondary', textContent: 'Cancel', onClick: closeModal }),
       el('button', { type: 'submit', className: 'btn btn-primary', textContent: 'Create' }),

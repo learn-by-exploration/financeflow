@@ -1,5 +1,5 @@
 // PersonalFi — Auto-Categorization Rules View
-import { Api, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 
 let categories = [];
 let onRefresh = null;
@@ -72,7 +72,7 @@ function showRuleForm(rule) {
   const isEdit = !!rule;
   const form = el('form', { className: 'modal-form', onSubmit: (e) => handleSubmit(e, rule) }, [
     el('h3', { className: 'modal-title', textContent: isEdit ? 'Edit Rule' : 'Add Rule' }),
-    formGroup('Pattern', el('input', { type: 'text', name: 'pattern', required: 'true', value: rule?.pattern || '', placeholder: 'swiggy|zomato|uber eats' })),
+    formGroup('Pattern', el('input', { type: 'text', name: 'pattern', required: true, value: rule?.pattern || '', placeholder: 'swiggy|zomato|uber eats', maxLength: '255', 'aria-label': 'Rule pattern' })),
     el('p', { className: 'form-hint', textContent: 'Pipe-separated keywords. Case-insensitive matching.' }),
     formGroup('Category', (() => {
       const s = el('select', { name: 'category_id', required: 'true' });
@@ -99,17 +99,24 @@ async function handleSubmit(e, existing) {
     pattern: f.pattern.value.trim(),
     category_id: parseInt(f.category_id.value, 10),
   };
+  const submitBtn = f.querySelector('button[type="submit"]');
   try {
-    if (existing) {
-      await Api.put(`/rules/${existing.id}`, body);
-      toast('Rule updated', 'success');
-    } else {
-      await Api.post('/rules', body);
-      toast('Rule added', 'success');
-    }
-    closeModal();
-    if (onRefresh) onRefresh();
-  } catch (err) { toast(err.message, 'error'); }
+    await withLoading(submitBtn, async () => {
+      if (existing) {
+        await Api.put(`/rules/${existing.id}`, body);
+        toast('Rule updated', 'success');
+      } else {
+        await Api.post('/rules', body);
+        toast('Rule added', 'success');
+      }
+      closeModal();
+      if (onRefresh) onRefresh();
+    });
+  } catch (err) {
+    let errDiv = f.querySelector('.modal-error');
+    if (!errDiv) { errDiv = el('div', { className: 'modal-error' }); f.prepend(errDiv); }
+    errDiv.textContent = err.message;
+  }
 }
 
 async function deleteRule(rule) {

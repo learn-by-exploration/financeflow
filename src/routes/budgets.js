@@ -38,14 +38,15 @@ module.exports = function createBudgetRoutes({ db, audit }) {
 
       const items = budgetRepo.getItems(budget.id);
 
-      // Get spending per category in budget period
+      // Get spending per category in budget period, filtered by budget currency
       const spending = db.prepare(`
         SELECT category_id, SUM(amount) as total_spent
         FROM transactions
         WHERE user_id = ? AND type = 'expense'
         AND date >= ? AND date <= ?
+        AND currency = ?
         GROUP BY category_id
-      `).all(req.user.id, budget.start_date, budget.end_date);
+      `).all(req.user.id, budget.start_date, budget.end_date, budget.currency || 'INR');
 
       const spendingMap = {};
       for (const s of spending) {
@@ -74,8 +75,8 @@ module.exports = function createBudgetRoutes({ db, audit }) {
               const prevSpent = db.prepare(`
                 SELECT COALESCE(SUM(amount), 0) as total FROM transactions
                 WHERE user_id = ? AND type = 'expense' AND category_id = ?
-                AND date >= ? AND date <= ?
-              `).get(req.user.id, item.category_id, prevBudget.start_date, prevBudget.end_date);
+                AND date >= ? AND date <= ? AND currency = ?
+              `).get(req.user.id, item.category_id, prevBudget.start_date, prevBudget.end_date, budget.currency || 'INR');
               rollover_amount = prevItem.amount - (prevSpent.total || 0);
             }
           }
@@ -156,6 +157,7 @@ module.exports = function createBudgetRoutes({ db, audit }) {
         period: 'monthly',
         start_date: start,
         end_date: end,
+        currency: req.user.defaultCurrency || 'INR',
         items,
       });
 

@@ -25,9 +25,9 @@ module.exports = function createBudgetRepository({ db }) {
   }
 
   function create(userId, data) {
-    const { name, period, start_date, end_date, items } = data;
-    const result = db.prepare('INSERT INTO budgets (user_id, name, period, start_date, end_date) VALUES (?, ?, ?, ?, ?)')
-      .run(userId, name, period, start_date || null, end_date || null);
+    const { name, period, start_date, end_date, currency, items } = data;
+    const result = db.prepare('INSERT INTO budgets (user_id, name, period, start_date, end_date, currency) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(userId, name, period, start_date || null, end_date || null, currency || 'INR');
     const budgetId = result.lastInsertRowid;
     if (items && items.length) {
       const insert = db.prepare('INSERT INTO budget_items (budget_id, category_id, amount, rollover) VALUES (?, ?, ?, ?)');
@@ -40,13 +40,13 @@ module.exports = function createBudgetRepository({ db }) {
   }
 
   function update(id, userId, data) {
-    const { name, period, start_date, end_date, is_active } = data;
+    const { name, period, start_date, end_date, is_active, currency } = data;
     db.prepare(`
       UPDATE budgets SET name = COALESCE(?, name), period = COALESCE(?, period),
       start_date = COALESCE(?, start_date), end_date = COALESCE(?, end_date),
-      is_active = COALESCE(?, is_active), updated_at = datetime('now')
+      is_active = COALESCE(?, is_active), currency = COALESCE(?, currency), updated_at = datetime('now')
       WHERE id = ? AND user_id = ?
-    `).run(name, period, start_date, end_date, is_active, id, userId);
+    `).run(name, period, start_date, end_date, is_active, currency, id, userId);
     return db.prepare('SELECT * FROM budgets WHERE id = ? AND user_id = ?').get(id, userId);
   }
 

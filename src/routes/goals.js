@@ -86,6 +86,9 @@ module.exports = function createGoalRoutes({ db, audit }) {
         return res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Amount must be a positive number' } });
       }
 
+      // Warn if transaction currency doesn't match goal currency
+      const currencyMismatch = tx.currency && goal.currency && tx.currency !== goal.currency;
+
       // Check if already linked
       const existing = goalRepo.findLinkedTransaction(goal.id, tx.id);
       if (existing) return res.status(409).json({ error: { code: 'ALREADY_LINKED', message: 'Transaction already linked to this goal' } });
@@ -93,7 +96,11 @@ module.exports = function createGoalRoutes({ db, audit }) {
       const link = goalRepo.linkTransaction(goal.id, tx.id, linkAmount);
       const updatedGoal = goalRepo.recalculateCurrentAmount(goal.id, req.user.id);
       audit.log(req.user.id, 'goal.link_transaction', 'savings_goal', goal.id);
-      res.status(201).json({ link, goal: updatedGoal });
+      res.status(201).json({
+        link,
+        goal: updatedGoal,
+        ...(currencyMismatch ? { warning: `Transaction is in ${tx.currency} but goal is in ${goal.currency}. The linked amount was used as-is. Provide an explicit amount in ${goal.currency} if needed.` } : {}),
+      });
     } catch (err) { next(err); }
   });
 

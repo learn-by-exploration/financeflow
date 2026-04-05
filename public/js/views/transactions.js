@@ -249,7 +249,10 @@ function renderTable() {
       ...(multiSelectMode ? [el('td', {}, [
         el('input', { type: 'checkbox', className: 'multi-select-check', 'aria-label': `Select ${t.description}`, checked: selectedIds.has(t.id), onChange: (e) => { if (e.target.checked) selectedIds.add(t.id); else selectedIds.delete(t.id); updateBulkCount(); } }),
       ])] : []),
-      el('td', { textContent: t.date, 'data-label': 'Date' }),
+      el('td', { 'data-label': 'Date' }, [
+        el('span', { textContent: t.date }),
+        t.time ? el('span', { className: 'txn-time', textContent: t.time }) : null,
+      ].filter(Boolean)),
       el('td', { className: 'txn-desc-cell', 'data-label': 'Description' }, [
         el('span', { textContent: t.description }),
         t.payee ? el('span', { className: 'txn-payee', textContent: t.payee }) : null,
@@ -331,7 +334,7 @@ function showTxnForm(txn) {
     })()),
 
     formGroup('Description', (() => {
-      const descInput = el('input', { type: 'text', name: 'description', required: 'true', value: txn?.description || '', placeholder: 'What did you spend on?' });
+      const descInput = el('input', { type: 'text', name: 'description', required: true, value: txn?.description || '', placeholder: 'What did you spend on?', maxLength: '255', 'aria-label': 'Transaction description' });
       const suggestChip = el('div', { className: 'category-suggest-chip', style: 'display:none' });
 
       let suggestTimer;
@@ -363,12 +366,14 @@ function showTxnForm(txn) {
       return wrapper;
     })()),
 
-    formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', required: 'true', value: txn?.amount ? String(txn.amount) : '' })),
+    formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', max: '9999999', required: true, value: txn?.amount ? String(txn.amount) : '', inputMode: 'decimal', 'aria-label': 'Transaction amount' })),
 
-    formGroup('Date', el('input', { type: 'date', name: 'date', required: 'true', value: txn?.date || today })),
+    formGroup('Date', el('input', { type: 'date', name: 'date', required: true, value: txn?.date || today, 'aria-label': 'Transaction date' })),
+
+    formGroup('Time (optional)', el('input', { type: 'time', name: 'time', value: txn?.time || '' })),
 
     formGroup('Account', (() => {
-      const select = el('select', { name: 'account_id', required: 'true' });
+      const select = el('select', { name: 'account_id', required: true, 'aria-label': 'Account' });
       select.appendChild(el('option', { value: '', textContent: 'Select account' }));
       accounts.forEach(a => {
         const opt = el('option', { value: String(a.id), textContent: `${a.icon} ${a.name} (${a.currency})` });
@@ -427,6 +432,27 @@ function showTxnForm(txn) {
     })()),
 
     formGroup('Payee', el('input', { type: 'text', name: 'payee', value: txn?.payee || '', placeholder: 'Optional' })),
+
+    formGroup('Payment Mode', (() => {
+      const select = el('select', { name: 'payment_mode' });
+      const modes = [
+        { v: '', l: 'Not specified' },
+        { v: 'cash', l: 'Cash' },
+        { v: 'debit_card', l: 'Debit Card' },
+        { v: 'credit_card', l: 'Credit Card' },
+        { v: 'upi', l: 'UPI' },
+        { v: 'bank_transfer', l: 'Bank Transfer' },
+        { v: 'wallet', l: 'Wallet' },
+        { v: 'cheque', l: 'Cheque' },
+        { v: 'other', l: 'Other' },
+      ];
+      for (const m of modes) {
+        const opt = el('option', { value: m.v, textContent: m.l });
+        if ((txn?.payment_mode || '') === m.v) opt.selected = true;
+        select.appendChild(opt);
+      }
+      return select;
+    })()),
 
     formGroup('Note', el('textarea', { name: 'note', rows: '2', value: '', placeholder: 'Optional note' }, [txn?.note || ''])),
 
@@ -500,6 +526,12 @@ async function handleSubmit(e, existing) {
     payee: f.payee.value.trim() || undefined,
     note: f.note.value.trim() || undefined,
   };
+  if (f.time && f.time.value) {
+    body.time = f.time.value;
+  }
+  if (f.payment_mode && f.payment_mode.value) {
+    body.payment_mode = f.payment_mode.value;
+  }
   if (f.currency && f.currency.value) {
     body.currency = f.currency.value;
   }

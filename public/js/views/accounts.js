@@ -14,6 +14,8 @@ const ACCOUNT_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
+const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'CNY', 'SGD', 'AED', 'SAR', 'BRL', 'KRW', 'THB', 'MYR', 'IDR', 'PHP', 'VND', 'ZAR', 'NZD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'TRY', 'MXN', 'RUB', 'HKD', 'TWD', 'ILS', 'CLP', 'ARS', 'COP', 'PEN', 'EGP', 'NGN', 'KES', 'BDT', 'PKR', 'LKR', 'NPR', 'MMK'];
+
 const ACCOUNT_ICONS = ['🏦', '💳', '💵', '📈', '🏠', '🚗', '💰', '🪙', '🏧', '👛'];
 
 let onRefresh = null;
@@ -125,7 +127,7 @@ function showAccountForm(account) {
   const form = el('form', { className: 'modal-form', onSubmit: (e) => handleSubmit(e, account) }, [
     el('h3', { className: 'modal-title', textContent: isEdit ? 'Edit Account' : 'Add Account' }),
 
-    formGroup('Name', el('input', { type: 'text', name: 'name', required: 'true', value: account?.name || '', placeholder: 'e.g. HDFC Savings' })),
+    formGroup('Name', el('input', { type: 'text', name: 'name', required: true, value: account?.name || '', placeholder: 'e.g. HDFC Savings', maxLength: '100', 'aria-label': 'Account name' })),
 
     formGroup('Type', (() => {
       const select = el('select', { name: 'type' });
@@ -137,9 +139,17 @@ function showAccountForm(account) {
       return select;
     })()),
 
-    formGroup('Currency', el('input', { type: 'text', name: 'currency', value: account?.currency || 'INR', placeholder: 'INR' })),
+    formGroup('Currency', (() => {
+      const select = el('select', { name: 'currency' });
+      for (const c of CURRENCIES) {
+        const opt = el('option', { value: c, textContent: c });
+        if ((account?.currency || 'INR') === c) opt.selected = true;
+        select.appendChild(opt);
+      }
+      return select;
+    })()),
 
-    formGroup('Balance', el('input', { type: 'number', name: 'balance', step: '0.01', value: String(account?.balance ?? 0) })),
+    formGroup('Balance', el('input', { type: 'number', name: 'balance', step: '0.01', value: String(account?.balance ?? 0), inputMode: 'decimal', 'aria-label': 'Account balance' })),
 
     formGroup('Icon', (() => {
       const wrapper = el('div', { className: 'icon-picker' });
@@ -158,7 +168,7 @@ function showAccountForm(account) {
       return wrapper;
     })()),
 
-    formGroup('Institution', el('input', { type: 'text', name: 'institution', value: account?.institution || '', placeholder: 'e.g. HDFC Bank' })),
+    formGroup('Institution', el('input', { type: 'text', name: 'institution', value: account?.institution || '', placeholder: 'e.g. HDFC Bank', maxLength: '100', 'aria-label': 'Institution name' })),
 
     formGroup('Last 4 digits', el('input', { type: 'text', name: 'account_number_last4', maxlength: '4', value: account?.account_number_last4 || '', placeholder: '1234' })),
 

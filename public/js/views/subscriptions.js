@@ -1,5 +1,5 @@
 // PersonalFi — Subscriptions View
-import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, fmt, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 
 const FREQUENCIES = [
   { value: 'weekly', label: 'Weekly' },
@@ -120,8 +120,8 @@ function showSubForm(sub) {
   const isEdit = !!sub;
   const form = el('form', { className: 'modal-form', onSubmit: (e) => handleSubmit(e, sub) }, [
     el('h3', { className: 'modal-title', textContent: isEdit ? 'Edit Subscription' : 'Add Subscription' }),
-    formGroup('Name', el('input', { type: 'text', name: 'name', required: 'true', value: sub?.name || '', placeholder: 'e.g. Netflix' })),
-    formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', required: 'true', value: sub?.amount ? String(sub.amount) : '' })),
+    formGroup('Name', el('input', { type: 'text', name: 'name', required: true, value: sub?.name || '', placeholder: 'e.g. Netflix', maxLength: '100', 'aria-label': 'Subscription name' })),
+    formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', max: '9999999', required: true, value: sub?.amount ? String(sub.amount) : '', inputMode: 'decimal', 'aria-label': 'Subscription amount' })),
     formGroup('Frequency', (() => {
       const s = el('select', { name: 'frequency' });
       FREQUENCIES.forEach(f => {
@@ -131,7 +131,7 @@ function showSubForm(sub) {
       });
       return s;
     })()),
-    formGroup('Provider', el('input', { type: 'text', name: 'provider', value: sub?.provider || '', placeholder: 'e.g. Netflix Inc.' })),
+    formGroup('Provider', el('input', { type: 'text', name: 'provider', value: sub?.provider || '', placeholder: 'e.g. Netflix Inc.', maxLength: '100', 'aria-label': 'Provider name' })),
     formGroup('Next Billing Date', el('input', { type: 'date', name: 'next_billing_date', value: sub?.next_billing_date || '' })),
     formGroup('Category', (() => {
       const s = el('select', { name: 'category_id' });
@@ -164,17 +164,24 @@ async function handleSubmit(e, existing) {
     category_id: parseInt(f.category_id.value, 10) || null,
     notes: f.notes.value.trim() || null,
   };
+  const submitBtn = f.querySelector('button[type="submit"]');
   try {
-    if (existing) {
-      await Api.put(`/subscriptions/${existing.id}`, body);
-      toast('Subscription updated', 'success');
-    } else {
-      await Api.post('/subscriptions', body);
-      toast('Subscription added', 'success');
-    }
-    closeModal();
-    if (onRefresh) onRefresh();
-  } catch (err) { toast(err.message, 'error'); }
+    await withLoading(submitBtn, async () => {
+      if (existing) {
+        await Api.put(`/subscriptions/${existing.id}`, body);
+        toast('Subscription updated', 'success');
+      } else {
+        await Api.post('/subscriptions', body);
+        toast('Subscription added', 'success');
+      }
+      closeModal();
+      if (onRefresh) onRefresh();
+    });
+  } catch (err) {
+    let errDiv = f.querySelector('.modal-error');
+    if (!errDiv) { errDiv = el('div', { className: 'modal-error' }); f.prepend(errDiv); }
+    errDiv.textContent = err.message;
+  }
 }
 
 async function toggleActive(sub) {

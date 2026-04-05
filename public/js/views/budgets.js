@@ -4,6 +4,7 @@ import { showLoading, showEmpty, showError, hideStates } from '../ui-states.js';
 import { rules, attachValidation } from '../form-validator.js';
 
 let categories = [];
+let accounts = [];
 let onRefresh = null;
 
 export async function renderBudgets(container) {
@@ -12,9 +13,10 @@ export async function renderBudgets(container) {
 
   let budgetData;
   try {
-    const [bData, catData] = await Promise.all([Api.get('/budgets'), Api.get('/categories')]);
+    const [bData, catData, acctData] = await Promise.all([Api.get('/budgets'), Api.get('/categories'), Api.get('/accounts')]);
     budgetData = bData;
     categories = catData.categories.filter(c => c.type === 'expense');
+    accounts = acctData.accounts;
     hideStates(container);
   } catch (err) {
     container.innerHTML = '';
@@ -66,7 +68,7 @@ async function budgetCard(budget) {
     el('div', { className: 'budget-card-header' }, [
       el('div', {}, [
         el('div', { className: 'budget-card-name', textContent: budget.name }),
-        el('div', { className: 'budget-card-meta', textContent: `${budget.period} · ${budget.start_date || '—'} to ${budget.end_date || '—'}` }),
+        el('div', { className: 'budget-card-meta', textContent: `${budget.period} · ${budget.currency || 'INR'} · ${budget.start_date || '—'} to ${budget.end_date || '—'}` }),
       ]),
       el('div', { className: 'account-card-actions' }, [
         el('button', { className: 'btn-icon', title: 'View Details', onClick: () => showBudgetDetail(budget) }, [
@@ -79,7 +81,7 @@ async function budgetCard(budget) {
     ]),
     el('div', { className: 'budget-progress' }, [
       el('div', { className: 'budget-progress-info' }, [
-        el('span', { textContent: `${fmt(summary.total_spent)} of ${fmt(summary.total_allocated)}` }),
+        el('span', { textContent: `${fmt(summary.total_spent, budget.currency)} of ${fmt(summary.total_allocated, budget.currency)}` }),
         el('span', { className: `budget-pct ${pct >= 100 ? 'over' : ''}`, textContent: `${pct}%` }),
       ]),
       progressBar(pct, barColor),
@@ -114,7 +116,7 @@ async function showBudgetDetail(budget) {
     return el('div', { className: 'budget-detail-row' }, [
       el('div', { className: 'budget-detail-cat' }, [
         el('span', { textContent: `${c.category_icon || '📁'} ${c.category_name}` }),
-        el('span', { className: 'budget-detail-amounts', textContent: `${fmt(c.spent)} / ${fmt(c.allocated)}` }),
+        el('span', { className: 'budget-detail-amounts', textContent: `${fmt(c.spent, summary.budget.currency)} / ${fmt(c.allocated, summary.budget.currency)}` }),
       ]),
       progressBar(pct, barColor),
     ]);
@@ -124,8 +126,8 @@ async function showBudgetDetail(budget) {
     el('h3', { className: 'modal-title', textContent: budget.name }),
     el('p', { className: 'budget-card-meta', textContent: `${budget.period} · ${budget.start_date || '—'} to ${budget.end_date || '—'}` }),
     el('div', { className: 'budget-detail-summary' }, [
-      el('span', { textContent: `Total: ${fmt(summary.total_spent)} of ${fmt(summary.total_allocated)}` }),
-      el('span', { textContent: `Remaining: ${fmt(summary.total_remaining)}` }),
+      el('span', { textContent: `Total: ${fmt(summary.total_spent, summary.budget.currency)} of ${fmt(summary.total_allocated, summary.budget.currency)}` }),
+      el('span', { textContent: `Remaining: ${fmt(summary.total_remaining, summary.budget.currency)}` }),
     ]),
     el('div', { className: 'budget-detail-rows' }, rows),
     el('div', { className: 'form-actions' }, [
@@ -159,6 +161,14 @@ function showBudgetForm() {
 
     formGroup('Start Date', el('input', { type: 'date', name: 'start_date', value: startDate })),
     formGroup('End Date', el('input', { type: 'date', name: 'end_date', value: endDate })),
+
+    formGroup('Currency', (() => {
+      const currencies = [...new Set(accounts.map(a => a.currency))].sort();
+      if (!currencies.includes('INR')) currencies.unshift('INR');
+      const s = el('select', { name: 'currency' });
+      currencies.forEach(c => s.appendChild(el('option', { value: c, textContent: c })));
+      return s;
+    })()),
 
     el('div', { className: 'form-group' }, [
       el('label', { textContent: 'Category Allocations' }),
@@ -213,6 +223,7 @@ async function handleBudgetSubmit(e) {
       await Api.post('/budgets', {
         name: f.name.value.trim(),
         period: f.period.value,
+        currency: f.currency.value,
         start_date: f.start_date.value,
         end_date: f.end_date.value,
         items,

@@ -1,5 +1,5 @@
 // public/js/views/tags.js — Tag Management View
-import { Api, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 
 const TAG_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#6b7280', '#14b8a6'];
 
@@ -94,18 +94,23 @@ function showTagForm(existingTag) {
     e.preventDefault();
     const name = nameInput.value.trim();
     if (!name) { toast('Name is required', 'error'); return; }
+    const submitBtn = e.target.querySelector('button[type="submit"]');
     try {
-      if (isEdit) {
-        await Api.put(`/tags/${existingTag.id}`, { name, color: colorInput.value });
-        toast('Tag updated');
-      } else {
-        await Api.post('/tags', { name, color: colorInput.value });
-        toast('Tag created');
-      }
-      closeModal();
-      if (onRefresh) onRefresh();
+      await withLoading(submitBtn, async () => {
+        if (isEdit) {
+          await Api.put(`/tags/${existingTag.id}`, { name, color: colorInput.value });
+          toast('Tag updated');
+        } else {
+          await Api.post('/tags', { name, color: colorInput.value });
+          toast('Tag created');
+        }
+        closeModal();
+        if (onRefresh) onRefresh();
+      });
     } catch (err) {
-      toast(err.message || 'Failed to save tag', 'error');
+      let errDiv = e.target.querySelector('.modal-error');
+      if (!errDiv) { errDiv = el('div', { className: 'modal-error' }); e.target.prepend(errDiv); }
+      errDiv.textContent = err.message || 'Failed to save tag';
     }
   }}, [
     el('div', { className: 'form-group' }, [

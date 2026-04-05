@@ -1,5 +1,5 @@
 // PersonalFi — Splits / Shared Expenses View
-import { Api, fmt, el, toast, openModal, closeModal, confirm } from '../utils.js';
+import { Api, fmt, el, toast, openModal, closeModal, confirm, withLoading } from '../utils.js';
 
 let selectedGroupId = null;
 let groups = [];
@@ -135,26 +135,33 @@ function showExpenseForm() {
   const form = el('form', { className: 'modal-form', onSubmit: async (e) => {
     e.preventDefault();
     const f = e.target;
+    const submitBtn = f.querySelector('button[type="submit"]');
     try {
-      await Api.post(`/splits/${selectedGroupId}/expenses`, {
-        paid_by: parseInt(f.paid_by.value, 10),
-        amount: parseFloat(f.amount.value),
-        description: f.description.value.trim(),
-        date: f.date.value,
-        split_method: f.split_method.value,
-        note: f.note.value.trim() || null,
+      await withLoading(submitBtn, async () => {
+        await Api.post(`/splits/${selectedGroupId}/expenses`, {
+          paid_by: parseInt(f.paid_by.value, 10),
+          amount: parseFloat(f.amount.value),
+          description: f.description.value.trim(),
+          date: f.date.value,
+          split_method: f.split_method.value,
+          note: f.note.value.trim() || null,
+        });
+        toast('Expense added', 'success');
+        closeModal();
+        if (onRefresh) onRefresh();
       });
-      toast('Expense added', 'success');
-      closeModal();
-      if (onRefresh) onRefresh();
-    } catch (err) { toast(err.message, 'error'); }
+    } catch (err) {
+      let errDiv = f.querySelector('.modal-error');
+      if (!errDiv) { errDiv = el('div', { className: 'modal-error' }); f.prepend(errDiv); }
+      errDiv.textContent = err.message;
+    }
   }}, [
     el('h3', { className: 'modal-title', textContent: 'Add Shared Expense' }),
-    formGroup('Description', el('input', { type: 'text', name: 'description', required: 'true', placeholder: 'e.g. Dinner' })),
-    formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', required: 'true' })),
-    formGroup('Date', el('input', { type: 'date', name: 'date', value: today, required: 'true' })),
+    formGroup('Description', el('input', { type: 'text', name: 'description', required: true, placeholder: 'e.g. Dinner', maxLength: '255', 'aria-label': 'Expense description' })),
+    formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', max: '9999999', required: true, inputMode: 'decimal', 'aria-label': 'Expense amount' })),
+    formGroup('Date', el('input', { type: 'date', name: 'date', value: today, required: true, 'aria-label': 'Expense date' })),
     formGroup('Paid By', (() => {
-      const s = el('select', { name: 'paid_by', required: 'true' });
+      const s = el('select', { name: 'paid_by', required: true, 'aria-label': 'Paid by' });
       members.forEach(m => s.appendChild(el('option', { value: String(m.id), textContent: m.display_name || m.username || 'Guest' })));
       return s;
     })()),
@@ -183,31 +190,38 @@ function showSettleForm(balanceData) {
   const form = el('form', { className: 'modal-form', onSubmit: async (e) => {
     e.preventDefault();
     const f = e.target;
+    const submitBtn = f.querySelector('button[type="submit"]');
     try {
-      await Api.post(`/splits/${selectedGroupId}/settle`, {
-        from_member: parseInt(f.from_member.value, 10),
-        to_member: parseInt(f.to_member.value, 10),
-        amount: parseFloat(f.amount.value),
-        note: f.note.value.trim() || null,
+      await withLoading(submitBtn, async () => {
+        await Api.post(`/splits/${selectedGroupId}/settle`, {
+          from_member: parseInt(f.from_member.value, 10),
+          to_member: parseInt(f.to_member.value, 10),
+          amount: parseFloat(f.amount.value),
+          note: f.note.value.trim() || null,
+        });
+        toast('Settlement recorded', 'success');
+        closeModal();
+        if (onRefresh) onRefresh();
       });
-      toast('Settlement recorded', 'success');
-      closeModal();
-      if (onRefresh) onRefresh();
-    } catch (err) { toast(err.message, 'error'); }
+    } catch (err) {
+      let errDiv = f.querySelector('.modal-error');
+      if (!errDiv) { errDiv = el('div', { className: 'modal-error' }); f.prepend(errDiv); }
+      errDiv.textContent = err.message;
+    }
   }}, [
     el('h3', { className: 'modal-title', textContent: 'Settle Up' }),
     formGroup('From', (() => {
-      const s = el('select', { name: 'from_member', required: 'true' });
+      const s = el('select', { name: 'from_member', required: true, 'aria-label': 'From member' });
       members.forEach(m => s.appendChild(el('option', { value: String(m.id), textContent: m.display_name || 'Guest' })));
       return s;
     })()),
     formGroup('To', (() => {
-      const s = el('select', { name: 'to_member', required: 'true' });
+      const s = el('select', { name: 'to_member', required: true, 'aria-label': 'To member' });
       members.forEach(m => s.appendChild(el('option', { value: String(m.id), textContent: m.display_name || 'Guest' })));
       return s;
     })()),
-    formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', required: 'true' })),
-    formGroup('Note', el('input', { type: 'text', name: 'note', placeholder: 'Optional' })),
+    formGroup('Amount', el('input', { type: 'number', name: 'amount', step: '0.01', min: '0.01', max: '9999999', required: true, inputMode: 'decimal', 'aria-label': 'Settlement amount' })),
+    formGroup('Note', el('input', { type: 'text', name: 'note', placeholder: 'Optional', maxLength: '255', 'aria-label': 'Settlement note' })),
     el('div', { className: 'form-actions' }, [
       el('button', { type: 'button', className: 'btn btn-secondary', textContent: 'Cancel', onClick: closeModal }),
       el('button', { type: 'submit', className: 'btn btn-primary', textContent: 'Record Settlement' }),
