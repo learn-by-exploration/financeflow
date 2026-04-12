@@ -72,5 +72,52 @@ module.exports = function createAccountRepository({ db }) {
       .run(roundCurrency(delta), id, userId);
   }
 
-  return { findAllByUser, findById, create, update, delete: deleteById, updateBalance, countByUser };
+  function archive(id, userId) {
+    return db.prepare("UPDATE accounts SET is_active = 0, updated_at = datetime('now') WHERE id = ? AND user_id = ?")
+      .run(id, userId);
+  }
+
+  function reconcileTransactions(userId, accountId, transactionIds, reconciledAt) {
+    const stmt = db.prepare('UPDATE transactions SET reconciled_at = ? WHERE id = ? AND user_id = ? AND account_id = ?');
+    const reconcileAll = db.transaction(() => {
+      for (const txId of transactionIds) {
+        stmt.run(reconciledAt, txId, userId, Number(accountId));
+      }
+    });
+    reconcileAll();
+    return transactionIds.length;
+  }
+
+  function getReconciledTotal(userId, accountId) {
+    return db.prepare(`
+      SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE -amount END), 0) as total
+      FROM transactions WHERE user_id = ? AND account_id = ? AND reconciled_at IS NOT NULL
+    `).get(userId, Number(accountId)).total;
+  }
+
+  function findTransactions(userId, accountId, { limit = 50, offset = 0 } = {}) {
+    const total = db.prepare(
+      'SELECT COUNT(*) as count FROM transactions WHERE account_id = ? AND user_id = ?'
+    ).get(accountId, userId).count;
+
+    const transactions = db.prepare(`
+      SELECT *, running_balance FROM (
+        SELECT t.*,
+          SUM(CASE WHEN t.type = 'income' THEN t.amount WHEN t.type = 'expense' THEN -t.amount ELSE 0 END)
+            OVER (ORDER BY t.date ASC, t.id ASC) as running_balance
+        FROM transactions t
+        WHERE t.account_id = ? AND t.user_id = ?
+      ) sub
+      ORDER BY date DESC, id DESC
+      LIMIT ? OFFSET ?
+    `).all(accountId, userId, limit, offset);
+
+    for (const tx of transactions) {
+      tx.running_balance = Math.round(tx.running_balance * 100) / 100;
+    }
+
+    return { transactions, total };
+  }
+
+  return { findAllByUser, findById, create, update, delete: deleteById, updateBalance, countByUser, archive, reconcileTransactions, getReconciledTotal, findTransactions };
 };
