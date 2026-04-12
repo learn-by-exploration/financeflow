@@ -1,47 +1,27 @@
-# CLAUDE.md — FinanceFlow Developer Context
+# FinanceFlow — Claude Code Configuration
 
-## ⚠️ Core Directives (Read First)
+> **Last updated:** 12 April 2026 · **Version:** 8.0.0
+> **Metrics:** 94 test files | Port 3457 | ~TBD LOC
 
-### Development Protocol
-1. **TDD is non-negotiable.** Red → Green → Refactor. No production code without a failing test first.
-2. **GAN Loop for every component:** Generator writes tests → Discriminator reviews → Generator writes code → Discriminator attacks → only dual `[PASS]` advances. User approves before next component.
-3. **Architectural changes require Stage 1 approval.** Output a plan (tech stack, data flow, test tools) and wait for explicit user sign-off before writing any code.
-
-### Stakeholder Checks (Silent — Run Before Major Changes)
-- **PM:** Does this delay the launch?
-- **Banker:** Does this increase infrastructure costs?
-- **QA:** Does this make the system harder to test?
-- If any check fails → present the tradeoff before proceeding.
-
-### Hard Rules
-- Simplicity over cleverness. Readable, maintainable code.
-- SOLID principles. Single responsibility, dependency inversion.
-- Security first. Sanitize inputs, assume hostile users.
-- No new npm dependencies without explicit approval.
-- No `innerHTML` with user/dynamic data — use `textContent` or `el()` helper.
-- No CDN, no external resources, no analytics. Self-hosted everything.
-- File path at the top of every code block. Explain *why* for every refactor.
-- Minimize conversational filler. Ask to proceed at logical checkpoints.
-
----
-
-## What is this?
+## Project Overview
 
 FinanceFlow is a self-hosted personal finance manager. Zero cloud, zero telemetry, full data ownership. Budgeting, expense splitting, and financial health tracking on your own server.
 
-## Tech Stack
+Multi-user Express.js backend + vanilla JS SPA frontend. SQLite via better-sqlite3.
 
-| Layer | Technology |
-|-------|-----------|
-| Runtime | Node.js 22+ |
-| Backend | Express 5, better-sqlite3 (WAL mode) |
-| Frontend | Vanilla JS SPA (ES modules), no framework, no build step |
-| Auth | bcryptjs, SHA-256 session tokens (X-Session-Token header), optional TOTP 2FA |
-| Validation | Zod v4 — use `.issues` not `.errors`, `safeParse()` |
-| Testing | node:test + supertest + c8 (coverage) |
-| Logging | Pino (structured JSON) |
-| Container | Docker multi-stage (node:22-slim), read-only FS, non-root user |
-| CI/CD | GitHub Actions (lint, test matrix, audit, coverage, Docker build) |
+> **Shared standards** (git workflow, security rules, testing strategy, backend service architecture,
+> error handling, anti-patterns, documentation requirements) are in the parent repo's `CLAUDE.md`.
+> All standards defined there apply here. This file covers FinanceFlow-specific structure and conventions only.
+
+## Quick Start
+
+```bash
+npm install
+node src/server.js          # http://localhost:3457
+npm test                    # via node:test + c8
+# or with Docker:
+docker compose up --build -d
+```
 
 ## Quick Commands
 
@@ -183,9 +163,43 @@ Data persisted via named volume. Container: non-root user, read-only FS, memory-
 **Data is safe across:** container restarts, removal, rebuilds, system reboots.
 **Data is lost only with:** `docker volume rm financeflow-data` or `docker system prune --volumes`.
 
+## Documentation Update Requirements
+
+**After every code change, update these docs as applicable:**
+
+| Change Type | Must Update |
+|-------------|------------|
+| New/changed API endpoint | CLAUDE.md § Architecture |
+| New DB table or column | CLAUDE.md § Database |
+| New frontend view | CLAUDE.md § Key Conventions |
+| New feature shipped | CLAUDE.md, CHANGELOG.md |
+| New test file or 20+ tests added | CLAUDE.md § Testing metrics |
+| Architecture change | CLAUDE.md § Architecture |
+| Breaking change | CHANGELOG.md with migration notes |
+| Version bump | CLAUDE.md header, `package.json` |
+
+## Rules
+
+- ALWAYS read a file before editing it
+- ALWAYS update documentation after code changes (see Documentation Update Requirements)
+- After changing backend files, restart: `pkill -f "node src/server" && node src/server.js &`
+- After changing frontend files, hard-refresh browser (`Ctrl+Shift+R`) — browser caches aggressively
+- Express route order matters: static routes MUST come before parameterized routes
+- SQLite WAL files (`.db-shm`, `.db-wal`) and `backups/` are gitignored
+- No build step, no bundler, no framework — edit and reload
+- All API routes require authentication except `/api/auth/*`, `/api/health/*`
+- All write endpoints validate input via Zod schemas
+- Error responses follow `{ error: { code, message } }` format
+- No new npm dependencies without explicit approval
+- No `innerHTML` with user/dynamic data — use `textContent` or `el()` helper
+- No CDN, no external resources, no analytics — self-hosted everything
+- Run `npm test` after every change to ensure no regressions
+
 ---
 
-## GAN Development Protocol — Detailed
+## GAN Development Protocol (Optional)
+
+> This protocol can be used for high-rigor feature development when explicitly requested.
 
 ### STAGE 1: Architectural Alignment
 Before any new feature/system:
