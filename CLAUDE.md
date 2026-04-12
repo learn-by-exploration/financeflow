@@ -5,7 +5,9 @@
 
 ## Project Overview
 
-FinanceFlow is a self-hosted personal finance manager. Zero cloud, zero telemetry, full data ownership. Budgeting, expense splitting, and financial health tracking on your own server.
+FinanceFlow is a personal finance manager for Synclyf. Dual deployment: Free tier (Synclyf-hosted web) and Paid tier (self-hosted Docker Compose). Full data ownership in both tiers. Budgeting, expense splitting, and financial health tracking.
+
+Service-level telemetry (health checks, metrics, error rates) is required for operational monitoring but MUST NOT include user content, financial data, or personal information.
 
 Multi-user Express.js backend + vanilla JS SPA frontend. SQLite via better-sqlite3.
 
@@ -120,7 +122,7 @@ All optional with sensible defaults:
 | DEFAULT_CURRENCY | INR | Default currency |
 | RATE_LIMIT_MAX | 200 | Requests per minute |
 | BCRYPT_SALT_ROUNDS | 12 | Password hashing cost |
-| SESSION_MAX_AGE_DAYS | 30 | Session TTL |
+| SESSION_MAX_AGE_DAYS | 7 | Session TTL (days) |
 
 ## Testing
 
@@ -192,7 +194,7 @@ Data persisted via named volume. Container: non-root user, read-only FS, memory-
 - Error responses follow `{ error: { code, message } }` format
 - No new npm dependencies without explicit approval
 - No `innerHTML` with user/dynamic data — use `textContent` or `el()` helper
-- No CDN, no external resources, no analytics — self-hosted everything
+- No CDN, no external resources — no user-behavior analytics. Service-level telemetry (health checks, error rates) is permitted per parent CLAUDE.md
 - Run `npm test` after every change to ensure no regressions
 
 ---
