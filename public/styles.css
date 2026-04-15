@@ -2483,7 +2483,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
   border: 1px solid var(--accent);
   border-radius: var(--radius-sm);
   padding: 0.5rem 1rem;
-  display: flex;
+  display: none;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 0.75rem;

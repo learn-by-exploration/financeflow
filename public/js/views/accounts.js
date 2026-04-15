@@ -200,8 +200,8 @@ async function handleSubmit(e, existing) {
   const selectedIcon = form.querySelector('.icon-btn.selected');
 
   const body = {
-    name: form.name.value.trim(),
-    type: form.type.value,
+    name: form.elements['name'].value.trim(),
+    type: form.elements['type'].value,
     currency: form.currency.value.trim() || 'INR',
     balance: parseFloat(form.balance.value) || 0,
     icon: selectedIcon?.textContent || '🏦',

@@ -68,7 +68,7 @@ async function budgetCard(budget) {
     el('div', { className: 'budget-card-header' }, [
       el('div', {}, [
         el('div', { className: 'budget-card-name', textContent: budget.name }),
-        el('div', { className: 'budget-card-meta', textContent: `${budget.period} · ${budget.currency || 'INR'} · ${budget.start_date || '—'} to ${budget.end_date || '—'}` }),
+        el('div', { className: 'budget-card-meta', textContent: `${budget.period} · ${budget.currency || 'INR'}${budget.start_date && budget.end_date ? ` · ${budget.start_date} to ${budget.end_date}` : ''}` }),
       ]),
       el('div', { className: 'account-card-actions' }, [
         el('button', { className: 'btn-icon', title: 'View Details', onClick: () => showBudgetDetail(budget) }, [
@@ -124,7 +124,7 @@ async function showBudgetDetail(budget) {
 
   const content = el('div', {}, [
     el('h3', { className: 'modal-title', textContent: budget.name }),
-    el('p', { className: 'budget-card-meta', textContent: `${budget.period} · ${budget.start_date || '—'} to ${budget.end_date || '—'}` }),
+    el('p', { className: 'budget-card-meta', textContent: `${budget.period}${budget.start_date && budget.end_date ? ` · ${budget.start_date} to ${budget.end_date}` : ''}` }),
     el('div', { className: 'budget-detail-summary' }, [
       el('span', { textContent: `Total: ${fmt(summary.total_spent, summary.budget.currency)} of ${fmt(summary.total_allocated, summary.budget.currency)}` }),
       el('span', { textContent: `Remaining: ${fmt(summary.total_remaining, summary.budget.currency)}` }),

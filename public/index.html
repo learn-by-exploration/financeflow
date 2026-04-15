@@ -10,8 +10,6 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="stylesheet" href="styles.css">
-  <link rel="preload" href="/fonts/inter-var-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/material-icons/material-icons-round.woff2" as="font" type="font/woff2" crossorigin>
   <script src="/js/vendor/chart.min.js" defer></script>
 </head>
 <body>
@@ -254,10 +252,6 @@
   <script src="js/ui-states.js" type="module"></script>
   <script src="js/notifications.js" type="module"></script>
   <script src="js/app.js" type="module"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
-  </script>
+  <script src="js/sw-register.js"></script>
 </body>
 </html>
