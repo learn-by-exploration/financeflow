@@ -971,9 +971,11 @@ describe('Iteration 19 — withLoading & Confirm', () => {
 // ═════════════════════════════════════════════════════════════════
 describe('Iteration 20 — HTML & PWA Integrity', () => {
   it('index.html registers service worker', () => {
-    assert.ok(indexHtml.includes('serviceWorker') || appJs.includes('serviceWorker'),
+    // SW registration moved to external js/sw-register.js
+    const swRegJs = read('js/sw-register.js');
+    assert.ok(indexHtml.includes('sw-register.js') || indexHtml.includes('serviceWorker') || appJs.includes('serviceWorker'),
       'must register service worker');
-    assert.ok(indexHtml.includes('sw.js') || appJs.includes('sw.js'),
+    assert.ok(swRegJs.includes('sw.js') || indexHtml.includes('sw.js') || appJs.includes('sw.js'),
       'must reference sw.js');
   });
 

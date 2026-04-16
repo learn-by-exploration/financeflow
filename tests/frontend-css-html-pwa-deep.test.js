@@ -359,8 +359,10 @@ describe('HTML — index.html Structure', () => {
   });
 
   it('includes service worker registration script', () => {
-    assert.ok(indexHtml.includes('serviceWorker'));
-    assert.ok(indexHtml.includes("register('/sw.js')") || indexHtml.includes('register'));
+    // SW registration moved to external js/sw-register.js
+    assert.ok(indexHtml.includes('sw-register.js'), 'index.html must reference sw-register.js');
+    const swRegJs = fs.readFileSync(path.join(PUBLIC, 'js', 'sw-register.js'), 'utf8');
+    assert.ok(swRegJs.includes('serviceWorker'), 'sw-register.js must reference serviceWorker');
   });
 
   it('loads app.js as ES module', () => {

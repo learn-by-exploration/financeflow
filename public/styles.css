@@ -7,7 +7,7 @@
   font-style: normal;
   font-weight: 400 700;
   font-display: swap;
-  src: url('/fonts/inter-var-latin.woff2') format('woff2');
+  src: url('fonts/inter-var-latin.woff2') format('woff2');
 }
 
 @font-face {
@@ -15,7 +15,7 @@
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url('/fonts/material-icons/material-icons-round.woff2') format('woff2');
+  src: url('fonts/material-icons/material-icons-round.woff2') format('woff2');
 }
 
 .material-icons-round {
