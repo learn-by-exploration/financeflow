@@ -332,6 +332,7 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow-x: hidden;
+  line-height: 1.5;
 }
 
 /* ─── Layout ─── */
@@ -727,9 +728,9 @@ body {
 }
 .txn-row:last-child { border-bottom: none; }
 .txn-icon { font-size: 1.25rem; }
-.txn-info { flex: 1; display: flex; flex-direction: column; }
-.txn-desc { font-size: 0.875rem; font-weight: 500; }
-.txn-meta { font-size: 0.75rem; color: var(--text-muted); }
+.txn-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.txn-desc { font-size: 0.875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.txn-meta { font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .txn-amount { font-weight: 600; font-size: 0.875rem; white-space: nowrap; }
 .txn-amount.income { color: var(--green); }
 .txn-amount.expense { color: var(--red); }
@@ -1069,8 +1070,8 @@ body {
 .data-table tr:hover td { background: rgba(255,255,255,0.02); }
 .text-right { text-align: right; }
 .row-actions { display: flex; gap: 0.25rem; justify-content: flex-end; }
-.txn-desc-cell { display: flex; flex-direction: column; gap: 0.125rem; }
-.txn-payee { font-size: 0.75rem; color: var(--text-muted); }
+.txn-desc-cell { display: flex; flex-direction: column; gap: 0.125rem; min-width: 0; }
+.txn-payee { font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .txn-time { display: block; font-size: 0.7rem; color: var(--text-muted); }
 .txn-original-amount { display: block; font-size: 0.7rem; color: var(--text-muted); opacity: 0.8; }
 
@@ -1161,7 +1162,7 @@ body {
 .category-item:last-child { border-bottom: none; }
 .category-item-left { display: flex; align-items: center; gap: 0.75rem; }
 .category-item-icon { font-size: 1.25rem; }
-.category-item-name { font-size: 0.875rem; font-weight: 500; }
+.category-item-name { font-size: 0.875rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .category-item-actions { display: flex; gap: 0.25rem; }
 
 /* ─── Budgets ─── */
@@ -1171,7 +1172,7 @@ body {
   gap: 1rem;
 }
 .budget-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
-.budget-card-name { font-weight: 600; font-size: 0.9375rem; }
+.budget-card-name { font-weight: 600; font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .budget-card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; }
 .budget-progress { margin-top: 0.5rem; }
 .budget-progress-info { display: flex; justify-content: space-between; font-size: 0.8125rem; margin-bottom: 0.375rem; }
@@ -1199,7 +1200,7 @@ body {
 .goal-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
 .goal-icon { font-size: 1.75rem; }
 .goal-info { flex: 1; min-width: 0; }
-.goal-name { font-weight: 600; font-size: 0.9375rem; }
+.goal-name { font-weight: 600; font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .goal-deadline { font-size: 0.75rem; color: var(--text-muted); }
 .goal-progress { margin-top: 0.25rem; }
 .goal-remaining { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem; }
@@ -1216,7 +1217,7 @@ body {
 .sub-card.inactive { opacity: 0.5; }
 .sub-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem; }
 .sub-card-info { flex: 1; min-width: 0; }
-.sub-card-name { font-weight: 600; font-size: 0.9375rem; }
+.sub-card-name { font-weight: 600; font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sub-card-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.125rem; display: flex; gap: 0; }
 .sub-card-amounts { display: flex; gap: 2rem; margin-top: 0.5rem; }
 .sub-card-amounts .stat-value { font-size: 1.125rem; }
@@ -1300,7 +1301,7 @@ body {
 .group-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
 .group-icon { font-size: 1.75rem; }
 .group-info { flex: 1; min-width: 0; }
-.group-name { font-weight: 600; font-size: 0.9375rem; }
+.group-name { font-weight: 600; font-size: 0.9375rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .group-meta { font-size: 0.75rem; color: var(--text-muted); }
 .group-members-preview { display: flex; flex-wrap: wrap; gap: 0.375rem; }
 .member-chip {
@@ -1348,6 +1349,19 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
 .health-score-details p { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.5; }
 .rec-item { display: flex; align-items: flex-start; gap: 0.5rem; padding: 0.5rem 0; font-size: 0.875rem; }
 .rec-item .material-icons-round { color: var(--yellow); font-size: 1.125rem; flex-shrink: 0; }
+
+/* ─── Financial Ratios ─── */
+.ratio-card { padding: 0.75rem 0; border-bottom: 1px solid var(--border); }
+.ratio-card:last-child { border-bottom: none; }
+.ratio-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.375rem; }
+.ratio-status { font-size: 1.25rem; flex-shrink: 0; }
+.ratio-status.green { color: var(--green); }
+.ratio-status.yellow { color: var(--yellow); }
+.ratio-status.red { color: var(--red); }
+.ratio-name { font-weight: 600; font-size: 0.9375rem; }
+.ratio-score { font-size: 0.8125rem; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+.ratio-bar { margin-top: 0.25rem; }
+.ratio-tip { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.25rem; line-height: 1.4; }
 
 /* ─── Trend bars ─── */
 .trend-bars { display: flex; align-items: flex-end; gap: 0.5rem; height: 160px; padding: 1rem 0; }
@@ -2046,7 +2060,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
 .recurring-card.inactive { opacity: 0.6; }
 .recurring-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 .recurring-card-info { flex: 1; }
-.recurring-card-name { font-weight: 600; font-size: 1rem; margin-bottom: 0.35rem; }
+.recurring-card-name { font-weight: 600; font-size: 1rem; margin-bottom: 0.35rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recurring-card-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.75rem; color: var(--text-muted); align-items: center; }
 .recurring-card-amount { font-size: 1.15rem; font-weight: 700; white-space: nowrap; }
 .recurring-card-actions { display: flex; gap: 0.25rem; margin-top: 0.75rem; justify-content: flex-end; }
@@ -2612,7 +2626,7 @@ hr { border: none; border-top: 1px solid var(--border); margin: 0.75rem 0; }
 .plan-card { cursor: pointer; transition: transform var(--transition-fast), box-shadow var(--transition-fast); }
 .plan-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
 .plan-card-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem; }
-.plan-card-title h3 { margin: 0; font-size: 1.1rem; }
+.plan-card-title h3 { margin: 0; font-size: 1.1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plan-card-body { margin-bottom: 0.5rem; }
 .plan-meta { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.5rem; }
 .plan-progress-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; }

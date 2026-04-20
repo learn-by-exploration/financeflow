@@ -1071,7 +1071,7 @@ describe('index.html — SPA Shell', () => {
     const swRegJs = fs.readFileSync(path.join(PUBLIC, 'js', 'sw-register.js'), 'utf8');
     assert.ok(indexHtml.includes('sw-register.js'), 'index.html must reference sw-register.js');
     assert.ok(swRegJs.includes('serviceWorker'), 'sw-register.js must check serviceWorker');
-    assert.ok(swRegJs.includes("register('/sw.js')"), 'sw-register.js must register sw.js');
+    assert.ok(swRegJs.includes("register('/sw.js')") || swRegJs.includes("register('sw.js')"), 'sw-register.js must register sw.js');
   });
 
   it('has view-container element', () => {

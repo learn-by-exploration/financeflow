@@ -159,11 +159,11 @@
           <span class="material-icons-round">light_mode</span>
           <span class="nav-label">Light Mode</span>
         </button>
-        <button id="btn-settings" class="nav-item" data-view="settings" data-tooltip="Settings">
+        <button id="btn-settings" class="nav-item" data-view="settings" data-tooltip="Settings" aria-label="Settings">
           <span class="material-icons-round">settings</span>
           <span class="nav-label">Settings</span>
         </button>
-        <button id="btn-logout" class="nav-item" data-tooltip="Logout">
+        <button id="btn-logout" class="nav-item" data-tooltip="Logout" aria-label="Logout">
           <span class="material-icons-round">logout</span>
           <span class="nav-label">Logout</span>
         </button>
@@ -183,7 +183,7 @@
         <span>You're offline. Changes will not be saved.</span>
       </div>
       <div class="top-bar">
-        <button id="mobile-menu" class="mobile-menu-btn inline">
+        <button id="mobile-menu" class="mobile-menu-btn inline" aria-label="Open menu">
           <span class="material-icons-round">menu</span>
         </button>
         <div class="search-bar">
@@ -220,12 +220,12 @@
   </div>
 
   <!-- Quick add FAB -->
-  <button id="fab-add" class="fab" title="Quick add (N)">
+  <button id="fab-add" class="fab" title="Quick add (N)" aria-label="Quick add">
     <span class="material-icons-round">add</span>
   </button>
 
   <!-- Modal overlay -->
-  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true">
+  <div id="modal-overlay" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Dialog">
     <div id="modal-content" class="modal-content"></div>
   </div>
 
@@ -253,5 +253,15 @@
   <script src="js/notifications.js" type="module"></script>
   <script src="js/app.js" type="module"></script>
   <script src="js/sw-register.js"></script>
+  <script>
+  // Listen for theme changes from parent Synclyf SPA (iframe integration)
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'synclyf-theme') {
+      document.documentElement.setAttribute('data-theme', e.data.theme);
+      // Also sync FinanceFlow's own theme toggle
+      try { localStorage.setItem('ff-theme', e.data.theme); } catch(x) {}
+    }
+  });
+  </script>
 </body>
 </html>

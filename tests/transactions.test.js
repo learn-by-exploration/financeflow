@@ -78,6 +78,34 @@ describe('Transactions', () => {
     });
   });
 
+  // ─── GET by ID ────────────────────────────────────
+
+  describe('GET /api/transactions/:id', () => {
+    it('returns transaction by id (200)', async () => {
+      const acct = makeAccount();
+      const tx = makeTransaction(acct.id, { description: 'Coffee', amount: 250 });
+      const res = await agent().get(`/api/transactions/${tx.id}`).expect(200);
+      assert.equal(res.body.transaction.id, tx.id);
+      assert.equal(res.body.transaction.description, 'Coffee');
+      assert.equal(res.body.transaction.amount, 250);
+    });
+
+    it('returns 404 for non-existent id', async () => {
+      await agent().get('/api/transactions/999999').expect(404);
+    });
+
+    it('rejects unauthenticated (401)', async () => {
+      await rawAgent().get('/api/transactions/1').expect(401);
+    });
+
+    it('includes tags in response', async () => {
+      const acct = makeAccount();
+      const tx = makeTransaction(acct.id, { description: 'Tagged item' });
+      const res = await agent().get(`/api/transactions/${tx.id}`).expect(200);
+      assert.ok(Array.isArray(res.body.transaction.tags));
+    });
+  });
+
   // ─── POST ─────────────────────────────────────────
 
   describe('POST /api/transactions', () => {

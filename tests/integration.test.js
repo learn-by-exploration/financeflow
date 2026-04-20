@@ -48,7 +48,7 @@ describe('Integration: Full user lifecycle', () => {
     assert.equal(txRes.body.transactions.length, 2);
 
     // View stats (report)
-    const statsRes = await api.get('/api/stats/summary').expect(200);
+    const statsRes = await api.get('/api/stats/overview').expect(200);
     assert.ok(statsRes.body);
 
     // Delete account

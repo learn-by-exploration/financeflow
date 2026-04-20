@@ -94,7 +94,7 @@ describe('CSS — Self-Hosted Fonts', () => {
   });
 
   it('uses local font files (not CDN)', () => {
-    assert.ok(cssFile.includes("url('/fonts/"));
+    assert.ok(cssFile.includes("url('fonts/") || cssFile.includes("url('/fonts/"));
     assert.ok(!cssFile.includes('fonts.googleapis.com'));
     assert.ok(!cssFile.includes('cdnjs.cloudflare.com'));
   });

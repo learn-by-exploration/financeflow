@@ -51,3 +51,11 @@ body { background: var(--bg-primary); color: var(--text-primary); font-family: v
   .features-grid { grid-template-columns: 1fr; }
   .callout-card { padding: 2rem 1.5rem; }
 }
+
+/* ─── Accessibility: Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

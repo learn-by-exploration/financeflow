@@ -219,7 +219,7 @@ describe('v6 Iterations 5-12', () => {
     });
 
     it('handles SQL injection in search query', async () => {
-      const res = await agent().get('/api/transactions/search?q=test\'; DROP TABLE transactions; --');
+      const res = await agent().get('/api/search?q=test\'; DROP TABLE transactions; --');
       assert.ok([200, 400].includes(res.status));
       // Verify transactions table still exists
       const count = db.prepare('SELECT COUNT(*) as c FROM transactions').get();
@@ -284,7 +284,7 @@ describe('v6 Iterations 5-12', () => {
         makeTransaction(acct.id, { amount: 10, description: `Expense item ${i} grocery` });
       }
       const start = Date.now();
-      const res = await agent().get('/api/transactions/search?q=grocery');
+      const res = await agent().get('/api/search?q=grocery');
       const elapsed = Date.now() - start;
       assert.equal(res.status, 200);
       assert.ok(elapsed < 500, `FTS search took ${elapsed}ms`);
@@ -333,7 +333,7 @@ describe('v6 Iterations 5-12', () => {
 
     it('GET /api/stats/net-worth returns data', async () => {
       makeAccount({ balance: 5000 });
-      const res = await agent().get('/api/stats/net-worth');
+      const res = await agent().get('/api/net-worth');
       assert.equal(res.status, 200);
       assert.ok(Array.isArray(res.body.data) || Array.isArray(res.body.history) || typeof res.body === 'object');
     });

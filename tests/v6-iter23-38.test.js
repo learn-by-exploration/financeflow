@@ -39,7 +39,7 @@ describe('v6 Iterations 23-38: Feature Enhancements', () => {
       const cat = makeCategory({ name: 'Food', type: 'expense' });
       const acct = makeAccount({ balance: 50000 });
       makeTransaction(acct.id, { category_id: cat.id, amount: 500, type: 'expense' });
-      const res = await agent().get('/api/stats/spending-by-category');
+      const res = await agent().get('/api/stats/category-breakdown');
       assert.equal(res.status, 200);
     });
 
@@ -47,7 +47,7 @@ describe('v6 Iterations 23-38: Feature Enhancements', () => {
       const acct = makeAccount({ balance: 50000 });
       makeTransaction(acct.id, { amount: 5000, type: 'income' });
       makeTransaction(acct.id, { amount: 2000, type: 'expense' });
-      const res = await agent().get('/api/stats/income-vs-expense');
+      const res = await agent().get('/api/stats/trends');
       assert.equal(res.status, 200);
     });
 
@@ -332,19 +332,19 @@ describe('v6 Iterations 23-38: Feature Enhancements', () => {
     it('search with query returns results', async () => {
       const acct = makeAccount();
       makeTransaction(acct.id, { amount: 100, description: 'unique-searchable-term' });
-      const res = await agent().get('/api/transactions/search?q=unique-searchable-term');
+      const res = await agent().get('/api/search?q=unique-searchable-term');
       assert.equal(res.status, 200);
     });
 
     it('search with empty query returns empty or error', async () => {
-      const res = await agent().get('/api/transactions/search?q=');
+      const res = await agent().get('/api/search?q=');
       assert.ok([200, 400].includes(res.status));
     });
 
     it('FTS search finds partial matches', async () => {
       const acct = makeAccount();
       makeTransaction(acct.id, { amount: 100, description: 'grocery shopping at supermarket' });
-      const res = await agent().get('/api/transactions/search?q=grocery');
+      const res = await agent().get('/api/search?q=grocery');
       assert.equal(res.status, 200);
     });
   });

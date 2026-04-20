@@ -167,7 +167,7 @@ describe('v6 Iterations 13-22: Security & Reliability', () => {
     });
 
     it('SQL injection in search is handled safely', async () => {
-      const res = await agent().get("/api/transactions/search?q=' OR 1=1 --");
+      const res = await agent().get("/api/search?q=' OR 1=1 --");
       assert.ok([200, 400].includes(res.status));
     });
 

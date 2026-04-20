@@ -36,3 +36,11 @@ body { display: flex; justify-content: center; align-items: center; min-height: 
 /* ─── Demo button ─── */
 .demo-btn { display: block; width: 100%; padding: 0.625rem; margin-top: 0.75rem; background: var(--bg-tertiary, #334155); color: var(--text-secondary, #a0b0c4); border: 1px solid var(--border, #334155); border-radius: 8px; font-size: 0.875rem; cursor: pointer; font-family: inherit; }
 .demo-btn:hover { background: var(--bg-primary, #0f172a); color: var(--text-primary, #f1f5f9); }
+
+/* ─── Accessibility: Reduced motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

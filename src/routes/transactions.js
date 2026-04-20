@@ -49,6 +49,16 @@ module.exports = function createTransactionRoutes({ db, audit }) {
     } catch (err) { next(err); }
   });
 
+  // GET /api/transactions/:id
+  router.get('/:id', (req, res, next) => {
+    try {
+      const transaction = txRepo.findById(req.params.id, req.user.id);
+      if (!transaction) throw new NotFoundError('Transaction');
+      transaction.tags = txRepo.getTagsForTransaction(transaction.id);
+      res.json({ transaction });
+    } catch (err) { next(err); }
+  });
+
   // POST /api/transactions
   router.post('/', (req, res, next) => {
     try {

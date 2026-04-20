@@ -259,6 +259,11 @@ app.get('/app', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
+// API 404 — return JSON for any unmatched /api/* routes
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Endpoint not found' } });
+});
+
 // SPA fallback (Express 5 wildcard syntax)
 app.get('/{*splat}', (_req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
