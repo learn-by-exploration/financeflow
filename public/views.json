@@ -1,0 +1,30 @@
+{
+  "service": "FinanceFlow",
+  "prefix": "fi",
+  "icon": "account_balance_wallet",
+  "color": "finance",
+  "views": [
+    {"id": "dashboard", "label": "Dashboard", "icon": "dashboard"},
+    {"id": "transactions", "label": "Transactions", "icon": "receipt_long"},
+    {"id": "accounts", "label": "Accounts", "icon": "account_balance"},
+    {"id": "categories", "label": "Categories", "icon": "category"},
+    {"id": "budgets", "label": "Budgets", "icon": "pie_chart"},
+    {"id": "subscriptions", "label": "Subscriptions", "icon": "autorenew"},
+    {"id": "goals", "label": "Goals", "icon": "flag"},
+    {"id": "recurring", "label": "Recurring", "icon": "repeat"},
+    {"id": "groups", "label": "Groups", "icon": "group"},
+    {"id": "splits", "label": "Split Expenses", "icon": "call_split"},
+    {"id": "health", "label": "Financial Health", "icon": "favorite"},
+    {"id": "reports", "label": "Reports", "icon": "analytics"},
+    {"id": "insights", "label": "Insights", "icon": "lightbulb"},
+    {"id": "plans", "label": "Financial Planner", "icon": "architecture"},
+    {"id": "calculators", "label": "Calculators", "icon": "calculate"},
+    {"id": "calendar", "label": "Calendar", "icon": "calendar_month"},
+    {"id": "challenges", "label": "Challenges", "icon": "emoji_events"},
+    {"id": "tags", "label": "Tags", "icon": "sell"},
+    {"id": "rules", "label": "Rules", "icon": "auto_fix_high"},
+    {"id": "automation", "label": "Automation", "icon": "smart_toy"},
+    {"id": "export", "label": "Export", "icon": "file_download"},
+    {"id": "settings", "label": "Settings", "icon": "settings"}
+  ]
+}
